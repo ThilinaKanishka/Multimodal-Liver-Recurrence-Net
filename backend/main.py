@@ -168,7 +168,14 @@ async def predict_recurrence(
                 
             df_input = pd.DataFrame([raw_data])
             df_encoded = pd.get_dummies(df_input)
-            df_aligned = df_encoded.reindex(columns=feature_columns, fill_value=0)
+            
+            # Fill missing columns with training dataset mean values for accurate scaling
+            df_aligned = pd.DataFrame(columns=feature_columns)
+            df_aligned.loc[0] = scaler.mean_
+            
+            for col in df_encoded.columns:
+                if col in df_aligned.columns:
+                    df_aligned.at[0, col] = df_encoded.at[0, col]
             
             X_scaled = scaler.transform(df_aligned)
             with torch.no_grad():
