@@ -1,4 +1,5 @@
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import React, { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import {
   Upload,
   Activity,
@@ -6,7 +7,6 @@ import {
   CheckCircle,
   FileText,
 } from "lucide-react";
-// 1. Axios ලයිබ්‍රරි එක Import කරගැනීම
 import axios from "axios";
 
 export interface DiagnosticInput {
@@ -70,22 +70,26 @@ export const PredictPage: React.FC = () => {
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // 🔥 100% සුපිරියට වැඩ කරන ලෙස වෙනස් කරන ලද Input Handler එක
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
-    const { name, value, type } = e.target;
+    const target = e.target;
+    const name = target.name;
 
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (type === "number") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value === "" ? 0 : parseFloat(value),
-      }));
+    let value: any;
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      value = target.checked;
+    } else if (target.type === "number") {
+      value = target.value === "" ? 0 : parseFloat(target.value);
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      value = target.value;
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -96,14 +100,14 @@ export const PredictPage: React.FC = () => {
     }
   };
 
-  // 2. ඇත්තටම PYTHON BACKEND එකට DATA යවන SUBMIT FUNCTION එක
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setErrorMessage(null);
 
-    // Multimodal (Text + File) යවන්න ඕන නිසා FormData පාවිච්චි කරනවා
+    console.log("🚀 Backend එකට යන සිරාවටම අප්ඩේට් වුණු දත්ත:", formData);
+
     const payload = new FormData();
     payload.append("clinical_data", JSON.stringify(formData));
     if (imageFile) {
@@ -111,7 +115,6 @@ export const PredictPage: React.FC = () => {
     }
 
     try {
-      // Axios හරහා Python FastAPI (Port 8000) එකට Request එක යැවීම
       const response = await axios.post(
         "http://127.0.0.1:8000/api/v1/predict",
         payload,
@@ -121,14 +124,11 @@ export const PredictPage: React.FC = () => {
           },
         },
       );
-
-      // සර්වර් එකෙන් ආපු ඇත්තම AI prediction එක state එකට දානවා
       setResult(response.data);
     } catch (error: any) {
       console.error("API Connection Error:", error);
       setErrorMessage(
-        error.response?.data?.detail ||
-          "Python Backend සර්වර් එකට සම්භන්ධ වෙන්න බැහැ මචං! `uvicorn` රන් වෙලාද බලන්න.",
+        error.response?.data?.detail || "Backend එක වැඩ කරන්නේ නැහැ මචං!",
       );
     } finally {
       setLoading(false);
@@ -145,7 +145,6 @@ export const PredictPage: React.FC = () => {
       }}
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        {/* Header Title */}
         <div style={{ marginBottom: "32px" }}>
           <h1
             style={{
@@ -163,7 +162,6 @@ export const PredictPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Input Form Wrapper */}
         <form
           onSubmit={handleSubmit}
           style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }}
@@ -171,7 +169,7 @@ export const PredictPage: React.FC = () => {
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}
           >
-            {/* Section 1: CT Scan & Clinical Text Upload */}
+            {/* Image & Text Section */}
             <div
               style={{
                 backgroundColor: "#ffffff",
@@ -197,15 +195,13 @@ export const PredictPage: React.FC = () => {
                 />{" "}
                 1. Multimodal Diagnostic Input
               </h2>
-
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr md:1fr 1fr",
+                  gridTemplateColumns: "1fr 1fr",
                   gap: "20px",
                 }}
               >
-                {/* CT Scan Dropper */}
                 <div
                   style={{
                     border: "2px dashed #e5e7eb",
@@ -264,8 +260,6 @@ export const PredictPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Text Report Textarea */}
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <label
                     style={{
@@ -286,7 +280,7 @@ export const PredictPage: React.FC = () => {
                     value={formData.clinical_text_report}
                     onChange={handleInputChange}
                     rows={5}
-                    placeholder="Paste the pathology or text report here..."
+                    placeholder="Paste text report..."
                     style={{
                       width: "100%",
                       boxSizing: "border-box",
@@ -294,14 +288,13 @@ export const PredictPage: React.FC = () => {
                       border: "1px solid #d1d5db",
                       borderRadius: "8px",
                       fontSize: "14px",
-                      resize: "vertical",
                     }}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Section 2: Patient Structured Numerical & Categorical Metrics */}
+            {/* Numerical Values Section */}
             <div
               style={{
                 backgroundColor: "#ffffff",
@@ -327,7 +320,6 @@ export const PredictPage: React.FC = () => {
                 />{" "}
                 2. Patient Lab Metrics & Clinical Phenotypes
               </h2>
-
               <div
                 style={{
                   display: "grid",
@@ -335,7 +327,6 @@ export const PredictPage: React.FC = () => {
                   gap: "20px",
                 }}
               >
-                {/* Numbers Layout Grid */}
                 <div
                   style={{
                     display: "grid",
@@ -373,7 +364,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -399,7 +390,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -425,7 +416,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -452,7 +443,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -479,7 +470,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -505,7 +496,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -531,7 +522,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -557,7 +548,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -583,7 +574,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -610,7 +601,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -637,7 +628,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -662,7 +653,6 @@ export const PredictPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Dropdowns Grid */}
                 <div
                   style={{
                     display: "grid",
@@ -673,7 +663,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -702,7 +692,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -732,7 +722,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -762,7 +752,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        display: "block",
+                        block: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -793,7 +783,6 @@ export const PredictPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Boolean Switches / Checkboxes */}
                 <div
                   style={{
                     marginTop: "12px",
@@ -821,11 +810,7 @@ export const PredictPage: React.FC = () => {
                       name="cirrhosis_present"
                       checked={formData.cirrhosis_present}
                       onChange={handleInputChange}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        cursor: "pointer",
-                      }}
+                      style={{ width: "16px", height: "16px" }}
                     />
                     Cirrhosis Condition Present
                   </label>
@@ -845,11 +830,7 @@ export const PredictPage: React.FC = () => {
                       name="mvi_pathology"
                       checked={formData.mvi_pathology}
                       onChange={handleInputChange}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        cursor: "pointer",
-                      }}
+                      style={{ width: "16px", height: "16px" }}
                     />
                     Microvascular Invasion (MVI)
                   </label>
@@ -869,11 +850,7 @@ export const PredictPage: React.FC = () => {
                       name="hepatitis_b"
                       checked={formData.hepatitis_b}
                       onChange={handleInputChange}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        cursor: "pointer",
-                      }}
+                      style={{ width: "16px", height: "16px" }}
                     />
                     Hepatitis B Positive
                   </label>
@@ -893,18 +870,13 @@ export const PredictPage: React.FC = () => {
                       name="hepatitis_c"
                       checked={formData.hepatitis_c}
                       onChange={handleInputChange}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        cursor: "pointer",
-                      }}
+                      style={{ width: "16px", height: "16px" }}
                     />
                     Hepatitis C Positive
                   </label>
                 </div>
               </div>
 
-              {/* Submission Execution Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -918,8 +890,7 @@ export const PredictPage: React.FC = () => {
                   border: "none",
                   borderRadius: "12px",
                   fontSize: "16px",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  transition: "background-color 0.2s",
+                  cursor: "pointer",
                 }}
               >
                 {loading
@@ -930,7 +901,6 @@ export const PredictPage: React.FC = () => {
           </div>
         </form>
 
-        {/* Error Message UI */}
         {errorMessage && (
           <div
             style={{
@@ -940,7 +910,6 @@ export const PredictPage: React.FC = () => {
               backgroundColor: "#fee2e2",
               border: "1px solid #fca5a5",
               color: "#991b1b",
-              fontWeight: "500",
               fontSize: "14px",
             }}
           >
@@ -948,7 +917,6 @@ export const PredictPage: React.FC = () => {
           </div>
         )}
 
-        {/* Section 3: Diagnostic Results Interface */}
         {result && (
           <div
             style={{
@@ -966,21 +934,11 @@ export const PredictPage: React.FC = () => {
             <div style={{ display: "flex", alignItems: "start", gap: "16px" }}>
               {result.recurrence_risk === "HIGH" ? (
                 <AlertTriangle
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    color: "#dc2626",
-                    flexShrink: 0,
-                  }}
+                  style={{ width: "32px", height: "32px", color: "#dc2626" }}
                 />
               ) : (
                 <CheckCircle
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    color: "#16a34a",
-                    flexShrink: 0,
-                  }}
+                  style={{ width: "32px", height: "32px", color: "#16a34a" }}
                 />
               )}
               <div>
@@ -1001,12 +959,11 @@ export const PredictPage: React.FC = () => {
                     color: "#374151",
                     margin: "0 0 16px 0",
                     fontSize: "15px",
-                    lineHeight: "1.5",
                   }}
                 >
                   The live PyTorch neural network successfully fused the
                   radiomics vectors with text report embeddings to output the
-                  live prediction variables below.
+                  live prediction variables.
                 </p>
                 <div>
                   <h4
@@ -1025,7 +982,6 @@ export const PredictPage: React.FC = () => {
                       margin: 0,
                       fontSize: "14px",
                       color: "#4b5563",
-                      lineHeight: "1.6",
                     }}
                   >
                     {result.ai_insights.map((insight, idx) => (
