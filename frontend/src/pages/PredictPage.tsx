@@ -77,7 +77,7 @@ export const PredictPage: React.FC = () => {
     const target = e.target;
     const name = target.name;
 
-    let value: any;
+    let value: string | number | boolean;
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
       value = target.checked;
     } else if (target.type === "number") {
@@ -96,7 +96,11 @@ export const PredictPage: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      if (file.name.toLowerCase().endsWith(".dcm")) {
+        setImagePreview("DICOM_PLACEHOLDER");
+      } else {
+        setImagePreview(URL.createObjectURL(file));
+      }
     }
   };
 
@@ -125,11 +129,15 @@ export const PredictPage: React.FC = () => {
         },
       );
       setResult(response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("API Connection Error:", error);
-      setErrorMessage(
-        error.response?.data?.detail || "Backend එක වැඩ කරන්නේ නැහැ මචං!",
-      );
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.detail || "Backend එක වැඩ කරන්නේ නැහැ මචං!",
+        );
+      } else {
+        setErrorMessage("Backend එක වැඩ කරන්නේ නැහැ මචං!");
+      }
     } finally {
       setLoading(false);
     }
@@ -217,7 +225,7 @@ export const PredictPage: React.FC = () => {
                 >
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".dcm"
                     onChange={handleImageChange}
                     style={{
                       position: "absolute",
@@ -229,15 +237,22 @@ export const PredictPage: React.FC = () => {
                     }}
                   />
                   {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="CT Preview"
-                      style={{
-                        maxHeight: "140px",
-                        borderRadius: "8px",
-                        objectFit: "cover",
-                      }}
-                    />
+                    imagePreview === "DICOM_PLACEHOLDER" ? (
+                      <div style={{ textAlign: "center", color: "#2563eb", padding: "20px" }}>
+                        <FileText style={{ width: "48px", height: "48px", margin: "0 auto 8px auto" }} />
+                        <p style={{ margin: 0, fontWeight: "bold" }}>DICOM File Selected</p>
+                      </div>
+                    ) : (
+                      <img
+                        src={imagePreview}
+                        alt="CT Preview"
+                        style={{
+                          maxHeight: "140px",
+                          borderRadius: "8px",
+                          objectFit: "cover",
+                        }}
+                      />
+                    )
                   ) : (
                     <div>
                       <Upload
@@ -255,7 +270,7 @@ export const PredictPage: React.FC = () => {
                           margin: 0,
                         }}
                       >
-                        Click to upload CT Scan Image
+                        Click to upload DICOM (.dcm)
                       </p>
                     </div>
                   )}
@@ -364,7 +379,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -390,7 +405,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -416,7 +431,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -443,7 +458,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -470,7 +485,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -496,7 +511,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -522,7 +537,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -548,7 +563,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -574,7 +589,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -601,7 +616,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -628,7 +643,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -663,7 +678,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -692,7 +707,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -722,7 +737,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -752,7 +767,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "block",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
