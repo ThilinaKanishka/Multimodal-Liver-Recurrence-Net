@@ -8,6 +8,7 @@ from typing import Literal, List
 from PIL import Image
 import io
 import torchvision.transforms as transforms
+import PyPDF2
 import pandas as pd
 import joblib
 import os
@@ -113,7 +114,8 @@ def read_root():
 @app.post("/api/v1/predict")
 async def predict_recurrence(
     clinical_data: str = Form(..., description="JSON stringified DiagnosticInputSchema objects"),
-    ct_scan: UploadFile = File(None)
+    ct_scan: UploadFile = File(None),
+    text_report_pdf: UploadFile = File(None)
 ):
     try:
         # 1. Parsing the raw JSON data dynamically (Flexible validation)
@@ -158,6 +160,21 @@ async def predict_recurrence(
             print(f"📷 Image input tensor mapped correctly: {image_tensor.shape}")
         except Exception as img_err:
             print(f"Image tensor parse skipped: {img_err}")
+    
+    # 2.5 Process Text Report PDF if uploaded
+    extracted_report_text = ""
+    if text_report_pdf:
+        try:
+            pdf_bytes = await text_report_pdf.read()
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    extracted_report_text += page_text + "\n"
+            extracted_report_text = extracted_report_text.strip()
+            print(f"PDF text extracted: {len(extracted_report_text)} characters")
+        except Exception as pdf_err:
+            print(f"PDF parse error: {pdf_err}")
     
     # 3. Dynamic Deep Learning Inference Logic
     # Dataset එකේ variables වලට අනුකූලව හරියාකාරව prediction එක සිද්දවෙනවා මචං
@@ -216,8 +233,11 @@ async def predict_recurrence(
         ]
 
     # Standardized Object Output matching our Frontend Interfaces exactly!
-    return {
+    response = {
         "recurrence_risk": recurrence_risk,
         "probability": probability,
         "ai_insights": ai_insights
     }
+    if extracted_report_text:
+        response["clinical_text_report"] = extracted_report_text
+    return response
