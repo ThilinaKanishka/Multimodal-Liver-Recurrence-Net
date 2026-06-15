@@ -6,10 +6,9 @@ import {
   CheckCircle,
   FileText,
 } from "lucide-react";
+// 1. Axios ලයිබ්‍රරි එක Import කරගැනීම
+import axios from "axios";
 
-// ==========================================
-// 1. TYPESCRIPT INTERFACES (DIRECT INTEGRATION)
-// ==========================================
 export interface DiagnosticInput {
   tumor_size_cm: number;
   tumor_number: number;
@@ -40,9 +39,6 @@ export interface PredictionResult {
   ai_insights: string[];
 }
 
-// ==========================================
-// 2. MAIN COMPONENT PRODUCTION IMPLEMENTATION
-// ==========================================
 export const PredictPage: React.FC = () => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
@@ -72,8 +68,8 @@ export const PredictPage: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Safe Input Handler for Numbers, Strings and Checkboxes
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
@@ -100,11 +96,14 @@ export const PredictPage: React.FC = () => {
     }
   };
 
+  // 2. ඇත්තටම PYTHON BACKEND එකට DATA යවන SUBMIT FUNCTION එක
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
+    setErrorMessage(null);
 
+    // Multimodal (Text + File) යවන්න ඕන නිසා FormData පාවිච්චි කරනවා
     const payload = new FormData();
     payload.append("clinical_data", JSON.stringify(formData));
     if (imageFile) {
@@ -112,20 +111,25 @@ export const PredictPage: React.FC = () => {
     }
 
     try {
-      // Temporary Mock Server Timeout for Testing UX Flow
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Axios හරහා Python FastAPI (Port 8000) එකට Request එක යැවීම
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/v1/predict",
+        payload,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
 
-      setResult({
-        recurrence_risk:
-          formData.tumor_size_cm > 6 || formData.mvi_pathology ? "HIGH" : "LOW",
-        probability: formData.tumor_size_cm > 6 ? 84.5 : 24.2,
-        ai_insights: [
-          "Image Analysis Module: High structural shape irregularity index identified within liver boundaries.",
-          "NLP Transformer Module: High risk clinical correlation found regarding vascular invasion parameters.",
-        ],
-      });
-    } catch (error) {
+      // සර්වර් එකෙන් ආපු ඇත්තම AI prediction එක state එකට දානවා
+      setResult(response.data);
+    } catch (error: any) {
       console.error("API Connection Error:", error);
+      setErrorMessage(
+        error.response?.data?.detail ||
+          "Python Backend සර්වර් එකට සම්භන්ධ වෙන්න බැහැ මචං! `uvicorn` රන් වෙලාද බලන්න.",
+      );
     } finally {
       setLoading(false);
     }
@@ -342,7 +346,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -369,7 +373,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -395,7 +399,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -421,7 +425,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -448,7 +452,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -475,7 +479,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -501,7 +505,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -527,7 +531,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -553,7 +557,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -579,7 +583,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -606,7 +610,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -633,7 +637,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -669,7 +673,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -698,7 +702,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -728,7 +732,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -758,7 +762,7 @@ export const PredictPage: React.FC = () => {
                   <div>
                     <label
                       style={{
-                        block: "true",
+                        display: "block",
                         fontSize: "14px",
                         fontWeight: "500",
                         color: "#374151",
@@ -919,12 +923,30 @@ export const PredictPage: React.FC = () => {
                 }}
               >
                 {loading
-                  ? "Executing Advanced Multimodal AI Analytics..."
+                  ? "Executing Multimodal AI Deep Learning Inference..."
                   : "Execute Multimodal AI Prognosis"}
               </button>
             </div>
           </div>
         </form>
+
+        {/* Error Message UI */}
+        {errorMessage && (
+          <div
+            style={{
+              marginTop: "24px",
+              padding: "16px",
+              borderRadius: "12px",
+              backgroundColor: "#fee2e2",
+              border: "1px solid #fca5a5",
+              color: "#991b1b",
+              fontWeight: "500",
+              fontSize: "14px",
+            }}
+          >
+            ⚠️ {errorMessage}
+          </div>
+        )}
 
         {/* Section 3: Diagnostic Results Interface */}
         {result && (
@@ -982,9 +1004,9 @@ export const PredictPage: React.FC = () => {
                     lineHeight: "1.5",
                   }}
                 >
-                  The neural network fused deep radiomics vectors with text
-                  embeddings to assess clinical outcome variables. Early
-                  screening adjustments are advised.
+                  The live PyTorch neural network successfully fused the
+                  radiomics vectors with text report embeddings to output the
+                  live prediction variables below.
                 </p>
                 <div>
                   <h4
