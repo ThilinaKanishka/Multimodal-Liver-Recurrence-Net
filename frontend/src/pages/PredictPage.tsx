@@ -37,6 +37,7 @@ export interface PredictionResult {
   recurrence_risk: "HIGH" | "LOW";
   probability: number;
   ai_insights: string[];
+  clinical_text_report?: string;
 }
 
 export const PredictPage: React.FC = () => {
@@ -66,6 +67,7 @@ export const PredictPage: React.FC = () => {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -104,6 +106,12 @@ export const PredictPage: React.FC = () => {
     }
   };
 
+  const handlePdfChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPdfFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -116,6 +124,9 @@ export const PredictPage: React.FC = () => {
     payload.append("clinical_data", JSON.stringify(formData));
     if (imageFile) {
       payload.append("ct_scan", imageFile);
+    }
+    if (pdfFile) {
+      payload.append("text_report_pdf", pdfFile);
     }
 
     try {
@@ -288,23 +299,35 @@ export const PredictPage: React.FC = () => {
                     }}
                   >
                     <FileText style={{ width: "16px", height: "16px" }} />{" "}
-                    Unstructured Clinical Text Report
+                    Unstructured Clinical Text Report (PDF)
                   </label>
-                  <textarea
-                    name="clinical_text_report"
-                    value={formData.clinical_text_report}
-                    onChange={handleInputChange}
-                    rows={5}
-                    placeholder="Paste text report..."
+                  <div
                     style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      padding: "12px",
                       border: "1px solid #d1d5db",
                       borderRadius: "8px",
-                      fontSize: "14px",
+                      padding: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      gap: "10px",
+                      flex: 1,
+                      backgroundColor: "#f9fafb"
                     }}
-                  />
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handlePdfChange}
+                      style={{
+                        fontSize: "14px"
+                      }}
+                    />
+                    {pdfFile && (
+                      <span style={{ fontSize: "13px", color: "#059669", fontWeight: "500" }}>
+                        ✅ Selected: {pdfFile.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1006,6 +1029,40 @@ export const PredictPage: React.FC = () => {
                     ))}
                   </ul>
                 </div>
+                {result.clinical_text_report && (
+                  <div style={{ marginTop: "16px" }}>
+                    <h4
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#111827",
+                        margin: "0 0 8px 0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <FileText style={{ width: "16px", height: "16px" }} />
+                      Extracted Clinical Text Report:
+                    </h4>
+                    <div
+                      style={{
+                        padding: "12px",
+                        backgroundColor: "#f3f4f6",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        color: "#374151",
+                        whiteSpace: "pre-wrap",
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        border: "1px solid #e5e7eb",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      {result.clinical_text_report}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
