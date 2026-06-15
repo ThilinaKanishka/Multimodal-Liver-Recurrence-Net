@@ -1,4 +1,4 @@
-import React from "react";
+
 import { PredictPage } from "./pages/PredictPage";
 
 function App() {
