@@ -77,6 +77,9 @@ def initialize_ai_core():
     n_samples = 300
     
     tumor_size = np.random.normal(5.5, 2.5, n_samples)
+    afp_ngml = np.random.normal(25.0, 15.0, n_samples)
+    alp_iul = np.random.normal(120.0, 40.0, n_samples)
+    bilirubin_mgdl = np.random.normal(1.5, 0.8, n_samples)
     mean_hu = np.random.normal(65.0, 20.0, n_samples)
     texture_entropy = np.random.normal(5.0, 1.2, n_samples)
     mvi_status = np.random.choice([0, 1], n_samples, p=[0.85, 0.15])
@@ -84,12 +87,15 @@ def initialize_ai_core():
     metastasis_status = np.random.choice([0, 1], n_samples, p=[0.92, 0.08])
     bclc_stage_c = np.random.choice([0, 1], n_samples, p=[0.80, 0.20])
     
-    logits = (tumor_size * 0.4) + (mvi_status * 2.5) + (texture_entropy * 0.6) + (bclc_stage_c * 1.5) + (metastasis_status * 3.0) - 8.0
+    logits = (tumor_size * 0.4) + (afp_ngml * 0.02) + (alp_iul * 0.01) + (bilirubin_mgdl * 0.5) + (mvi_status * 2.5) + (texture_entropy * 0.6) + (bclc_stage_c * 1.5) + (metastasis_status * 3.0) - 12.0
     probs = 1.0 / (1.0 + np.exp(-logits))
     target = (probs > 0.5).astype(int)
     
     df = pd.DataFrame({
         'tumor_size_cm': np.maximum(tumor_size, 1.0),
+        'afp_ngml': np.maximum(afp_ngml, 2.0),
+        'alp_iul': np.maximum(alp_iul, 30.0),
+        'bilirubin_mgdl': np.maximum(bilirubin_mgdl, 0.2),
         'mean_hu': mean_hu,
         'texture_entropy': texture_entropy,
         'mvi_status': mvi_status,
@@ -265,6 +271,9 @@ async def predict_recurrence(
         raise HTTPException(status_code=400, detail="Invalid JSON format for clinical_data.")
         
     tumor_size_cm = float(tabular_data.get("tumor_size_cm", 5.0))
+    afp_ngml = float(tabular_data.get("afp_ngml", 20.0))
+    alp_iul = float(tabular_data.get("alp_iul", 100.0))
+    bilirubin_mgdl = float(tabular_data.get("bilirubin_mgdl", 1.0))
     bclc_stage_c = 1 if tabular_data.get("bclc_stage", "A") == "C" else 0
     
     mean_hu, texture_entropy, dicom_success, dicom_warnings, pseudo_id = float(training_distributions['mean_hu_mean']), float(training_distributions['texture_entropy_mean']), False, [], str(uuid.uuid4())
@@ -288,6 +297,9 @@ async def predict_recurrence(
 
     master_vector = pd.DataFrame([{
         'tumor_size_cm': tumor_size_cm,
+        'afp_ngml': afp_ngml,
+        'alp_iul': alp_iul,
+        'bilirubin_mgdl': bilirubin_mgdl,
         'mean_hu': mean_hu,
         'texture_entropy': texture_entropy,
         'mvi_status': mvi_status,
