@@ -15,7 +15,7 @@ from scipy.ndimage import rotate
 import pydicom
 import PyPDF2
 from imblearn.over_sampling import SMOTE
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -85,7 +85,6 @@ if TORCH_AVAILABLE:
             return self.gradients
 
     cnn_extractor = Volumetric3DCNN()
-    # Remove eval() so requires_grad gradients can be captured dynamically
 else:
     cnn_extractor = None
 
@@ -201,7 +200,6 @@ def initialize_ai_core():
         def objective(trial):
             xgb_lr = trial.suggest_float('xgb_lr', 0.01, 0.1)
             xgb_depth = trial.suggest_int('xgb_depth', 3, 6)
-            from sklearn.model_selection import train_test_split
             X_t, X_v, y_t, y_v = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
             model = xgb.XGBClassifier(n_estimators=50, max_depth=xgb_depth, learning_rate=xgb_lr, eval_metric='logloss')
             model.fit(X_t, y_t)
@@ -223,6 +221,10 @@ def initialize_ai_core():
     smote = SMOTE(random_state=42)
     
     cv_ensemble_models = []
+    auc_scores = []
+    f1_scores = []
+    precisions = []
+    recalls = []
     
     for train_idx, val_idx in skf.split(X, y):
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
@@ -245,8 +247,21 @@ def initialize_ai_core():
         ensemble_model = VotingClassifier(estimators=estimators, voting='soft')
         ensemble_model.fit(X_train_bal, y_train_bal)
         cv_ensemble_models.append(ensemble_model)
+        
+        preds = ensemble_model.predict(X_val)
+        probs_val = ensemble_model.predict_proba(X_val)[:, 1]
+        
+        auc_scores.append(roc_auc_score(y_val, probs_val))
+        f1_scores.append(f1_score(y_val, preds))
+        precisions.append(precision_score(y_val, preds, zero_division=0))
+        recalls.append(recall_score(y_val, preds))
 
-    cv_metrics = {"auc_roc": 0.89, "f1_score": 0.85, "precision": 0.86, "recall": 0.84}
+    cv_metrics = {
+        "auc_roc": np.mean(auc_scores),
+        "f1_score": np.mean(f1_scores),
+        "precision": np.mean(precisions),
+        "recall": np.mean(recalls)
+    }
 
     X_balanced, y_balanced = smote.fit_resample(X, y)
     print("🧠 Training Final Enterprise Ensemble Fusion Engine...")
