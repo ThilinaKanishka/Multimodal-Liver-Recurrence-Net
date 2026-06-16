@@ -8,6 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import axios from "axios";
+import GradCamSliceViewer from "../components/GradCamSliceViewer";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -44,6 +45,11 @@ export interface PredictionResult {
   system_integrity?: { data_drift_detected: boolean; confidence_status: string };
   inference_id?: string;
   pseudo_anonymous_id?: string;
+  interpretability_layer?: {
+    gradcam_engine: string;
+    heatmap_spatial_shape: [number, number, number];
+    gradcam_3d_matrix: string;
+  };
 }
 
 export const PredictPage: React.FC = () => {
@@ -1088,6 +1094,24 @@ export const PredictPage: React.FC = () => {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* 3D Grad-CAM Viewer Integration */}
+                  {result?.interpretability_layer?.gradcam_engine === "ACTIVE" && 
+                   result?.interpretability_layer?.gradcam_3d_matrix && (
+                    <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                      <h4 style={{ fontSize: "16px", fontWeight: "600", color: "#1f2937", marginBottom: "8px" }}>
+                        Volumetric Hypervascular Tumor Topography
+                      </h4>
+                      <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px" }}>
+                        Interactive slice-by-slice spatial heatmap mapped dynamically from the PyTorch 3D-CNN feature extractor.
+                      </p>
+                      
+                      <GradCamSliceViewer 
+                        base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
+                        dimensions={result.interpretability_layer.heatmap_spatial_shape} 
+                      />
                     </div>
                   )}
 
