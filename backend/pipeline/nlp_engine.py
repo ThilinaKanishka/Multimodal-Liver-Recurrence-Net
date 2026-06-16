@@ -1,16 +1,23 @@
-import spacy
 from typing import Dict, Any
+
+try:
+    import spacy
+    SPACY_AVAILABLE = True
+except ImportError:
+    print("Warning: SpaCy is not installed.")
+    SPACY_AVAILABLE = False
 
 class MedicalNLPEngine:
     def __init__(self, model_name: str = "en_core_sci_sm"):
         """
         Loads the SciSpacy Clinical Named Entity Recognition (NER) model.
         """
-        try:
-            self.nlp = spacy.load(model_name)
-        except OSError:
-            print(f"Warning: SciSpacy model '{model_name}' not found. Please install it.")
-            self.nlp = None
+        self.nlp = None
+        if SPACY_AVAILABLE:
+            try:
+                self.nlp = spacy.load(model_name)
+            except OSError:
+                print(f"Warning: SciSpacy model '{model_name}' not found. Please install it.")
 
     def extract_entities(self, clinical_text: str) -> Dict[str, Any]:
         """
