@@ -20,6 +20,17 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from sklearn.ensemble import VotingClassifier
+
+try:
+    import lightgbm as lgb
+    from catboost import CatBoostClassifier
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    ENSEMBLE_AVAILABLE = True
+except ImportError:
+    ENSEMBLE_AVAILABLE = False
+    print("Warning: LightGBM/CatBoost/Optuna not installed. Falling back to XGBoost core.")
 
 # ==========================================
 # PHASE 04: Immutable Audit Trail DB Initialization
@@ -116,6 +127,26 @@ def initialize_ai_core():
     X = df.drop(columns=['target'])
     y = df['target']
     
+    best_xgb_params = {'n_estimators': 100, 'max_depth': 4, 'learning_rate': 0.05, 'eval_metric': 'logloss'}
+    best_lgb_params = {'n_estimators': 100, 'max_depth': 4, 'learning_rate': 0.05, 'subsample': 0.8}
+    best_cat_params = {'iterations': 100, 'depth': 4, 'learning_rate': 0.05, 'verbose': 0}
+    
+    if ENSEMBLE_AVAILABLE:
+        print("⚙️ Executing Optuna Automated Hyperparameter Tuning...")
+        def objective(trial):
+            xgb_lr = trial.suggest_float('xgb_lr', 0.01, 0.1)
+            xgb_depth = trial.suggest_int('xgb_depth', 3, 6)
+            from sklearn.model_selection import train_test_split
+            X_t, X_v, y_t, y_v = train_test_split(X, y, test_size=0.2, random_state=42)
+            model = xgb.XGBClassifier(n_estimators=50, max_depth=xgb_depth, learning_rate=xgb_lr, eval_metric='logloss')
+            model.fit(X_t, y_t)
+            return roc_auc_score(y_v, model.predict_proba(X_v)[:, 1])
+            
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=3)
+        best_xgb_params.update({'max_depth': study.best_params.get('xgb_depth', 4), 'learning_rate': study.best_params.get('xgb_lr', 0.05)})
+        print(f"✅ Optuna Optimization Complete. Best AUC: {study.best_value:.4f}")
+
     print("⚖️ Executing Stratified K-Fold Cross-Validation (K=5)...")
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     smote = SMOTE(random_state=42)
@@ -129,12 +160,24 @@ def initialize_ai_core():
         
         X_train_bal, y_train_bal = smote.fit_resample(X_train, y_train)
         
-        cv_model = xgb.XGBClassifier(n_estimators=100, max_depth=4, learning_rate=0.05, eval_metric='logloss')
-        cv_model.fit(X_train_bal, y_train_bal)
-        cv_ensemble_models.append(cv_model)
+        xgb_clf = xgb.XGBClassifier(**best_xgb_params)
+        estimators = [('xgb', xgb_clf)]
         
-        preds = cv_model.predict(X_val)
-        probs_val = cv_model.predict_proba(X_val)[:, 1]
+        if ENSEMBLE_AVAILABLE:
+            try:
+                estimators.extend([
+                    ('lgb', lgb.LGBMClassifier(**best_lgb_params)),
+                    ('cat', CatBoostClassifier(**best_cat_params))
+                ])
+            except Exception as e:
+                pass # Fallback to XGBoost seamlessly
+                
+        ensemble_model = VotingClassifier(estimators=estimators, voting='soft')
+        ensemble_model.fit(X_train_bal, y_train_bal)
+        cv_ensemble_models.append(ensemble_model)
+        
+        preds = ensemble_model.predict(X_val)
+        probs_val = ensemble_model.predict_proba(X_val)[:, 1]
         
         auc_scores.append(roc_auc_score(y_val, probs_val))
         f1_scores.append(f1_score(y_val, preds))
@@ -149,12 +192,24 @@ def initialize_ai_core():
     }
 
     X_balanced, y_balanced = smote.fit_resample(X, y)
-    print("🧠 Training Final Enterprise XGBoost Fusion Engine...")
-    final_model = xgb.XGBClassifier(n_estimators=150, max_depth=5, learning_rate=0.05, eval_metric='logloss')
+    print("🧠 Training Final Enterprise Ensemble Fusion Engine...")
+    
+    final_estimators = [('xgb', xgb.XGBClassifier(**best_xgb_params))]
+    if ENSEMBLE_AVAILABLE:
+        try:
+            final_estimators.extend([
+                ('lgb', lgb.LGBMClassifier(**best_lgb_params)),
+                ('cat', CatBoostClassifier(**best_cat_params))
+            ])
+        except Exception:
+            pass
+            
+    final_model = VotingClassifier(estimators=final_estimators, voting='soft')
     final_model.fit(X_balanced, y_balanced)
     
     print("🔍 Initializing SHAP Explainer...")
-    explainer = shap.TreeExplainer(final_model)
+    fitted_xgb = final_model.named_estimators_['xgb']
+    explainer = shap.TreeExplainer(fitted_xgb)
     
     return final_model, cv_ensemble_models, explainer, list(X.columns), cv_metrics, global_distribution_stats
 
