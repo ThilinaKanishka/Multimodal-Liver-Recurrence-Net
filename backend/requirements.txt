@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+pydicom
+pyradiomics
+spacy
+scispacy
+xgboost
+imbalanced-learn
+pandas
+numpy
+scikit-learn
+torch
+PyPDF2
+SimpleITK
