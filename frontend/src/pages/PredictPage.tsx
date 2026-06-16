@@ -34,10 +34,16 @@ export interface DiagnosticInput {
 }
 
 export interface PredictionResult {
-  recurrence_risk: "HIGH" | "LOW";
+  recurrence_risk: "HIGH" | "LOW" | "ABSTAIN";
   probability: number;
   ai_insights: string[];
   clinical_text_report?: string;
+  ui_rendering_state?: "STATE_NORMAL" | "STATE_DRIFT_WARNING" | "STATE_ABSTAIN_LOCK";
+  explainable_ai_weights?: Record<string, number>;
+  confidence_interval?: [number, number];
+  system_integrity?: { data_drift_detected: boolean; confidence_status: string };
+  inference_id?: string;
+  pseudo_anonymous_id?: string;
 }
 
 export const PredictPage: React.FC = () => {
@@ -151,6 +157,20 @@ export const PredictPage: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePhysicianOverride = async (overrideStatus: string) => {
+    if (!result?.inference_id) return;
+    try {
+      await axios.post("http://127.0.0.1:8000/api/v1/audit", {
+        inference_id: result.inference_id,
+        physician_override_risk: overrideStatus,
+        physician_notes: "Manual diagnostic override due to epistemic uncertainty abstention."
+      });
+      alert("Override successfully integrated into the immutable ledger.");
+    } catch (error) {
+      alert("Error saving override.");
     }
   };
 
@@ -962,15 +982,31 @@ export const PredictPage: React.FC = () => {
               padding: "24px",
               borderRadius: "16px",
               border:
-                result.recurrence_risk === "HIGH"
+                result.ui_rendering_state === "STATE_ABSTAIN_LOCK"
+                  ? "2px solid #ef4444"
+                  : result.ui_rendering_state === "STATE_DRIFT_WARNING"
+                  ? "2px solid #f59e0b"
+                  : result.recurrence_risk === "HIGH"
                   ? "1px solid #fca5a5"
                   : "1px solid #86efac",
               backgroundColor:
-                result.recurrence_risk === "HIGH" ? "#fef2f2" : "#f0fdf4",
+                result.ui_rendering_state === "STATE_ABSTAIN_LOCK"
+                  ? "#fef2f2"
+                  : result.ui_rendering_state === "STATE_DRIFT_WARNING"
+                  ? "#fffbeb"
+                  : result.recurrence_risk === "HIGH"
+                  ? "#fef2f2"
+                  : "#f0fdf4",
             }}
           >
+            {result.ui_rendering_state === "STATE_DRIFT_WARNING" && (
+              <div style={{ backgroundColor: "#fef3c7", padding: "12px", borderRadius: "8px", marginBottom: "16px", color: "#b45309", fontWeight: "bold" }}>
+                ⚠️ STATE DRIFT WARNING: Patient radiological variance has shifted. Recalibration required. Proceed with manual verification.
+              </div>
+            )}
+            
             <div style={{ display: "flex", alignItems: "start", gap: "16px" }}>
-              {result.recurrence_risk === "HIGH" ? (
+              {result.recurrence_risk === "HIGH" || result.recurrence_risk === "ABSTAIN" ? (
                 <AlertTriangle
                   style={{ width: "32px", height: "32px", color: "#dc2626" }}
                 />
@@ -979,19 +1015,32 @@ export const PredictPage: React.FC = () => {
                   style={{ width: "32px", height: "32px", color: "#16a34a" }}
                 />
               )}
-              <div>
+              <div style={{ flex: 1 }}>
                 <h3
                   style={{
                     fontSize: "20px",
                     fontWeight: "bold",
                     color:
-                      result.recurrence_risk === "HIGH" ? "#991b1b" : "#166534",
+                      result.recurrence_risk === "HIGH" || result.recurrence_risk === "ABSTAIN" ? "#991b1b" : "#166534",
                     margin: "0 0 8px 0",
                   }}
                 >
-                  {result.recurrence_risk} RECURRENCE RISK DETECTED (
-                  {result.probability}%)
+                  {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" 
+                    ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY TOO HIGH"
+                    : `${result.recurrence_risk} RECURRENCE RISK DETECTED (${result.probability}%)`}
                 </h3>
+
+                {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
+                  <div style={{ padding: "16px", backgroundColor: "#fee2e2", borderRadius: "8px", marginBottom: "16px" }}>
+                    <p style={{ fontWeight: "bold", color: "#991b1b" }}>🛑 Uncertainty boundaries breached. AI Prediction masked to prevent diagnostic error.</p>
+                    <p style={{ fontSize: "14px", color: "#7f1d1d" }}>Physician manual review strictly required. Please authorize override payload to audit ledger:</p>
+                    <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                      <button onClick={() => handlePhysicianOverride("HIGH")} style={{ padding: "8px 16px", background: "#ef4444", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>Authorize HIGH Risk Override</button>
+                      <button onClick={() => handlePhysicianOverride("LOW")} style={{ padding: "8px 16px", background: "#22c55e", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>Authorize LOW Risk Override</button>
+                    </div>
+                  </div>
+                )}
+
                 <p
                   style={{
                     color: "#374151",
@@ -999,9 +1048,7 @@ export const PredictPage: React.FC = () => {
                     fontSize: "15px",
                   }}
                 >
-                  The live PyTorch neural network successfully fused the
-                  radiomics vectors with text report embeddings to output the
-                  live prediction variables.
+                  {result.confidence_interval && `95% Confidence Interval: [${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%] | Pseudo-ID: ${result.pseudo_anonymous_id}`}
                 </p>
                 <div>
                   <h4
@@ -1012,7 +1059,7 @@ export const PredictPage: React.FC = () => {
                       margin: "0 0 8px 0",
                     }}
                   >
-                    Explainable AI (XAI) Model Insights:
+                    Explainable AI (XAI) Model Insights & System Integrity:
                   </h4>
                   <ul
                     style={{
@@ -1020,6 +1067,7 @@ export const PredictPage: React.FC = () => {
                       margin: 0,
                       fontSize: "14px",
                       color: "#4b5563",
+                      marginBottom: "16px"
                     }}
                   >
                     {result.ai_insights.map((insight, idx) => (
@@ -1028,6 +1076,21 @@ export const PredictPage: React.FC = () => {
                       </li>
                     ))}
                   </ul>
+
+                  {result.explainable_ai_weights && (
+                    <div style={{ backgroundColor: "#f9fafb", padding: "16px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                      <h4 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "8px" }}>SHAP Feature Importance Analysis (Clinical Auditing)</h4>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+                        {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
+                          <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                            <span>{key}</span>
+                            <span style={{ fontWeight: "bold", color: value > 0 ? "#ef4444" : "#22c55e" }}>{value > 0 ? "+" : ""}{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
                 {result.clinical_text_report && (
                   <div style={{ marginTop: "16px" }}>
