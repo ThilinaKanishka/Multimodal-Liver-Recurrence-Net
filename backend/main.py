@@ -91,7 +91,7 @@ else:
 # ==========================================
 # PHASE 04: Immutable Audit Trail DB Initialization
 # ==========================================
-DB_PATH = "clinical_audit_ledger.db"
+DB_PATH = "../clinical_audit_ledger.db"
 
 def init_audit_db():
     conn = sqlite3.connect(DB_PATH)
