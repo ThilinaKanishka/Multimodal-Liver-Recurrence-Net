@@ -8,7 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import axios from "axios";
-import GradCamSliceViewer from "../components/GradCamSliceViewer";
+import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -1108,7 +1108,7 @@ export const PredictPage: React.FC = () => {
                         Interactive slice-by-slice spatial heatmap mapped dynamically from the PyTorch 3D-CNN feature extractor.
                       </p>
                       
-                      <GradCamSliceViewer 
+                      <MprClinicalWorkstation 
                         base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
                         dimensions={result.interpretability_layer.heatmap_spatial_shape} 
                       />
