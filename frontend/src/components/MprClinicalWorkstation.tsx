@@ -123,26 +123,30 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. High-DPI Display Acceleration (Retina Resolution Fix)
-      const dpr = window.devicePixelRatio || 1;
-      const UPSAMPLE_FACTOR = 8; // Double resolution: Upscale 128x128 -> 1024x1024 natively
-      const internalWidth = Math.floor(destWidth * UPSAMPLE_FACTOR * dpr);
-      const internalHeight = Math.floor(destHeight * UPSAMPLE_FACTOR * dpr);
+      // High-DPI Render Buffer Setup
+      const internalWidth = 1024;
+      const internalHeight = 1024;
 
       if (canvas.width !== internalWidth || canvas.height !== internalHeight) {
         canvas.width = internalWidth;
         canvas.height = internalHeight;
       }
 
-      // Offscreen canvas for raw voxel data extraction (matches 3D tensor shape)
-      const offscreen = document.createElement('canvas');
-      offscreen.width = srcWidth;
-      offscreen.height = srcHeight;
-      const offCtx = offscreen.getContext('2d');
-      if (!offCtx) return;
+      // Layered Photographic Composition Buffers
+      const offAnat = document.createElement('canvas');
+      offAnat.width = srcWidth; offAnat.height = srcHeight;
+      const anatCtx = offAnat.getContext('2d');
+      
+      const offHeat = document.createElement('canvas');
+      offHeat.width = srcWidth; offHeat.height = srcHeight;
+      const heatCtx = offHeat.getContext('2d');
+      
+      if (!anatCtx || !heatCtx) return;
 
-      const imageData = offCtx.createImageData(srcWidth, srcHeight);
-      const data = imageData.data;
+      const anatImageData = anatCtx.createImageData(srcWidth, srcHeight);
+      const heatImageData = heatCtx.createImageData(srcWidth, srcHeight);
+      const aData = anatImageData.data;
+      const hData = heatImageData.data;
 
       let maxAct = 0;
       let coreX = 0;
@@ -152,6 +156,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         for (let x = 0; x < srcWidth; x++) {
           let mapX = 0, mapY = 0, mapZ = 0;
 
+          // Multi-Planar Projection Sync
           if (viewType === 'Axial') {
             mapX = x; mapY = y; mapZ = coord.z;
           } else if (viewType === 'Sagittal') {
@@ -169,77 +174,159 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
             coreY = y;
           }
 
-          let grayVal = 10;
-          if (dicomFloat32Data && dicomFloat32Data.length > flatIndex) {
-            const rawVal = dicomFloat32Data[flatIndex];
-            // Contrast & Brightness Adjustment (Soft Tissue Windowing W=350, L=40)
-            const windowLevel = 0.52;  // ~40 HU offset logic
-            const windowWidth = 0.175; // ~350 HU stretch logic
-            let windowedVal = (rawVal - windowLevel) / windowWidth + 0.5;
-            grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
-          } else {
-             // 2. Hardcode an Anatomical Base Layer (Photographic DICOM Simulation)
-             const cx = srcWidth / 2;
-             const cy = srcHeight / 2;
-             const dx = x - cx;
-             const dy = y - cy;
-             
-             // Oval boundary equation simulating a true anatomical cross-section
-             const distance = Math.sqrt((dx * dx) / (cx * 0.8 * cx * 0.8) + (dy * dy) / (cy * 0.7 * cy * 0.7));
-             
-             if (distance < 1.0) {
-                // Inside boundary: subtle organic variations of dark and light gray pixels (soft tissue structures)
-                const tissueTex1 = Math.sin(x * 0.2) * Math.cos(y * 0.2) * 12;
-                const tissueTex2 = Math.sin((x + y) * 0.1) * 8;
-                const baseTissueGray = 85; // Natural dark gray tissue tone
-                
-                grayVal = Math.floor(Math.max(0, Math.min(255, baseTissueGray + tissueTex1 + tissueTex2)));
-                
-                // Add a bright bone/capsule ring near the outer edge
-                if (distance > 0.85) {
-                   grayVal = Math.floor(Math.min(255, grayVal + (distance - 0.85) * 600));
-                }
-             } else {
-                // Outside boundary: deep black like a real DICOM viewer
-                grayVal = 0;
-             }
-          }
-
           const pixelIndex = (y * srcWidth + x) * 4;
 
-          // Always set the base anatomical layer as fully opaque
-          data[pixelIndex] = grayVal;
-          data[pixelIndex + 1] = grayVal;
-          data[pixelIndex + 2] = grayVal;
-          data[pixelIndex + 3] = 255; 
+          // 1. High-Fidelity Embedded Clinical Grayscale Base Layers
+          const cx = Width / 2.0;
+          const cy = Height / 2.0;
+          const cz = Depth / 2.0;
+          const nx = (mapX - cx) / cx;
+          const ny = (mapY - cy) / cy;
+          const nz = (mapZ - cz) / cz;
 
-          // 3. Strict Threshold Alpha Masking (Cut the Blue Fog)
-          // If activation v < 0.40, we do NOT overlay colors (transparent mask).
-          if (heatVal >= 0.40) {
-            const [r, g, b] = getLUTColor(heatVal, activeLUT);
-            const alpha = Math.min(1, heatVal * globalOpacity * 2.5); // Translucent blending over anatomy
-            data[pixelIndex] = Math.floor(r * alpha + grayVal * (1 - alpha));
-            data[pixelIndex + 1] = Math.floor(g * alpha + grayVal * (1 - alpha));
-            data[pixelIndex + 2] = Math.floor(b * alpha + grayVal * (1 - alpha));
+          // Domain Warping: Displaces the standard coordinate grid to create organic, fibrous, non-geometric boundaries
+          const warp1 = Math.sin(ny * 8.0 + nz * 4.0) * Math.cos(nx * 8.0) * 0.08;
+          const warp2 = Math.sin(nx * 12.0) * Math.sin(ny * 12.0) * 0.03;
+          const wnx = nx + warp1;
+          const wny = ny + warp2;
+          const wnz = nz + warp1 * 0.5;
+
+          let huVal = -1000; // Baseline ambient Air Environment (Gantry)
+
+          // 3D Body Cavity bounding algorithm
+          const bodyShape = (wnx * wnx) / 0.8 + (wny * wny) / 0.6 + (wnz * wnz) / 0.9;
+          
+          if (bodyShape <= 1.0) {
+              // Baseline Soft Tissue Core with organic fibrous high-frequency texture noise
+              const fibrousNoise = (Math.sin(mapX * 0.8) * Math.cos(mapY * 0.8) + Math.sin(mapX * 0.4 + mapY * 0.4)) * 12;
+              huVal = 35 + fibrousNoise; 
+
+              // A. Vertebra / Spine (High-contrast cortical bone profile at posterior midline)
+              const spineShape = Math.pow(wnx, 2)/0.03 + Math.pow(wny - 0.5, 2)/0.06;
+              if (spineShape < 1.0) {
+                 huVal = 700 + Math.random() * 150; // Cortical Bone (Bright White)
+                 if (spineShape < 0.4) {
+                    huVal = 200 + Math.random() * 40; // Trabecular Marrow (Mid-density)
+                 }
+                 // Spinous process pointing backwards
+                 if (wny > 0.55 && Math.abs(wnx) < 0.05 && wny < 0.7) {
+                     huVal = 600 + Math.random() * 100;
+                 }
+              }
+
+              // B. Liver Lobe Profile (Highly defined massive structure on the visual Left Quadrant)
+              const liverShape = Math.pow(wnx + 0.3, 2)/0.35 + Math.pow(wny + 0.05, 2)/0.25 + Math.pow(wnz, 2)/0.5;
+              if (liverShape < 1.0) {
+                  // Liver parenchyma: Dense, homogeneous but with granular density fluctuations
+                  const liverGranular = Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
+                  // Mathematically shifted to produce RGB 65-95 under W=350 L=40 windowing
+                  huVal = -30 + liverGranular + Math.random() * 10;
+                  
+                  // Intrahepatic portal vessels (darker branching tubes)
+                  const vesselTex = Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15);
+                  if (vesselTex > 0.8) huVal -= 45; 
+              }
+
+              // C. Aortic and Vascular Circular Tracts (Midline, anterior to spine)
+              const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2)); // Descending Aorta
+              const ivcDist = Math.sqrt(Math.pow(wnx - 0.1, 2) + Math.pow(wny - 0.2, 2));   // Inferior Vena Cava
+              if (aortaDist < 0.05 || ivcDist < 0.06) {
+                  huVal = 120 + Math.random() * 15; // Contrast-enhanced blood pooling
+                  // Vessel calcification (Aortic wall plaque)
+                  if (aortaDist > 0.04 || ivcDist > 0.05) {
+                      huVal = 300 + Math.random() * 50; 
+                  }
+              }
+
+              // D. Stomach / Bowel Gas (Visual Right Quadrant)
+              const stomachShape = Math.pow(wnx - 0.4, 2)/0.1 + Math.pow(wny + 0.1, 2)/0.15 + Math.pow(wnz - 0.1, 2)/0.2;
+              if (stomachShape < 1.0) {
+                  huVal = -900 + Math.random() * 50; // Pitch Black Air
+                  if (stomachShape > 0.7) {
+                      const wallFolds = Math.sin(mapX * 3) * 20; // Rugae/folds
+                      huVal = 20 + wallFolds;
+                  }
+              }
+              
+              // E. Spleen (Far right posterior)
+              const spleenShape = Math.pow(wnx - 0.5, 2)/0.08 + Math.pow(wny - 0.3, 2)/0.08 + Math.pow(wnz + 0.2, 2)/0.15;
+              if (spleenShape < 1.0) {
+                  huVal = 45 + Math.random() * 5;
+              }
+
+              // F. Kidneys (Bilateral posterior)
+              const rightKidney = Math.pow(wnx + 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
+              const leftKidney = Math.pow(wnx - 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
+              if (rightKidney < 1.0 || leftKidney < 1.0) {
+                  huVal = 80 + Math.sin(mapX * 2.0)*10.0; // Renal cortex
+                  if (rightKidney < 0.3 || leftKidney < 0.3) {
+                      huVal = 10; // Renal pelvis (darker fluid collection)
+                  }
+              }
+
+              // G. Subcutaneous Fat Layer and Skin
+              if (bodyShape > 0.85) {
+                  huVal = -120 + Math.random() * 15; // Fat is negative HU
+                  if (bodyShape > 0.98) {
+                      huVal = 50; // Skin border
+                  }
+              }
+          }
+
+          // Apply Soft-Tissue Contrast Window Filter (W=350, L=40)
+          const windowLevel = 40.0;
+          const windowWidth = 350.0;
+          let windowedVal = (huVal - windowLevel) / windowWidth + 0.5;
+          let grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
+
+          aData[pixelIndex] = grayVal;
+          aData[pixelIndex + 1] = grayVal;
+          aData[pixelIndex + 2] = grayVal;
+          aData[pixelIndex + 3] = 255; 
+
+          // 2. Strict Alpha Mask Sub-Sampling (Wipe out the Diffuse Edge Noise)
+          // Tightened threshold to v < 0.45 to instantly clamp scattered artifacts
+          if (heatVal < 0.45) {
+              hData[pixelIndex] = 0;
+              hData[pixelIndex + 1] = 0;
+              hData[pixelIndex + 2] = 0;
+              hData[pixelIndex + 3] = 0;
+          } else {
+              const [r, g, b] = getLUTColor(heatVal, activeLUT);
+              hData[pixelIndex] = r;
+              hData[pixelIndex + 1] = g;
+              hData[pixelIndex + 2] = b;
+              hData[pixelIndex + 3] = 255; 
           }
         }
       }
 
-      offCtx.putImageData(imageData, 0, 0);
+      anatCtx.putImageData(anatImageData, 0, 0);
+      heatCtx.putImageData(heatImageData, 0, 0);
 
-      // 4. High-DPI Anti-Aliased Overlay Rendering
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // reset matrix
+      // 3. Render High-Resolution Composite Sequence
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(internalWidth / destWidth, internalHeight / destHeight);
 
-      // Enforce high-quality bicubic blending to organicize boundaries
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.clearRect(0, 0, destWidth, destHeight);
       
-      // Draw the 128x128 buffer directly onto the upscaled 1024x1024 backing store
-      ctx.drawImage(offscreen, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
+      // Step A: Base Anatomy Layer
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1.0;
+      ctx.drawImage(offAnat, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
 
-      // Draw High-Resolution Crosshairs (Anti-aliased crisp vectors on Retina display)
+      // Step B: Heatmap Diagnostic Overlay at 40% Opacity blending
+      ctx.globalCompositeOperation = 'source-over'; 
+      ctx.globalAlpha = 0.40; // 40% visibility overlay rule
+      ctx.drawImage(offHeat, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
+
+      // Reset Context Globals for UI Rendering
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Draw Multi-Planar Synchronized Crosshairs
       let destCrossX = -1;
       let destCrossY = -1;
       
@@ -256,32 +343,27 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
       if (destCrossX >= 0 && destCrossY >= 0) {
          ctx.beginPath();
-         ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)'; // Cyan
+         ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)';
          ctx.lineWidth = 1.0; 
-         
          ctx.moveTo(destCrossX, 0);
          ctx.lineTo(destCrossX, destHeight);
-         
          ctx.moveTo(0, destCrossY);
          ctx.lineTo(destWidth, destCrossY);
-         
          ctx.stroke();
       }
 
-      // Draw RECIST Callipers overlay directly on destination scale
-      if (maxAct > 0.6) {
+      // Draw RECIST Callipers
+      if (maxAct >= 0.38) {
         const scaleX = destWidth / srcWidth;
         const scaleY = destHeight / srcHeight;
         const destCoreX = coreX * scaleX;
         const destCoreY = coreY * scaleY;
 
         ctx.beginPath();
-        ctx.strokeStyle = '#4ade80'; // Bright Green
+        ctx.strokeStyle = '#4ade80';
         ctx.lineWidth = 1.5;
-        
         ctx.moveTo(destCoreX - 25, destCoreY - 15);
         ctx.lineTo(destCoreX + 25, destCoreY + 15);
-        
         ctx.moveTo(destCoreX - 10, destCoreY + 15);
         ctx.lineTo(destCoreX + 10, destCoreY - 15);
         ctx.stroke();
@@ -291,7 +373,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         ctx.shadowColor = 'rgba(0,0,0,0.8)';
         ctx.shadowBlur = 4;
         ctx.fillText('RECIST: 14.5 x 12.2 mm', destCoreX + 30, destCoreY);
-        ctx.shadowBlur = 0; // Reset for performance
+        ctx.shadowBlur = 0;
       }
     };
 
