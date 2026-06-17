@@ -29,35 +29,41 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   const sagittalCanvasRef = useRef<HTMLCanvasElement>(null);
   const legendCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Parse Matrices
-  const float32Data = useMemo(() => {
-    if (!base64Matrix) return new Float32Array(0);
-    try {
-      const binaryString = window.atob(base64Matrix);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return new Float32Array(bytes.buffer);
-    } catch (e) {
-      return new Float32Array(0);
+  const [float32Data, setFloat32Data] = useState<Float32Array>(new Float32Array(0));
+  const [dicomUint8Data, setDicomUint8Data] = useState<Uint8Array | null>(null);
+  const [isDecoding, setIsDecoding] = useState<boolean>(true);
+
+  // Parse Matrices Asynchronously using native browser API to prevent string length crashes
+  useEffect(() => {
+    if (!base64Matrix) {
+      setFloat32Data(new Float32Array(0));
+      setIsDecoding(false);
+      return;
     }
+    
+    setIsDecoding(true);
+    fetch(`data:application/octet-stream;base64,${base64Matrix}`)
+      .then(res => res.arrayBuffer())
+      .then(buffer => {
+        setFloat32Data(new Float32Array(buffer));
+        setIsDecoding(false);
+      })
+      .catch(() => {
+        setFloat32Data(new Float32Array(0));
+        setIsDecoding(false);
+      });
   }, [base64Matrix]);
 
-  const dicomFloat32Data = useMemo(() => {
-    if (!dicomBase64Matrix) return null;
-    try {
-      const binaryString = window.atob(dicomBase64Matrix);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return new Float32Array(bytes.buffer);
-    } catch (e) {
-      return null;
+  useEffect(() => {
+    if (!dicomBase64Matrix) {
+      setDicomUint8Data(null);
+      return;
     }
+    
+    fetch(`data:application/octet-stream;base64,${dicomBase64Matrix}`)
+      .then(res => res.arrayBuffer())
+      .then(buffer => setDicomUint8Data(new Uint8Array(buffer)))
+      .catch(() => setDicomUint8Data(null));
   }, [dicomBase64Matrix]);
 
   // Color Maps
@@ -176,108 +182,113 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
           const pixelIndex = (y * srcWidth + x) * 4;
 
-          // 1. High-Fidelity Embedded Clinical Grayscale Base Layers
-          const cx = Width / 2.0;
-          const cy = Height / 2.0;
-          const cz = Depth / 2.0;
-          const nx = (mapX - cx) / cx;
-          const ny = (mapY - cy) / cy;
-          const nz = (mapZ - cz) / cz;
+          let grayVal = 0;
+          if (dicomUint8Data && dicomUint8Data.length > flatIndex) {
+              grayVal = dicomUint8Data[flatIndex];
+          } else {
+              // 1. High-Fidelity Embedded Clinical Grayscale Base Layers
+              const cx = Width / 2.0;
+              const cy = Height / 2.0;
+              const cz = Depth / 2.0;
+              const nx = (mapX - cx) / cx;
+              const ny = (mapY - cy) / cy;
+              const nz = (mapZ - cz) / cz;
 
-          // Domain Warping: Displaces the standard coordinate grid to create organic, fibrous, non-geometric boundaries
-          const warp1 = Math.sin(ny * 8.0 + nz * 4.0) * Math.cos(nx * 8.0) * 0.08;
-          const warp2 = Math.sin(nx * 12.0) * Math.sin(ny * 12.0) * 0.03;
-          const wnx = nx + warp1;
-          const wny = ny + warp2;
-          const wnz = nz + warp1 * 0.5;
+              // Domain Warping: Displaces the standard coordinate grid to create organic, fibrous, non-geometric boundaries
+              const warp1 = Math.sin(ny * 8.0 + nz * 4.0) * Math.cos(nx * 8.0) * 0.08;
+              const warp2 = Math.sin(nx * 12.0) * Math.sin(ny * 12.0) * 0.03;
+              const wnx = nx + warp1;
+              const wny = ny + warp2;
+              const wnz = nz + warp1 * 0.5;
 
-          let huVal = -1000; // Baseline ambient Air Environment (Gantry)
+              let huVal = -1000; // Baseline ambient Air Environment (Gantry)
 
-          // 3D Body Cavity bounding algorithm
-          const bodyShape = (wnx * wnx) / 0.8 + (wny * wny) / 0.6 + (wnz * wnz) / 0.9;
-          
-          if (bodyShape <= 1.0) {
-              // Baseline Soft Tissue Core with organic fibrous high-frequency texture noise
-              const fibrousNoise = (Math.sin(mapX * 0.8) * Math.cos(mapY * 0.8) + Math.sin(mapX * 0.4 + mapY * 0.4)) * 12;
-              huVal = 35 + fibrousNoise; 
-
-              // A. Vertebra / Spine (High-contrast cortical bone profile at posterior midline)
-              const spineShape = Math.pow(wnx, 2)/0.03 + Math.pow(wny - 0.5, 2)/0.06;
-              if (spineShape < 1.0) {
-                 huVal = 700 + Math.random() * 150; // Cortical Bone (Bright White)
-                 if (spineShape < 0.4) {
-                    huVal = 200 + Math.random() * 40; // Trabecular Marrow (Mid-density)
-                 }
-                 // Spinous process pointing backwards
-                 if (wny > 0.55 && Math.abs(wnx) < 0.05 && wny < 0.7) {
-                     huVal = 600 + Math.random() * 100;
-                 }
-              }
-
-              // B. Liver Lobe Profile (Highly defined massive structure on the visual Left Quadrant)
-              const liverShape = Math.pow(wnx + 0.3, 2)/0.35 + Math.pow(wny + 0.05, 2)/0.25 + Math.pow(wnz, 2)/0.5;
-              if (liverShape < 1.0) {
-                  // Liver parenchyma: Dense, homogeneous but with granular density fluctuations
-                  const liverGranular = Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
-                  // Mathematically shifted to produce RGB 65-95 under W=350 L=40 windowing
-                  huVal = -30 + liverGranular + Math.random() * 10;
-                  
-                  // Intrahepatic portal vessels (darker branching tubes)
-                  const vesselTex = Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15);
-                  if (vesselTex > 0.8) huVal -= 45; 
-              }
-
-              // C. Aortic and Vascular Circular Tracts (Midline, anterior to spine)
-              const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2)); // Descending Aorta
-              const ivcDist = Math.sqrt(Math.pow(wnx - 0.1, 2) + Math.pow(wny - 0.2, 2));   // Inferior Vena Cava
-              if (aortaDist < 0.05 || ivcDist < 0.06) {
-                  huVal = 120 + Math.random() * 15; // Contrast-enhanced blood pooling
-                  // Vessel calcification (Aortic wall plaque)
-                  if (aortaDist > 0.04 || ivcDist > 0.05) {
-                      huVal = 300 + Math.random() * 50; 
-                  }
-              }
-
-              // D. Stomach / Bowel Gas (Visual Right Quadrant)
-              const stomachShape = Math.pow(wnx - 0.4, 2)/0.1 + Math.pow(wny + 0.1, 2)/0.15 + Math.pow(wnz - 0.1, 2)/0.2;
-              if (stomachShape < 1.0) {
-                  huVal = -900 + Math.random() * 50; // Pitch Black Air
-                  if (stomachShape > 0.7) {
-                      const wallFolds = Math.sin(mapX * 3) * 20; // Rugae/folds
-                      huVal = 20 + wallFolds;
-                  }
-              }
+              // 3D Body Cavity bounding algorithm
+              const bodyShape = (wnx * wnx) / 0.8 + (wny * wny) / 0.6 + (wnz * wnz) / 0.9;
               
-              // E. Spleen (Far right posterior)
-              const spleenShape = Math.pow(wnx - 0.5, 2)/0.08 + Math.pow(wny - 0.3, 2)/0.08 + Math.pow(wnz + 0.2, 2)/0.15;
-              if (spleenShape < 1.0) {
-                  huVal = 45 + Math.random() * 5;
-              }
+              if (bodyShape <= 1.0) {
+                  // Baseline Soft Tissue Core with organic fibrous high-frequency texture noise
+                  const fibrousNoise = (Math.sin(mapX * 0.8) * Math.cos(mapY * 0.8) + Math.sin(mapX * 0.4 + mapY * 0.4)) * 12;
+                  huVal = 35 + fibrousNoise; 
 
-              // F. Kidneys (Bilateral posterior)
-              const rightKidney = Math.pow(wnx + 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
-              const leftKidney = Math.pow(wnx - 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
-              if (rightKidney < 1.0 || leftKidney < 1.0) {
-                  huVal = 80 + Math.sin(mapX * 2.0)*10.0; // Renal cortex
-                  if (rightKidney < 0.3 || leftKidney < 0.3) {
-                      huVal = 10; // Renal pelvis (darker fluid collection)
+                  // A. Vertebra / Spine (High-contrast cortical bone profile at posterior midline)
+                  const spineShape = Math.pow(wnx, 2)/0.03 + Math.pow(wny - 0.5, 2)/0.06;
+                  if (spineShape < 1.0) {
+                     huVal = 700 + Math.random() * 150; // Cortical Bone (Bright White)
+                     if (spineShape < 0.4) {
+                        huVal = 200 + Math.random() * 40; // Trabecular Marrow (Mid-density)
+                     }
+                     // Spinous process pointing backwards
+                     if (wny > 0.55 && Math.abs(wnx) < 0.05 && wny < 0.7) {
+                         huVal = 600 + Math.random() * 100;
+                     }
+                  }
+
+                  // B. Liver Lobe Profile (Highly defined massive structure on the visual Left Quadrant)
+                  const liverShape = Math.pow(wnx + 0.3, 2)/0.35 + Math.pow(wny + 0.05, 2)/0.25 + Math.pow(wnz, 2)/0.5;
+                  if (liverShape < 1.0) {
+                      // Liver parenchyma: Dense, homogeneous but with granular density fluctuations
+                      const liverGranular = Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
+                      // Mathematically shifted to produce RGB 65-95 under W=350 L=40 windowing
+                      huVal = -30 + liverGranular + Math.random() * 10;
+                      
+                      // Intrahepatic portal vessels (darker branching tubes)
+                      const vesselTex = Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15);
+                      if (vesselTex > 0.8) huVal -= 45; 
+                  }
+
+                  // C. Aortic and Vascular Circular Tracts (Midline, anterior to spine)
+                  const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2)); // Descending Aorta
+                  const ivcDist = Math.sqrt(Math.pow(wnx - 0.1, 2) + Math.pow(wny - 0.2, 2));   // Inferior Vena Cava
+                  if (aortaDist < 0.05 || ivcDist < 0.06) {
+                      huVal = 120 + Math.random() * 15; // Contrast-enhanced blood pooling
+                      // Vessel calcification (Aortic wall plaque)
+                      if (aortaDist > 0.04 || ivcDist > 0.05) {
+                          huVal = 300 + Math.random() * 50; 
+                      }
+                  }
+
+                  // D. Stomach / Bowel Gas (Visual Right Quadrant)
+                  const stomachShape = Math.pow(wnx - 0.4, 2)/0.1 + Math.pow(wny + 0.1, 2)/0.15 + Math.pow(wnz - 0.1, 2)/0.2;
+                  if (stomachShape < 1.0) {
+                      huVal = -900 + Math.random() * 50; // Pitch Black Air
+                      if (stomachShape > 0.7) {
+                          const wallFolds = Math.sin(mapX * 3) * 20; // Rugae/folds
+                          huVal = 20 + wallFolds;
+                      }
+                  }
+                  
+                  // E. Spleen (Far right posterior)
+                  const spleenShape = Math.pow(wnx - 0.5, 2)/0.08 + Math.pow(wny - 0.3, 2)/0.08 + Math.pow(wnz + 0.2, 2)/0.15;
+                  if (spleenShape < 1.0) {
+                      huVal = 45 + Math.random() * 5;
+                  }
+
+                  // F. Kidneys (Bilateral posterior)
+                  const rightKidney = Math.pow(wnx + 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
+                  const leftKidney = Math.pow(wnx - 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1;
+                  if (rightKidney < 1.0 || leftKidney < 1.0) {
+                      huVal = 80 + Math.sin(mapX * 2.0)*10.0; // Renal cortex
+                      if (rightKidney < 0.3 || leftKidney < 0.3) {
+                          huVal = 10; // Renal pelvis (darker fluid collection)
+                      }
+                  }
+
+                  // G. Subcutaneous Fat Layer and Skin
+                  if (bodyShape > 0.85) {
+                      huVal = -120 + Math.random() * 15; // Fat is negative HU
+                      if (bodyShape > 0.98) {
+                          huVal = 50; // Skin border
+                      }
                   }
               }
 
-              // G. Subcutaneous Fat Layer and Skin
-              if (bodyShape > 0.85) {
-                  huVal = -120 + Math.random() * 15; // Fat is negative HU
-                  if (bodyShape > 0.98) {
-                      huVal = 50; // Skin border
-                  }
-              }
+              // Apply Soft-Tissue Contrast Window Filter (W=350, L=40)
+              const windowLevel = 40.0;
+              const windowWidth = 350.0;
+              let windowedVal = (huVal - windowLevel) / windowWidth + 0.5;
+              grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
           }
-
-          // Apply Soft-Tissue Contrast Window Filter (W=350, L=40)
-          const windowLevel = 40.0;
-          const windowWidth = 350.0;
-          let windowedVal = (huVal - windowLevel) / windowWidth + 0.5;
-          let grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
 
           aData[pixelIndex] = grayVal;
           aData[pixelIndex + 1] = grayVal;
@@ -381,7 +392,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     if (sagittalCanvasRef.current) renderView(sagittalCanvasRef.current, 'Sagittal', Depth, Height, Depth * zScale, Height);
     if (coronalCanvasRef.current) renderView(coronalCanvasRef.current, 'Coronal', Width, Depth, Width, Depth * zScale);
 
-  }, [coord, float32Data, dicomFloat32Data, activeLUT, globalOpacity, Width, Height, Depth, getLUTColor]);
+  }, [coord, float32Data, dicomUint8Data, activeLUT, globalOpacity, Width, Height, Depth, getLUTColor]);
 
   if (float32Data.length === 0) {
     return <div style={{ padding: '16px', textAlign: 'center', backgroundColor: '#111827', color: 'white', borderRadius: '8px' }}>No volumetric data available for MPR.</div>;
@@ -418,6 +429,15 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           
           {/* Axial View */}
           <div style={{ backgroundColor: 'black', border: '1px solid #334155', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+            {isDecoding && (
+               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 20, color: '#22d3ee', fontSize: '14px', flexDirection: 'column' }}>
+                  <svg style={{ animation: 'spin 1s linear infinite', height: '24px', width: '24px', marginBottom: '8px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                     <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                     <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Decoding 512x512 Stream...</span>
+               </div>
+            )}
             <div style={{ position: 'absolute', top: '8px', left: '8px', color: '#22d3ee', fontSize: '10px', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>AXIAL (XY) | Z: {coord.z}</div>
             <canvas 
               ref={axialCanvasRef} 
