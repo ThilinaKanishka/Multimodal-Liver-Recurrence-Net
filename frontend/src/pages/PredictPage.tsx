@@ -1110,6 +1110,7 @@ export const PredictPage: React.FC = () => {
                       
                       <MprClinicalWorkstation 
                         base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
+                        dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
                         dimensions={result.interpretability_layer.heatmap_spatial_shape} 
                       />
                     </div>

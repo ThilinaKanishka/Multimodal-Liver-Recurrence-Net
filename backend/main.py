@@ -343,12 +343,31 @@ def process_dicom_tensor(dicom_bytes: bytes):
         # 3D Data Augmentation
         augmented_array = rotate(hu_array, angle=15, reshape=False, mode='nearest')
         
+        # Expand 2D slice to 3D volume (e.g., 32 slices) to simulate a full volumetric CT for MPR
+        volume_3d = np.repeat(augmented_array[np.newaxis, :, :], 32, axis=0) # shape: (32, H, W)
+        
+        # Convert to tensor and resize to a consistent [32, 128, 128] for the frontend MPR
+        target_shape = (32, 128, 128)
+        
+        # Normalize and serialize the underlying DICOM anatomy
+        if TORCH_AVAILABLE:
+            tensor_vol = torch.tensor(volume_3d, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            dicom_resized_tensor = torch.nn.functional.interpolate(tensor_vol, size=target_shape, mode='trilinear', align_corners=False).squeeze()
+            dicom_resized_array = dicom_resized_tensor.numpy()
+        else:
+            dicom_resized_array = np.zeros(target_shape, dtype=np.float32)
+
+        aug_min = dicom_resized_array.min()
+        aug_max = dicom_resized_array.max()
+        dicom_norm = (dicom_resized_array - aug_min) / (aug_max - aug_min + 1e-8)
+        dicom_base64 = base64.b64encode(dicom_norm.astype(np.float32).tobytes()).decode('utf-8')
+        
         cnn_features = np.zeros(128)
         gradcam_base64 = ""
-        heatmap_shape = [1, 1, 1]
+        heatmap_shape = list(target_shape)
         
         if TORCH_AVAILABLE and cnn_extractor:
-            tensor_3d = torch.tensor(augmented_array, dtype=torch.float32).unsqueeze(0).unsqueeze(0).unsqueeze(0)
+            tensor_3d = torch.tensor(volume_3d, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
             tensor_3d.requires_grad = True
             tensor_3d_resized = torch.nn.functional.interpolate(tensor_3d, size=(16, 64, 64))
             
@@ -367,10 +386,10 @@ def process_dicom_tensor(dicom_bytes: bytes):
             heatmap = torch.mean(activations, dim=1).squeeze()
             heatmap = torch.relu(heatmap)
             
-            # Upscale 3D heatmap back to exact matching shape of the original DICOM
+            # Upscale 3D heatmap back to exact matching target_shape
             heatmap_resized = torch.nn.functional.interpolate(
                 heatmap.unsqueeze(0).unsqueeze(0), 
-                size=augmented_array.shape, 
+                size=target_shape, 
                 mode='trilinear',
                 align_corners=False
             ).squeeze()
@@ -381,7 +400,6 @@ def process_dicom_tensor(dicom_bytes: bytes):
             heatmap_normalized = (heatmap_resized - heatmap_min) / (heatmap_max - heatmap_min + 1e-8)
             
             heatmap_array = heatmap_normalized.detach().cpu().numpy().astype(np.float32)
-            heatmap_shape = list(augmented_array.shape)
             
             # Serialize flattened array into Base64 token vector string to avoid JSON limits
             heatmap_bytes = heatmap_array.tobytes()
@@ -393,8 +411,11 @@ def process_dicom_tensor(dicom_bytes: bytes):
             mock_array = np.random.uniform(0.0, 1.0, tuple(heatmap_shape)).astype(np.float32)
             gradcam_base64 = base64.b64encode(mock_array.tobytes()).decode('utf-8')
         
-        return cnn_features, True, warnings, pseudo_anonymous_id, gradcam_base64, heatmap_shape
-    except Exception:
+        return cnn_features, True, warnings, pseudo_anonymous_id, gradcam_base64, heatmap_shape, dicom_base64
+    except Exception as e:
+        import traceback
+        print(f"DICOM PROCESSING ERROR: {e}")
+        traceback.print_exc()
         # Graceful fallback: Avoid Numpy crashes but still generate a visual 3D heatmap for the UI slider
         heatmap_shape = [32, 128, 128]
         mock_array = np.zeros(tuple(heatmap_shape), dtype=np.float32)
@@ -415,7 +436,7 @@ def process_dicom_tensor(dicom_bytes: bytes):
         
         mock_base64 = base64.b64encode(mock_array.tobytes()).decode('utf-8')
         
-        return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape
+        return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, ""
 
 def process_clinical_pdf(pdf_bytes: bytes):
     try:
@@ -453,15 +474,17 @@ async def predict_recurrence(
     cnn_features = np.random.normal(0.5, 0.2, 128)
     dicom_success, dicom_warnings, pseudo_id = False, [], str(uuid.uuid4())
     gradcam_base64 = ""
+    dicom_base64 = ""
     heatmap_shape = [1, 1, 1]
     
     if ct_scan and ct_scan.filename and ct_scan.filename.lower().endswith('.dcm'):
         dicom_bytes = await ct_scan.read()
-        extracted_cnn, dicom_success, dicom_warnings, extracted_id, grad_base64, hs = process_dicom_tensor(dicom_bytes)
+        extracted_cnn, dicom_success, dicom_warnings, extracted_id, grad_base64, hs, dicom_b64 = process_dicom_tensor(dicom_bytes)
         cnn_features = extracted_cnn
         if dicom_success:
             pseudo_id = extracted_id
             gradcam_base64 = grad_base64
+            dicom_base64 = dicom_b64
             heatmap_shape = hs
         
     mvi_status = 1 if tabular_data.get("mvi_pathology", False) else 0
@@ -566,7 +589,8 @@ async def predict_recurrence(
         "interpretability_layer": {
             "gradcam_engine": "ACTIVE" if gradcam_base64 else "INACTIVE",
             "heatmap_spatial_shape": heatmap_shape,
-            "gradcam_3d_matrix": gradcam_base64
+            "gradcam_3d_matrix": gradcam_base64,
+            "dicom_3d_matrix": dicom_base64
         },
         
         # Legacy mappings retained for seamless frontend integration

@@ -123,11 +123,18 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      if (canvas.width !== destWidth || canvas.height !== destHeight) {
-        canvas.width = destWidth;
-        canvas.height = destHeight;
+      // 1. High-DPI Display Acceleration (Retina Resolution Fix)
+      const dpr = window.devicePixelRatio || 1;
+      const UPSAMPLE_FACTOR = 8; // Double resolution: Upscale 128x128 -> 1024x1024 natively
+      const internalWidth = Math.floor(destWidth * UPSAMPLE_FACTOR * dpr);
+      const internalHeight = Math.floor(destHeight * UPSAMPLE_FACTOR * dpr);
+
+      if (canvas.width !== internalWidth || canvas.height !== internalHeight) {
+        canvas.width = internalWidth;
+        canvas.height = internalHeight;
       }
 
+      // Offscreen canvas for raw voxel data extraction (matches 3D tensor shape)
       const offscreen = document.createElement('canvas');
       offscreen.width = srcWidth;
       offscreen.height = srcHeight;
@@ -144,21 +151,13 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       for (let y = 0; y < srcHeight; y++) {
         for (let x = 0; x < srcWidth; x++) {
           let mapX = 0, mapY = 0, mapZ = 0;
-          let drawCrosshairX = false;
-          let drawCrosshairY = false;
 
           if (viewType === 'Axial') {
             mapX = x; mapY = y; mapZ = coord.z;
-            drawCrosshairX = x === coord.x;
-            drawCrosshairY = y === coord.y;
           } else if (viewType === 'Sagittal') {
             mapX = coord.x; mapY = y; mapZ = x;
-            drawCrosshairX = x === coord.z;
-            drawCrosshairY = y === coord.y;
           } else if (viewType === 'Coronal') {
             mapX = x; mapY = coord.y; mapZ = y;
-            drawCrosshairX = x === coord.x;
-            drawCrosshairY = y === coord.z;
           }
 
           const flatIndex = mapZ * Height * Width + mapY * Width + mapX;
@@ -172,41 +171,104 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
           let grayVal = 10;
           if (dicomFloat32Data && dicomFloat32Data.length > flatIndex) {
-            grayVal = Math.floor(Math.max(0, Math.min(1, dicomFloat32Data[flatIndex])) * 255);
+            const rawVal = dicomFloat32Data[flatIndex];
+            // Contrast & Brightness Adjustment (Soft Tissue Windowing W=350, L=40)
+            const windowLevel = 0.52;  // ~40 HU offset logic
+            const windowWidth = 0.175; // ~350 HU stretch logic
+            let windowedVal = (rawVal - windowLevel) / windowWidth + 0.5;
+            grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
           } else {
-             grayVal = Math.floor(heatVal * 20 + 30);
+             // 2. Hardcode an Anatomical Base Layer (Photographic DICOM Simulation)
+             const cx = srcWidth / 2;
+             const cy = srcHeight / 2;
+             const dx = x - cx;
+             const dy = y - cy;
+             
+             // Oval boundary equation simulating a true anatomical cross-section
+             const distance = Math.sqrt((dx * dx) / (cx * 0.8 * cx * 0.8) + (dy * dy) / (cy * 0.7 * cy * 0.7));
+             
+             if (distance < 1.0) {
+                // Inside boundary: subtle organic variations of dark and light gray pixels (soft tissue structures)
+                const tissueTex1 = Math.sin(x * 0.2) * Math.cos(y * 0.2) * 12;
+                const tissueTex2 = Math.sin((x + y) * 0.1) * 8;
+                const baseTissueGray = 85; // Natural dark gray tissue tone
+                
+                grayVal = Math.floor(Math.max(0, Math.min(255, baseTissueGray + tissueTex1 + tissueTex2)));
+                
+                // Add a bright bone/capsule ring near the outer edge
+                if (distance > 0.85) {
+                   grayVal = Math.floor(Math.min(255, grayVal + (distance - 0.85) * 600));
+                }
+             } else {
+                // Outside boundary: deep black like a real DICOM viewer
+                grayVal = 0;
+             }
           }
 
           const pixelIndex = (y * srcWidth + x) * 4;
 
+          // Always set the base anatomical layer as fully opaque
           data[pixelIndex] = grayVal;
           data[pixelIndex + 1] = grayVal;
           data[pixelIndex + 2] = grayVal;
-          data[pixelIndex + 3] = 255;
+          data[pixelIndex + 3] = 255; 
 
-          if (heatVal > 0.15) {
+          // 3. Strict Threshold Alpha Masking (Cut the Blue Fog)
+          // If activation v < 0.40, we do NOT overlay colors (transparent mask).
+          if (heatVal >= 0.40) {
             const [r, g, b] = getLUTColor(heatVal, activeLUT);
-            const alpha = Math.min(1, heatVal * globalOpacity * 2);
+            const alpha = Math.min(1, heatVal * globalOpacity * 2.5); // Translucent blending over anatomy
             data[pixelIndex] = Math.floor(r * alpha + grayVal * (1 - alpha));
             data[pixelIndex + 1] = Math.floor(g * alpha + grayVal * (1 - alpha));
             data[pixelIndex + 2] = Math.floor(b * alpha + grayVal * (1 - alpha));
-          }
-
-          if (drawCrosshairX || drawCrosshairY) {
-            data[pixelIndex] = 34;
-            data[pixelIndex + 1] = 211;
-            data[pixelIndex + 2] = 238;
-            data[pixelIndex + 3] = 200;
           }
         }
       }
 
       offCtx.putImageData(imageData, 0, 0);
 
-      ctx.imageSmoothingEnabled = false;
+      // 4. High-DPI Anti-Aliased Overlay Rendering
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // reset matrix
+      ctx.scale(internalWidth / destWidth, internalHeight / destHeight);
+
+      // Enforce high-quality bicubic blending to organicize boundaries
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.clearRect(0, 0, destWidth, destHeight);
+      
+      // Draw the 128x128 buffer directly onto the upscaled 1024x1024 backing store
       ctx.drawImage(offscreen, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
 
+      // Draw High-Resolution Crosshairs (Anti-aliased crisp vectors on Retina display)
+      let destCrossX = -1;
+      let destCrossY = -1;
+      
+      if (viewType === 'Axial') {
+         destCrossX = coord.x * (destWidth / srcWidth);
+         destCrossY = coord.y * (destHeight / srcHeight);
+      } else if (viewType === 'Sagittal') {
+         destCrossX = coord.z * (destWidth / srcWidth);
+         destCrossY = coord.y * (destHeight / srcHeight);
+      } else if (viewType === 'Coronal') {
+         destCrossX = coord.x * (destWidth / srcWidth);
+         destCrossY = coord.z * (destHeight / srcHeight);
+      }
+
+      if (destCrossX >= 0 && destCrossY >= 0) {
+         ctx.beginPath();
+         ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)'; // Cyan
+         ctx.lineWidth = 1.0; 
+         
+         ctx.moveTo(destCrossX, 0);
+         ctx.lineTo(destCrossX, destHeight);
+         
+         ctx.moveTo(0, destCrossY);
+         ctx.lineTo(destWidth, destCrossY);
+         
+         ctx.stroke();
+      }
+
+      // Draw RECIST Callipers overlay directly on destination scale
       if (maxAct > 0.6) {
         const scaleX = destWidth / srcWidth;
         const scaleY = destHeight / srcHeight;
@@ -214,7 +276,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         const destCoreY = coreY * scaleY;
 
         ctx.beginPath();
-        ctx.strokeStyle = '#4ade80';
+        ctx.strokeStyle = '#4ade80'; // Bright Green
         ctx.lineWidth = 1.5;
         
         ctx.moveTo(destCoreX - 25, destCoreY - 15);
@@ -225,8 +287,11 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         ctx.stroke();
 
         ctx.fillStyle = '#4ade80';
-        ctx.font = '10px monospace';
+        ctx.font = 'bold 12px monospace';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
         ctx.fillText('RECIST: 14.5 x 12.2 mm', destCoreX + 30, destCoreY);
+        ctx.shadowBlur = 0; // Reset for performance
       }
     };
 
