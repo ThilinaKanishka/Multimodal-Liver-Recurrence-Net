@@ -327,10 +327,13 @@ def process_dicom_tensor(dicom_bytes: bytes):
     try:
         ds = pydicom.dcmread(io.BytesIO(dicom_bytes))
         phi_data = ""
-        for tag in ['PatientName', 'InstitutionName', 'PhysicianOfRecord', 'PatientID']:
-            if tag in ds:
-                phi_data += str(ds.data_element(tag).value)
-                ds.data_element(tag).value = "ANONYMIZED"
+        for tag in ['PatientName', 'InstitutionName', 'ReferringPhysicianName', 'PatientID', 'PhysiciansOfRecord']:
+            try:
+                if tag in ds:
+                    phi_data += str(ds.data_element(tag).value)
+                    ds.data_element(tag).value = "ANONYMIZED"
+            except Exception:
+                pass
                 
         if phi_data:
             pseudo_anonymous_id = hashlib.sha256(phi_data.encode()).hexdigest()
@@ -346,21 +349,27 @@ def process_dicom_tensor(dicom_bytes: bytes):
         # Expand 2D slice to 3D volume (e.g., 32 slices) to simulate a full volumetric CT for MPR
         volume_3d = np.repeat(augmented_array[np.newaxis, :, :], 32, axis=0) # shape: (32, H, W)
         
-        # Convert to tensor and resize to a consistent [32, 128, 128] for the frontend MPR
-        target_shape = (32, 128, 128)
+        # Convert to tensor and resize to a consistent [32, 512, 512] for the frontend MPR
+        target_shape = (32, 512, 512)
         
         # Normalize and serialize the underlying DICOM anatomy
         if TORCH_AVAILABLE:
+            import torch.utils.dlpack
             tensor_vol = torch.tensor(volume_3d, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
-            dicom_resized_tensor = torch.nn.functional.interpolate(tensor_vol, size=target_shape, mode='trilinear', align_corners=False).squeeze()
-            dicom_resized_array = dicom_resized_tensor.numpy()
+            upsampler_dicom = torch.nn.Upsample(size=target_shape, mode='trilinear', align_corners=False)
+            dicom_resized_tensor = upsampler_dicom(tensor_vol).squeeze().contiguous()
+            dicom_resized_array = np.from_dlpack(torch.utils.dlpack.to_dlpack(dicom_resized_tensor)).copy()
         else:
             dicom_resized_array = np.zeros(target_shape, dtype=np.float32)
 
-        aug_min = dicom_resized_array.min()
-        aug_max = dicom_resized_array.max()
-        dicom_norm = (dicom_resized_array - aug_min) / (aug_max - aug_min + 1e-8)
-        dicom_base64 = base64.b64encode(dicom_norm.astype(np.float32).tobytes()).decode('utf-8')
+        # Apply Authentic Soft-Tissue Window (W=350, L=40) locally to save payload bandwidth
+        window_level = 40.0
+        window_width = 350.0
+        dicom_windowed = (dicom_resized_array - window_level) / window_width + 0.5
+        dicom_uint8 = np.clip(dicom_windowed, 0.0, 1.0) * 255.0
+        dicom_uint8 = dicom_uint8.astype(np.uint8)
+        
+        dicom_base64 = base64.b64encode(dicom_uint8.tobytes()).decode('utf-8')
         
         cnn_features = np.zeros(128)
         gradcam_base64 = ""
@@ -372,7 +381,10 @@ def process_dicom_tensor(dicom_bytes: bytes):
             tensor_3d_resized = torch.nn.functional.interpolate(tensor_3d, size=(16, 64, 64))
             
             embedding = cnn_extractor(tensor_3d_resized)
-            cnn_features = embedding.detach().squeeze().numpy()
+            
+            # Use dlpack to bypass PyTorch .numpy() blockers
+            import torch.utils.dlpack
+            cnn_features = np.from_dlpack(torch.utils.dlpack.to_dlpack(embedding.detach().squeeze().contiguous())).copy()
             
             # 3D Grad-CAM Extraction Logic
             embedding.sum().backward()
@@ -386,20 +398,18 @@ def process_dicom_tensor(dicom_bytes: bytes):
             heatmap = torch.mean(activations, dim=1).squeeze()
             heatmap = torch.relu(heatmap)
             
-            # Upscale 3D heatmap back to exact matching target_shape
-            heatmap_resized = torch.nn.functional.interpolate(
-                heatmap.unsqueeze(0).unsqueeze(0), 
-                size=target_shape, 
-                mode='trilinear',
-                align_corners=False
-            ).squeeze()
+            # Explicit 3D Linear Upsampling Layer integration
+            upsampler_gradcam = torch.nn.Upsample(size=target_shape, mode='trilinear', align_corners=False)
+            heatmap_resized = upsampler_gradcam(heatmap.unsqueeze(0).unsqueeze(0)).squeeze()
             
             # Min-max normalize to 0.0 - 1.0
             heatmap_min = heatmap_resized.min()
             heatmap_max = heatmap_resized.max()
             heatmap_normalized = (heatmap_resized - heatmap_min) / (heatmap_max - heatmap_min + 1e-8)
             
-            heatmap_array = heatmap_normalized.detach().cpu().numpy().astype(np.float32)
+            # Use dlpack to export to numpy bypassing PyTorch's version blockers
+            import torch.utils.dlpack
+            heatmap_array = np.from_dlpack(torch.utils.dlpack.to_dlpack(heatmap_normalized.detach().cpu().contiguous())).copy().astype(np.float32)
             
             # Serialize flattened array into Base64 token vector string to avoid JSON limits
             heatmap_bytes = heatmap_array.tobytes()
@@ -433,8 +443,9 @@ def process_dicom_tensor(dicom_bytes: bytes):
                     
         # Add some ambient noise
         mock_array += np.random.uniform(0.0, 0.2, tuple(heatmap_shape)).astype(np.float32)
+        mock_array_uint8 = (np.clip(mock_array, 0.0, 1.0) * 255.0).astype(np.uint8)
         
-        mock_base64 = base64.b64encode(mock_array.tobytes()).decode('utf-8')
+        mock_base64 = base64.b64encode(mock_array_uint8.tobytes()).decode('utf-8')
         
         return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, ""
 
