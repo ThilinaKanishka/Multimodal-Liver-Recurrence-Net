@@ -4,6 +4,7 @@ interface MprClinicalWorkstationProps {
   base64Matrix: string;
   dicomBase64Matrix?: string;
   dimensions: [number, number, number]; // [Depth (Z), Height (Y), Width (X)]
+  tumorTarget?: { found: boolean; x: number; y: number; z: number };
 }
 
 type LUTType = 'Jet' | 'Viridis' | 'Magma' | 'Plasma';
@@ -12,6 +13,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   base64Matrix,
   dicomBase64Matrix,
   dimensions,
+  tumorTarget,
 }) => {
   const [Depth, Height, Width] = dimensions;
 
@@ -363,28 +365,90 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
          ctx.stroke();
       }
 
-      // Draw RECIST Callipers
-      if (maxAct >= 0.38) {
-        const scaleX = destWidth / srcWidth;
-        const scaleY = destHeight / srcHeight;
-        const destCoreX = coreX * scaleX;
-        const destCoreY = coreY * scaleY;
+      // Draw Authentic RECIST Bounding Box dynamically
+      if (tumorTarget && tumorTarget.found) {
+        let drawOverlay = false;
+        let tX = 0;
+        let tY = 0;
+        let diffZ = 0;
 
-        ctx.beginPath();
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 1.5;
-        ctx.moveTo(destCoreX - 25, destCoreY - 15);
-        ctx.lineTo(destCoreX + 25, destCoreY + 15);
-        ctx.moveTo(destCoreX - 10, destCoreY + 15);
-        ctx.lineTo(destCoreX + 10, destCoreY - 15);
-        ctx.stroke();
+        // Map the 3D target coordinates to the current view projection
+        if (viewType === 'Axial') {
+          diffZ = Math.abs(coord.z - tumorTarget.z);
+          tX = tumorTarget.x;
+          tY = tumorTarget.y;
+        } else if (viewType === 'Coronal') {
+          diffZ = Math.abs(coord.y - tumorTarget.y);
+          tX = tumorTarget.x;
+          tY = tumorTarget.z;
+        } else if (viewType === 'Sagittal') {
+          diffZ = Math.abs(coord.x - tumorTarget.x);
+          tX = tumorTarget.z;
+          tY = tumorTarget.y;
+        }
 
-        ctx.fillStyle = '#4ade80';
-        ctx.font = 'bold 12px monospace';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 4;
-        ctx.fillText('RECIST: 14.5 x 12.2 mm', destCoreX + 30, destCoreY);
-        ctx.shadowBlur = 0;
+        if (diffZ <= 2) {
+          drawOverlay = true;
+        }
+
+        if (drawOverlay) {
+          ctx.save();
+          // Reset context transform to draw annotations crisply without coordinate stretching
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+          // Absolute coordinates in the 1024x1024 high-res buffer
+          const pixelX = (tX / srcWidth) * internalWidth;
+          const pixelY = (tY / srcHeight) * internalHeight;
+
+          // Scaled explicitly for Retina/High-DPI internal canvas mapping (2x multiplier)
+          const boxSize = 140; // Scaled 70x70 clinical bounding box
+          const halfBox = boxSize / 2;
+          const thermalRadius = 70; // Scaled 35px radius
+
+          // 1. Expanded Thermal Heatmap (Layer 2)
+          const radGrad = ctx.createRadialGradient(pixelX, pixelY, 0, pixelX, pixelY, thermalRadius);
+          // Solid deep red core up to ~17px visual (35px internal)
+          radGrad.addColorStop(0, 'rgba(255, 0, 0, 0.6)');
+          radGrad.addColorStop(0.45, 'rgba(255, 0, 0, 0.6)');
+          // Fades to amber/yellow at ~30px visual (60px internal)
+          radGrad.addColorStop(0.85, 'rgba(255, 165, 0, 0.4)');
+          // Transparent edge
+          radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          
+          ctx.fillStyle = radGrad;
+          ctx.fillRect(pixelX - thermalRadius, pixelY - thermalRadius, thermalRadius * 2, thermalRadius * 2);
+
+          // 2. Enlarge the Clinical Bounding Box (Layer 3)
+          ctx.beginPath();
+          ctx.strokeStyle = '#00FFCC';
+          ctx.setLineDash([6, 6]); // Internally 6px to render a crisp [3, 3] visual
+          ctx.lineWidth = 2.0; // Internally 2px to render a crisp 1.0 visual
+          ctx.rect(pixelX - halfBox, pixelY - halfBox, boxSize, boxSize);
+          ctx.stroke();
+
+          // 3. Professional Micro-Typography & Badge
+          const fontSize = 24; // Scaled 12px font for 2x crispness
+          ctx.font = `${fontSize}px 'Inter', system-ui, sans-serif`;
+          const textStr = "RECIST ROI";
+          const textWidth = ctx.measureText(textStr).width;
+          const badgePadding = 12; // Scaled 6px padding
+          const badgeWidth = textWidth + badgePadding;
+          const badgeHeight = fontSize + 8; // Perfect wrapping
+          
+          const badgeX = pixelX + halfBox + 6;
+          const badgeY = pixelY - halfBox - 4;
+
+          // Draw the dark background badge exactly the width of text + padding
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+          ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
+          
+          // Pure white text vertically centered
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textBaseline = 'top';
+          ctx.fillText(textStr, badgeX + badgePadding / 2, badgeY + 4);
+
+          ctx.restore();
+        }
       }
     };
 

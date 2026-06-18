@@ -49,6 +49,8 @@ export interface PredictionResult {
     gradcam_engine: string;
     heatmap_spatial_shape: [number, number, number];
     gradcam_3d_matrix: string;
+    dicom_3d_matrix?: string;
+    tumor_target?: { found: boolean; x: number; y: number; z: number };
   };
 }
 
@@ -1112,6 +1114,7 @@ export const PredictPage: React.FC = () => {
                         base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
                         dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
                         dimensions={result.interpretability_layer.heatmap_spatial_shape} 
+                        tumorTarget={result.interpretability_layer.tumor_target}
                       />
                     </div>
                   )}
