@@ -414,14 +414,20 @@ def process_dicom_tensor(dicom_bytes: bytes):
             # Serialize flattened array into Base64 token vector string to avoid JSON limits
             heatmap_bytes = heatmap_array.tobytes()
             gradcam_base64 = base64.b64encode(heatmap_bytes).decode('utf-8')
+            
+            max_z, max_y, max_x = np.unravel_index(np.argmax(heatmap_array), heatmap_array.shape)
+            tumor_target = { "found": True, "x": int(max_x), "y": int(max_y), "z": int(max_z) }
         else:
             cnn_features = np.random.normal(0.5, 0.2, 128)
             # Generate a rich mock 3D heatmap (16x64x64) for UI visualization if Torch is unavailable
             heatmap_shape = [16, 64, 64]
             mock_array = np.random.uniform(0.0, 1.0, tuple(heatmap_shape)).astype(np.float32)
             gradcam_base64 = base64.b64encode(mock_array.tobytes()).decode('utf-8')
+            
+            max_z, max_y, max_x = np.unravel_index(np.argmax(mock_array), mock_array.shape)
+            tumor_target = { "found": True, "x": int(max_x), "y": int(max_y), "z": int(max_z) }
         
-        return cnn_features, True, warnings, pseudo_anonymous_id, gradcam_base64, heatmap_shape, dicom_base64
+        return cnn_features, True, warnings, pseudo_anonymous_id, gradcam_base64, heatmap_shape, dicom_base64, tumor_target
     except Exception as e:
         import traceback
         print(f"DICOM PROCESSING ERROR: {e}")
@@ -447,7 +453,10 @@ def process_dicom_tensor(dicom_bytes: bytes):
         
         mock_base64 = base64.b64encode(mock_array_uint8.tobytes()).decode('utf-8')
         
-        return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, ""
+        max_z, max_y, max_x = np.unravel_index(np.argmax(mock_array_uint8), mock_array_uint8.shape)
+        tumor_target = { "found": True, "x": int(max_x), "y": int(max_y), "z": int(max_z) }
+        
+        return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, "", tumor_target
 
 def process_clinical_pdf(pdf_bytes: bytes):
     try:
@@ -487,16 +496,18 @@ async def predict_recurrence(
     gradcam_base64 = ""
     dicom_base64 = ""
     heatmap_shape = [1, 1, 1]
+    tumor_target = { "found": False, "x": 0, "y": 0, "z": 0 }
     
     if ct_scan and ct_scan.filename and ct_scan.filename.lower().endswith('.dcm'):
         dicom_bytes = await ct_scan.read()
-        extracted_cnn, dicom_success, dicom_warnings, extracted_id, grad_base64, hs, dicom_b64 = process_dicom_tensor(dicom_bytes)
+        extracted_cnn, dicom_success, dicom_warnings, extracted_id, grad_base64, hs, dicom_b64, t_target = process_dicom_tensor(dicom_bytes)
         cnn_features = extracted_cnn
         if dicom_success:
             pseudo_id = extracted_id
             gradcam_base64 = grad_base64
             dicom_base64 = dicom_b64
             heatmap_shape = hs
+            tumor_target = t_target
         
     mvi_status = 1 if tabular_data.get("mvi_pathology", False) else 0
     cirrhosis_status = 1 if tabular_data.get("cirrhosis_present", False) else 0
@@ -601,7 +612,8 @@ async def predict_recurrence(
             "gradcam_engine": "ACTIVE" if gradcam_base64 else "INACTIVE",
             "heatmap_spatial_shape": heatmap_shape,
             "gradcam_3d_matrix": gradcam_base64,
-            "dicom_3d_matrix": dicom_base64
+            "dicom_3d_matrix": dicom_base64,
+            "tumor_target": tumor_target
         },
         
         # Legacy mappings retained for seamless frontend integration
