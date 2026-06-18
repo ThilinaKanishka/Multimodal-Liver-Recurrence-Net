@@ -25,6 +25,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   });
   const [globalOpacity, setGlobalOpacity] = useState<number>(0.5);
   const [activeLUT, setActiveLUT] = useState<LUTType>('Jet');
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
 
   const axialCanvasRef = useRef<HTMLCanvasElement>(null);
   const coronalCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -321,19 +322,38 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(internalWidth / destWidth, internalHeight / destHeight);
 
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+      // Disable image smoothing when zoomed in to preserve sharp medical details
+      ctx.imageSmoothingEnabled = zoomLevel <= 2.0;
+      if (zoomLevel <= 2.0) ctx.imageSmoothingQuality = 'high';
       ctx.clearRect(0, 0, destWidth, destHeight);
+
+      // Calculate Viewport based on Zoom Level
+      const viewWidth = srcWidth / zoomLevel;
+      const viewHeight = srcHeight / zoomLevel;
+      let cx = 0; let cy = 0;
+
+      if (viewType === 'Axial') { cx = coord.x; cy = coord.y; }
+      else if (viewType === 'Sagittal') { cx = coord.z; cy = coord.y; }
+      else if (viewType === 'Coronal') { cx = coord.x; cy = coord.z; }
+
+      let sx = cx - viewWidth / 2;
+      let sy = cy - viewHeight / 2;
+
+      // Clamp to image bounds to prevent panning out of view
+      if (sx < 0) sx = 0;
+      if (sy < 0) sy = 0;
+      if (sx + viewWidth > srcWidth) sx = srcWidth - viewWidth;
+      if (sy + viewHeight > srcHeight) sy = srcHeight - viewHeight;
       
       // Step A: Base Anatomy Layer
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1.0;
-      ctx.drawImage(offAnat, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
+      ctx.drawImage(offAnat, sx, sy, viewWidth, viewHeight, 0, 0, destWidth, destHeight);
 
       // Step B: Heatmap Diagnostic Overlay at 40% Opacity blending
       ctx.globalCompositeOperation = 'source-over'; 
       ctx.globalAlpha = 0.40; // 40% visibility overlay rule
-      ctx.drawImage(offHeat, 0, 0, srcWidth, srcHeight, 0, 0, destWidth, destHeight);
+      ctx.drawImage(offHeat, sx, sy, viewWidth, viewHeight, 0, 0, destWidth, destHeight);
 
       // Reset Context Globals for UI Rendering
       ctx.globalAlpha = 1.0;
@@ -344,14 +364,14 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       let destCrossY = -1;
       
       if (viewType === 'Axial') {
-         destCrossX = coord.x * (destWidth / srcWidth);
-         destCrossY = coord.y * (destHeight / srcHeight);
+         destCrossX = ((coord.x - sx) / viewWidth) * destWidth;
+         destCrossY = ((coord.y - sy) / viewHeight) * destHeight;
       } else if (viewType === 'Sagittal') {
-         destCrossX = coord.z * (destWidth / srcWidth);
-         destCrossY = coord.y * (destHeight / srcHeight);
+         destCrossX = ((coord.z - sx) / viewWidth) * destWidth;
+         destCrossY = ((coord.y - sy) / viewHeight) * destHeight;
       } else if (viewType === 'Coronal') {
-         destCrossX = coord.x * (destWidth / srcWidth);
-         destCrossY = coord.z * (destHeight / srcHeight);
+         destCrossX = ((coord.x - sx) / viewWidth) * destWidth;
+         destCrossY = ((coord.z - sy) / viewHeight) * destHeight;
       }
 
       if (destCrossX >= 0 && destCrossY >= 0) {
@@ -396,14 +416,15 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           // Reset context transform to draw annotations crisply without coordinate stretching
           ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-          // Absolute coordinates in the 1024x1024 high-res buffer
-          const pixelX = (tX / srcWidth) * internalWidth;
-          const pixelY = (tY / srcHeight) * internalHeight;
+          // Absolute coordinates mapped through the zoomed viewport to the 1024x1024 high-res buffer
+          const pixelX = ((tX - sx) / viewWidth) * internalWidth;
+          const pixelY = ((tY - sy) / viewHeight) * internalHeight;
 
           // Scaled explicitly for Retina/High-DPI internal canvas mapping (2x multiplier)
-          const boxSize = 140; // Scaled 70x70 clinical bounding box
+          // Box size scales up with zoom to maintain physical real-world bounds of the tumor
+          const boxSize = 140 * zoomLevel; 
           const halfBox = boxSize / 2;
-          const thermalRadius = 70; // Scaled 35px radius
+          const thermalRadius = 70 * zoomLevel;
 
           // 1. Expanded Thermal Heatmap (Layer 2)
           const radGrad = ctx.createRadialGradient(pixelX, pixelY, 0, pixelX, pixelY, thermalRadius);
@@ -456,7 +477,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     if (sagittalCanvasRef.current) renderView(sagittalCanvasRef.current, 'Sagittal', Depth, Height, Depth * zScale, Height);
     if (coronalCanvasRef.current) renderView(coronalCanvasRef.current, 'Coronal', Width, Depth, Width, Depth * zScale);
 
-  }, [coord, float32Data, dicomUint8Data, activeLUT, globalOpacity, Width, Height, Depth, getLUTColor]);
+  }, [coord, float32Data, dicomUint8Data, activeLUT, globalOpacity, zoomLevel, Width, Height, Depth, getLUTColor]);
 
   if (float32Data.length === 0) {
     return <div style={{ padding: '16px', textAlign: 'center', backgroundColor: '#111827', color: 'white', borderRadius: '8px' }}>No volumetric data available for MPR.</div>;
@@ -505,11 +526,21 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
             <div style={{ position: 'absolute', top: '8px', left: '8px', color: '#22d3ee', fontSize: '10px', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>AXIAL (XY) | Z: {coord.z}</div>
             <canvas 
               ref={axialCanvasRef} 
-              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block' }}
+              title="Click to place crosshair, scroll to zoom"
+              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block', imageRendering: zoomLevel > 2.0 ? 'pixelated' : 'auto' }}
+              onWheel={(e) => setZoomLevel(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)))}
               onClick={(e) => {
+                const viewWidth = Width / zoomLevel;
+                const viewHeight = Height / zoomLevel;
+                let sx = coord.x - viewWidth / 2;
+                let sy = coord.y - viewHeight / 2;
+                if (sx < 0) sx = 0; if (sy < 0) sy = 0;
+                if (sx + viewWidth > Width) sx = Width - viewWidth;
+                if (sy + viewHeight > Height) sy = Height - viewHeight;
+
                 const rect = e.currentTarget.getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) * (Width / rect.width));
-                const y = Math.floor((e.clientY - rect.top) * (Height / rect.height));
+                const x = Math.floor(sx + ((e.clientX - rect.left) / rect.width) * viewWidth);
+                const y = Math.floor(sy + ((e.clientY - rect.top) / rect.height) * viewHeight);
                 setCoord(prev => ({ ...prev, x, y }));
               }}
             />
@@ -520,11 +551,21 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
             <div style={{ position: 'absolute', top: '8px', left: '8px', color: '#22d3ee', fontSize: '10px', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>CORONAL (XZ) | Y: {coord.y}</div>
             <canvas 
               ref={coronalCanvasRef} 
-              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block' }}
+              title="Click to place crosshair, scroll to zoom"
+              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block', imageRendering: zoomLevel > 2.0 ? 'pixelated' : 'auto' }}
+              onWheel={(e) => setZoomLevel(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)))}
               onClick={(e) => {
+                const viewWidth = Width / zoomLevel;
+                const viewHeight = Depth / zoomLevel;
+                let sx = coord.x - viewWidth / 2;
+                let sz = coord.z - viewHeight / 2;
+                if (sx < 0) sx = 0; if (sz < 0) sz = 0;
+                if (sx + viewWidth > Width) sx = Width - viewWidth;
+                if (sz + viewHeight > Depth) sz = Depth - viewHeight;
+
                 const rect = e.currentTarget.getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) * (Width / rect.width));
-                const z = Math.floor((e.clientY - rect.top) * (Depth / rect.height));
+                const x = Math.floor(sx + ((e.clientX - rect.left) / rect.width) * viewWidth);
+                const z = Math.floor(sz + ((e.clientY - rect.top) / rect.height) * viewHeight);
                 setCoord(prev => ({ ...prev, x, z }));
               }}
             />
@@ -535,11 +576,21 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
             <div style={{ position: 'absolute', top: '8px', left: '8px', color: '#22d3ee', fontSize: '10px', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>SAGITTAL (YZ) | X: {coord.x}</div>
             <canvas 
               ref={sagittalCanvasRef} 
-              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block' }}
+              title="Click to place crosshair, scroll to zoom"
+              style={{ width: '100%', height: 'auto', maxHeight: '400px', cursor: 'crosshair', objectFit: 'contain', display: 'block', imageRendering: zoomLevel > 2.0 ? 'pixelated' : 'auto' }}
+              onWheel={(e) => setZoomLevel(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)))}
               onClick={(e) => {
+                const viewWidth = Depth / zoomLevel;
+                const viewHeight = Height / zoomLevel;
+                let sz = coord.z - viewWidth / 2;
+                let sy = coord.y - viewHeight / 2;
+                if (sz < 0) sz = 0; if (sy < 0) sy = 0;
+                if (sz + viewWidth > Depth) sz = Depth - viewWidth;
+                if (sy + viewHeight > Height) sy = Height - viewHeight;
+
                 const rect = e.currentTarget.getBoundingClientRect();
-                const z = Math.floor((e.clientX - rect.left) * (Depth / rect.width));
-                const y = Math.floor((e.clientY - rect.top) * (Height / rect.height));
+                const z = Math.floor(sz + ((e.clientX - rect.left) / rect.width) * viewWidth);
+                const y = Math.floor(sy + ((e.clientY - rect.top) / rect.height) * viewHeight);
                 setCoord(prev => ({ ...prev, z, y }));
               }}
             />
@@ -547,6 +598,14 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           
           {/* Controls Area inside Grid */}
           <div style={{ padding: '20px', backgroundColor: '#111827', border: '1px solid #334155', borderRadius: '4px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '20px' }}>
+            <div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '8px' }}>
+                 <span>Magnification (Zoom)</span>
+                 <span style={{ color: '#10b981', fontWeight: 'bold' }}>{zoomLevel.toFixed(1)}x</span>
+               </div>
+               <input type="range" min="1" max="8" step="0.1" value={zoomLevel} onChange={(e) => setZoomLevel(Number(e.target.value))} style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }} />
+            </div>
+
             <div>
                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginBottom: '8px' }}>
                  <span>Opacity Overlay</span>
