@@ -291,7 +291,7 @@ export const PredictPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="flex-1 p-4 flex flex-col gap-4 bg-[#070b14]">
           
           {/* TOP INPUT ROW */}
-          <div className="flex flex-col xl:flex-row gap-4 w-full">
+          <div className="flex flex-col xl:flex-row gap-4 w-full items-stretch">
             {/* LEFT COLUMN: Data Sources */}
             <div className="w-full xl:w-[380px] flex flex-col gap-4 flex-shrink-0">
               
@@ -300,7 +300,7 @@ export const PredictPage: React.FC = () => {
                 <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between">
                   <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-blue-400" />
-                    1. Diagnostic Sources
+                    1. Diagnostic Pipeline
                   </h2>
                 </div>
                 <div className="p-3 flex flex-col gap-3 flex-1 justify-center">
@@ -352,6 +352,20 @@ export const PredictPage: React.FC = () => {
                         EXTRACTION COMPLETE
                       </div>
                     )}
+                  </div>
+
+                  <div className="mt-auto pt-4 border-t border-[#1e293b]">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
+                        loading 
+                          ? "bg-[#1e293b] text-slate-500 cursor-wait border border-[#2a364a]" 
+                          : "bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.2)]"
+                      }`}
+                    >
+                      {loading ? "Processing Inference..." : "Initialize Pipeline"}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -450,28 +464,6 @@ export const PredictPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* EXECUTION CONTROL (Full Width) */}
-          <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
-            <div className="flex items-center gap-3">
-              <Activity className="w-6 h-6 text-blue-500" />
-              <div>
-                <h2 className="text-xs uppercase tracking-wider text-slate-300 font-bold">4. Execution Control</h2>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">Initialize the multimodal prognosis pipeline to generate SHAP-explainable 3D Grad-CAM models.</p>
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`md:w-auto w-full px-8 py-3 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                loading 
-                  ? "bg-[#1e293b] text-slate-500 cursor-wait border border-[#2a364a]" 
-                  : "bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.2)]"
-              }`}
-            >
-              {loading ? "Processing AI Inference..." : "Initialize Prognosis Pipeline"}
-            </button>
           </div>
 
           {errorMessage && (
