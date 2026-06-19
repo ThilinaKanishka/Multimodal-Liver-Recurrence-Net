@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   Upload,
@@ -83,6 +83,8 @@ export const PredictPage: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [extracting, setExtracting] = useState<boolean>(false);
+  const [autoFilled, setAutoFilled] = useState<boolean>(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -125,6 +127,41 @@ export const PredictPage: React.FC = () => {
       setPdfFile(e.target.files[0]);
     }
   };
+
+  useEffect(() => {
+    const autoExtractData = async () => {
+      if (!imageFile || !pdfFile) return;
+
+      setExtracting(true);
+      const payload = new FormData();
+      payload.append("dcm_file", imageFile);
+      payload.append("pdf_file", pdfFile);
+
+      try {
+        const response = await axios.post(
+          "http://127.0.0.1:8000/api/extract-clinical-data",
+          payload,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
+
+        const data = response.data;
+        setFormData((prev) => ({
+          ...prev,
+          ...data,
+        }));
+        setAutoFilled(true);
+        setTimeout(() => setAutoFilled(false), 5000); // Hide after 5 seconds
+      } catch (error) {
+        console.error("Extraction error:", error);
+      } finally {
+        setExtracting(false);
+      }
+    };
+
+    autoExtractData();
+  }, [imageFile, pdfFile]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -385,6 +422,16 @@ export const PredictPage: React.FC = () => {
                   style={{ width: "20px", height: "20px", color: "#2563eb" }}
                 />{" "}
                 2. Patient Lab Metrics & Clinical Phenotypes
+                {extracting && (
+                  <span style={{ marginLeft: "12px", fontSize: "14px", color: "#d97706", backgroundColor: "#fef3c7", padding: "4px 8px", borderRadius: "12px", fontWeight: "normal" }}>
+                    🔄 Auto-Extracting...
+                  </span>
+                )}
+                {!extracting && autoFilled && (
+                  <span style={{ marginLeft: "12px", fontSize: "14px", color: "#059669", backgroundColor: "#d1fae5", padding: "4px 8px", borderRadius: "12px", fontWeight: "normal", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <CheckCircle style={{ width: "16px", height: "16px" }} /> Successfully Auto-Filled!
+                  </span>
+                )}
               </h2>
               <div
                 style={{
