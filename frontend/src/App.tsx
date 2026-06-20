@@ -7,11 +7,22 @@ import { Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAle
 
 // Modern Placeholder Pages with medical workstation aesthetic
 const DashboardPage = () => {
-  const [stats, setStats] = useState({ total_scans: 0, high_risk_detections: 0, system_accuracy: "Loading..." });
+  const [stats, setStats] = useState<any>({ 
+    total_scans: 0, 
+    high_risk_detections: 0, 
+    system_accuracy: "Loading...",
+    risk_distribution: { high: 0, medium: 0, low: 0 },
+    recent_alerts: []
+  });
 
   useEffect(() => {
     axios.get("http://127.0.0.1:8000/api/v1/dashboard-stats").then(res => setStats(res.data)).catch(console.error);
   }, []);
+
+  const totalRisks = stats.risk_distribution.high + stats.risk_distribution.medium + stats.risk_distribution.low;
+  const highPct = totalRisks ? (stats.risk_distribution.high / totalRisks) * 100 : 0;
+  const medPct = totalRisks ? (stats.risk_distribution.medium / totalRisks) * 100 : 0;
+  const lowPct = totalRisks ? (stats.risk_distribution.low / totalRisks) * 100 : 0;
 
   return (
     <div className="flex-1 p-8 bg-[#070b14] text-slate-300 font-sans flex flex-col h-screen overflow-hidden">
@@ -22,29 +33,98 @@ const DashboardPage = () => {
           <p className="text-slate-400 text-sm">රෝහලේ සමස්ත AI පද්ධතියේ ක්‍රියාකාරිත්වය සහ Analytics (Real-Time from MongoDB)</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-6">
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg">
+      
+      {/* Top Counters */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
           <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">Total Scans Analyzed</h3>
-          <p className="text-3xl font-mono text-blue-400">{stats.total_scans}</p>
+          <p className="text-4xl font-mono text-blue-400 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">{stats.total_scans}</p>
         </div>
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg">
+        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
           <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">High Risk Detections</h3>
-          <p className="text-3xl font-mono text-rose-400">{stats.high_risk_detections}</p>
+          <p className="text-4xl font-mono text-rose-400 font-bold drop-shadow-[0_0_10px_rgba(244,63,94,0.5)]">{stats.high_risk_detections}</p>
         </div>
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg">
+        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
           <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">System Accuracy Status</h3>
-          <p className="text-3xl font-mono text-emerald-400">{stats.system_accuracy}</p>
+          <p className="text-4xl font-mono text-emerald-400 font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">{stats.system_accuracy}</p>
         </div>
       </div>
-      <div className="mt-8 bg-[#131826] border border-[#1e293b] flex-1 rounded-md shadow-lg flex items-center justify-center">
-        <div className="text-center text-slate-500">
-           <LayoutDashboard className="w-16 h-16 mx-auto mb-4 opacity-20" />
-           <p className="uppercase tracking-widest text-xs font-bold">More Analytics Coming Soon</p>
+
+      <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
+        {/* Left Col: Risk Distribution Chart */}
+        <div className="col-span-2 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-6 flex flex-col">
+          <div className="flex items-center gap-2 mb-6 border-b border-[#1e293b] pb-2">
+            <Activity className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Risk Distribution Overview</h2>
+          </div>
+          
+          <div className="flex-1 flex flex-col justify-center gap-6 px-4">
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                <span className="text-rose-400">High Risk Detections</span>
+                <span className="text-slate-300 font-mono">{stats.risk_distribution.high} ({highPct.toFixed(1)}%)</span>
+              </div>
+              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
+                <div className="bg-rose-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(244,63,94,0.6)]" style={{ width: `${highPct}%` }}></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                <span className="text-amber-400">Medium Risk Detections</span>
+                <span className="text-slate-300 font-mono">{stats.risk_distribution.medium} ({medPct.toFixed(1)}%)</span>
+              </div>
+              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
+                <div className="bg-amber-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(245,158,11,0.6)]" style={{ width: `${medPct}%` }}></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                <span className="text-emerald-400">Low Risk Detections</span>
+                <span className="text-slate-300 font-mono">{stats.risk_distribution.low} ({lowPct.toFixed(1)}%)</span>
+              </div>
+              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
+                <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.6)]" style={{ width: `${lowPct}%` }}></div>
+              </div>
+            </div>
+            <p className="text-center mt-4 text-[10px] text-slate-500 uppercase tracking-widest border-t border-[#1e293b] pt-4">Data automatically synchronized with Clinical Ledger</p>
+          </div>
+        </div>
+
+        {/* Right Col: Critical Alerts */}
+        <div className="col-span-1 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-6 flex flex-col overflow-hidden">
+          <div className="flex items-center gap-2 mb-4 border-b border-[#1e293b] pb-2 text-rose-400">
+            <ShieldAlert className="w-5 h-5 animate-pulse" />
+            <h2 className="text-sm font-bold uppercase tracking-widest">Critical Alerts</h2>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+            {stats.recent_alerts.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-slate-500 flex-col">
+                <CheckCircle className="w-10 h-10 mb-2 opacity-30 text-emerald-500" />
+                <p className="text-xs uppercase tracking-widest font-bold">No Active High Risk Cases</p>
+              </div>
+            ) : (
+              stats.recent_alerts.map((alert: any) => (
+                <div key={alert._id} className="bg-rose-950/20 border border-rose-900/50 p-3 rounded-md hover:bg-rose-900/30 transition-colors cursor-pointer">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Patient ID</span>
+                    <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-mono font-bold">HIGH RISK ({roundProb(alert.probability)}%)</span>
+                  </div>
+                  <p className="font-mono text-xs text-blue-400 truncate mb-2">{alert.pseudo_anonymous_id}</p>
+                  <p className="text-[9px] text-slate-500 uppercase">{new Date(alert.timestamp).toLocaleString()}</p>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+const roundProb = (p: number) => (p * 100).toFixed(1);
 
 const UsersPage = () => {
   const [patients, setPatients] = useState<any[]>([]);
