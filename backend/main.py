@@ -527,6 +527,16 @@ async def extract_clinical_data(
         dcm_bytes = await dcm_file.read()
         ds = pydicom.dcmread(io.BytesIO(dcm_bytes))
         
+        # Extract Demographics
+        try:
+            extracted_data["patient_name"] = str(ds.PatientName) if 'PatientName' in ds else ""
+            extracted_data["patient_id"] = str(ds.PatientID) if 'PatientID' in ds else ""
+            extracted_data["patient_dob"] = str(ds.PatientBirthDate) if 'PatientBirthDate' in ds else ""
+            extracted_data["patient_sex"] = str(ds.PatientSex) if 'PatientSex' in ds else ""
+            extracted_data["physician_name"] = str(ds.ReferringPhysicianName) if 'ReferringPhysicianName' in ds else ""
+        except:
+            pass
+
         # Estimate tumor size from pixel spacing (Mock calculation if not possible)
         try:
             pixel_spacing = ds.PixelSpacing
