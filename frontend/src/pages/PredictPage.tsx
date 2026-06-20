@@ -143,12 +143,12 @@ export const PredictPage: React.FC = () => {
   });
 
   const [patientInfo, setPatientInfo] = useState({
-    name: "DOE, JOHN P.",
-    mrn: "74-921-X",
-    dob: "1961-04-12",
-    age: "64",
-    sex: "M",
-    attending: "Dr. S. Perera"
+    name: "AWAITING DATA...",
+    mrn: "---",
+    dob: "---",
+    age: "-",
+    sex: "-",
+    attending: "---"
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -194,11 +194,12 @@ export const PredictPage: React.FC = () => {
 
   useEffect(() => {
     const autoExtractData = async () => {
-      if (!imageFile || !pdfFile) return;
+      if (!imageFile && !pdfFile) return;
       setExtracting(true);
       const payload = new FormData();
-      payload.append("dcm_file", imageFile);
-      payload.append("pdf_file", pdfFile);
+      if (imageFile) payload.append("dcm_file", imageFile);
+      if (pdfFile) payload.append("pdf_file", pdfFile);
+      
       try {
         const response = await axios.post("http://127.0.0.1:8000/api/extract-clinical-data", payload, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -213,16 +214,18 @@ export const PredictPage: React.FC = () => {
           if (dobStr.length === 8) {
             formattedDob = `${dobStr.slice(0,4)}-${dobStr.slice(4,6)}-${dobStr.slice(6,8)}`;
             const birthYear = parseInt(dobStr.slice(0,4));
-            ageStr = (new Date().getFullYear() - birthYear).toString();
+            if (!isNaN(birthYear)) {
+                ageStr = (new Date().getFullYear() - birthYear).toString();
+            }
           }
           
           setPatientInfo({
-            name: data.patient_name.replace(/\^/g, ' ').toUpperCase(),
-            mrn: data.patient_id || patientInfo.mrn,
-            dob: formattedDob || patientInfo.dob,
+            name: data.patient_name.replace(/\^/g, ' ').toUpperCase() || "AWAITING DATA...",
+            mrn: data.patient_id || "---",
+            dob: formattedDob || "---",
             age: ageStr,
-            sex: data.patient_sex || patientInfo.sex,
-            attending: data.physician_name ? data.physician_name.replace(/\^/g, ' ') : patientInfo.attending
+            sex: data.patient_sex || "-",
+            attending: data.physician_name ? data.physician_name.replace(/\^/g, ' ') : "---"
           });
         }
         
@@ -281,27 +284,9 @@ export const PredictPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30">
-      
-      {/* SIDEBAR: Hospital PACS Style */}
-      <div className="w-14 flex-shrink-0 bg-[#0f141f] border-r border-[#1e293b] flex flex-col items-center py-4 z-10 shadow-2xl sticky top-0 h-screen">
-        <div className="w-8 h-8 bg-blue-600/20 text-blue-500 rounded flex items-center justify-center mb-6 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] cursor-pointer">
-          <Activity className="w-5 h-5" />
-        </div>
-        <div className="flex flex-col gap-5 w-full items-center">
-          <div className="p-2 text-slate-500 hover:text-slate-200 hover:bg-[#1e293b] rounded cursor-pointer transition-colors"><LayoutDashboard className="w-5 h-5" /></div>
-          <div className="p-2 text-slate-500 hover:text-slate-200 hover:bg-[#1e293b] rounded cursor-pointer transition-colors relative"><Users className="w-5 h-5" /></div>
-          <div className="p-2 text-slate-500 hover:text-slate-200 hover:bg-[#1e293b] rounded cursor-pointer transition-colors"><Database className="w-5 h-5" /></div>
-          <div className="p-2 text-slate-500 hover:text-slate-200 hover:bg-[#1e293b] rounded cursor-pointer transition-colors"><Search className="w-5 h-5" /></div>
-        </div>
-        <div className="mt-auto flex flex-col gap-4">
-          <div className="p-2 text-slate-500 hover:text-slate-200 cursor-pointer"><Settings className="w-5 h-5" /></div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* TOP HEADER: Patient Context Banner */}
-        <div className="h-12 bg-[#131826] border-b border-[#1e293b] flex items-center px-4 justify-between flex-shrink-0 shadow-md sticky top-0 z-20">
+    <div className="flex-1 flex flex-col min-h-screen">
+      {/* TOP HEADER: Patient Context Banner */}
+      <div className="h-12 bg-[#131826] border-b border-[#1e293b] flex items-center px-4 justify-between flex-shrink-0 shadow-md sticky top-0 z-20">
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-2 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
               <span className="text-slate-500 font-semibold uppercase">MRN</span>
@@ -309,7 +294,7 @@ export const PredictPage: React.FC = () => {
             </div>
             <span className="font-bold text-slate-200 tracking-wide">{patientInfo.name}</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400 font-mono">DOB: {patientInfo.dob} ({patientInfo.age}y)</span>
+            <span className="text-slate-400 font-mono">DOB: {patientInfo.dob} {patientInfo.age !== "-" ? `(${patientInfo.age}y)` : ""}</span>
             <span className="text-slate-600">|</span>
             <span className="text-slate-400">Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
             <span className="text-slate-600">|</span>
@@ -603,8 +588,7 @@ export const PredictPage: React.FC = () => {
               </div>
           )}
           
-        </form>
-      </div>
+      </form>
     </div>
   );
 };
