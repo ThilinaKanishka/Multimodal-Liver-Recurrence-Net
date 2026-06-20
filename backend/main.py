@@ -493,6 +493,7 @@ async def extract_clinical_data(
         for page in doc:
             text += page.get_text() + " "
         text = text.lower()
+        extracted_data["_raw_pdf_text"] = text
         
         # Regex extraction
         def extract_value(pattern, text_data, default=None):
@@ -528,8 +529,10 @@ async def extract_clinical_data(
         ds = pydicom.dcmread(io.BytesIO(dcm_bytes))
         
         # Extract Demographics
+        dicom_patient_name = ""
         try:
             extracted_data["patient_name"] = str(ds.PatientName) if 'PatientName' in ds else ""
+            dicom_patient_name = extracted_data["patient_name"].replace("^", " ").lower()
             extracted_data["patient_id"] = str(ds.PatientID) if 'PatientID' in ds else ""
             extracted_data["patient_dob"] = str(ds.PatientBirthDate) if 'PatientBirthDate' in ds else ""
             extracted_data["patient_sex"] = str(ds.PatientSex) if 'PatientSex' in ds else ""
@@ -562,6 +565,28 @@ async def extract_clinical_data(
         print(f"DICOM Extraction Error: {e}")
         pass
         
+    extracted_data["patient_mismatch"] = False
+    extracted_data["mismatch_warning"] = ""
+    raw_text = extracted_data.get("_raw_pdf_text", "")
+    
+    if "patient_name" in extracted_data and raw_text:
+        dicom_patient_name = extracted_data["patient_name"].replace("^", " ").lower()
+        if dicom_patient_name:
+            name_parts = [p.strip() for p in dicom_patient_name.split() if len(p.strip()) > 2]
+            match_found = False
+            for part in name_parts:
+                if part in raw_text:
+                    match_found = True
+                    break
+            
+            if name_parts and not match_found:
+                extracted_data["patient_mismatch"] = True
+                extracted_data["mismatch_warning"] = f"PATIENT MISMATCH ERROR: DICOM belongs to '{dicom_patient_name.upper()}', but this name was not found in the PDF."
+                
+    # remove internal field
+    if "_raw_pdf_text" in extracted_data:
+        del extracted_data["_raw_pdf_text"]
+        
     return extracted_data
 
 @app.post("/api/v1/predict")
@@ -587,9 +612,19 @@ async def predict_recurrence(
     dicom_base64 = ""
     heatmap_shape = [1, 1, 1]
     tumor_target = { "found": False, "x": 0, "y": 0, "z": 0 }
+    dicom_patient_name = ""
     
     if ct_scan and ct_scan.filename and ct_scan.filename.lower().endswith('.dcm'):
         dicom_bytes = await ct_scan.read()
+        
+        # Extract PatientName for validation before processing
+        try:
+            temp_ds = pydicom.dcmread(io.BytesIO(dicom_bytes))
+            if 'PatientName' in temp_ds:
+                dicom_patient_name = str(temp_ds.PatientName).replace("^", " ").lower()
+        except:
+            pass
+            
         extracted_cnn, dicom_success, dicom_warnings, extracted_id, grad_base64, hs, dicom_b64, t_target = process_dicom_tensor(dicom_bytes)
         cnn_features = extracted_cnn
         if dicom_success:
@@ -607,6 +642,22 @@ async def predict_recurrence(
     if text_report_pdf and text_report_pdf.filename and text_report_pdf.filename.lower().endswith('.pdf'):
         pdf_bytes = await text_report_pdf.read()
         nlp_mvi, nlp_cirrhosis, nlp_metastasis, raw_text = process_clinical_pdf(pdf_bytes)
+        
+        # HIPAA Verification: Check if DICOM patient name exists in PDF
+        if dicom_patient_name and raw_text:
+            name_parts = [p.strip() for p in dicom_patient_name.split() if len(p.strip()) > 2]
+            match_found = False
+            for part in name_parts:
+                if part in raw_text:
+                    match_found = True
+                    break
+            
+            if name_parts and not match_found:
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"PATIENT MISMATCH ERROR: DICOM belongs to '{dicom_patient_name.upper()}', but this name was not found in the uploaded Clinical PDF Report. Inference aborted to prevent medical error."
+                )
+                
         if nlp_mvi: mvi_status = 1
         if nlp_cirrhosis: cirrhosis_status = 1
         if nlp_metastasis: metastasis_status = 1
