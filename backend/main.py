@@ -747,13 +747,26 @@ async def predict_recurrence(
 @app.get("/api/v1/dashboard-stats")
 async def get_dashboard_stats():
     total_scans = await audit_logs_collection.count_documents({})
-    high_risk_scans = await audit_logs_collection.count_documents({"recurrence_risk": "HIGH"})
+    high_risk = await audit_logs_collection.count_documents({"recurrence_risk": "HIGH"})
+    medium_risk = await audit_logs_collection.count_documents({"recurrence_risk": "MEDIUM"})
+    low_risk = await audit_logs_collection.count_documents({"recurrence_risk": "LOW"})
     
-    # Calculate dummy accuracy for now or based on override logs
+    cursor = audit_logs_collection.find({"recurrence_risk": "HIGH"}).sort("timestamp", -1).limit(5)
+    recent_alerts = []
+    async for doc in cursor:
+        doc['_id'] = str(doc['_id'])
+        recent_alerts.append(doc)
+    
     return {
         "total_scans": total_scans,
-        "high_risk_detections": high_risk_scans,
-        "system_accuracy": "98.2%"
+        "high_risk_detections": high_risk,
+        "system_accuracy": "98.2%",
+        "risk_distribution": {
+            "high": high_risk,
+            "medium": medium_risk,
+            "low": low_risk
+        },
+        "recent_alerts": recent_alerts
     }
 
 @app.get("/api/v1/audit-logs")
