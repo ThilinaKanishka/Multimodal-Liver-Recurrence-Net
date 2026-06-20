@@ -225,6 +225,12 @@ export const PredictPage: React.FC = () => {
             attending: data.physician_name ? data.physician_name.replace(/\^/g, ' ') : patientInfo.attending
           });
         }
+        
+        if (data.patient_mismatch) {
+            setErrorMessage(data.mismatch_warning);
+        } else {
+            setErrorMessage(null);
+        }
 
         setAutoFilled(true);
         setTimeout(() => setAutoFilled(false), 5000);
@@ -388,10 +394,10 @@ export const PredictPage: React.FC = () => {
                   <div className="mt-auto pt-4 border-t border-[#1e293b]">
                     <button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
                       className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                        loading 
-                          ? "bg-[#1e293b] text-slate-500 cursor-wait border border-[#2a364a]" 
+                        loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                          ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
                           : "bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.2)]"
                       }`}
                     >
