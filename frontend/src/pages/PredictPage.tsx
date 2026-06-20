@@ -142,6 +142,15 @@ export const PredictPage: React.FC = () => {
     clinical_text_report: "",
   });
 
+  const [patientInfo, setPatientInfo] = useState({
+    name: "DOE, JOHN P.",
+    mrn: "74-921-X",
+    dob: "1961-04-12",
+    age: "64",
+    sex: "M",
+    attending: "Dr. S. Perera"
+  });
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -194,7 +203,29 @@ export const PredictPage: React.FC = () => {
         const response = await axios.post("http://127.0.0.1:8000/api/extract-clinical-data", payload, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        setFormData((prev) => ({ ...prev, ...response.data }));
+        const data = response.data;
+        setFormData((prev) => ({ ...prev, ...data }));
+        
+        if (data.patient_name) {
+          const dobStr = data.patient_dob || "";
+          let formattedDob = dobStr;
+          let ageStr = patientInfo.age;
+          if (dobStr.length === 8) {
+            formattedDob = `${dobStr.slice(0,4)}-${dobStr.slice(4,6)}-${dobStr.slice(6,8)}`;
+            const birthYear = parseInt(dobStr.slice(0,4));
+            ageStr = (new Date().getFullYear() - birthYear).toString();
+          }
+          
+          setPatientInfo({
+            name: data.patient_name.replace(/\^/g, ' ').toUpperCase(),
+            mrn: data.patient_id || patientInfo.mrn,
+            dob: formattedDob || patientInfo.dob,
+            age: ageStr,
+            sex: data.patient_sex || patientInfo.sex,
+            attending: data.physician_name ? data.physician_name.replace(/\^/g, ' ') : patientInfo.attending
+          });
+        }
+
         setAutoFilled(true);
         setTimeout(() => setAutoFilled(false), 5000);
       } catch (error) {
@@ -268,15 +299,15 @@ export const PredictPage: React.FC = () => {
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-2 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
               <span className="text-slate-500 font-semibold uppercase">MRN</span>
-              <span className="font-mono text-blue-400 font-bold tracking-wider">74-921-X</span>
+              <span className="font-mono text-blue-400 font-bold tracking-wider">{patientInfo.mrn}</span>
             </div>
-            <span className="font-bold text-slate-200 tracking-wide">DOE, JOHN P.</span>
+            <span className="font-bold text-slate-200 tracking-wide">{patientInfo.name}</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400 font-mono">DOB: 1961-04-12 (64y)</span>
+            <span className="text-slate-400 font-mono">DOB: {patientInfo.dob} ({patientInfo.age}y)</span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Sex: <span className="text-slate-200">M</span></span>
+            <span className="text-slate-400">Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
             <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Attending: <span className="text-slate-200">Dr. S. Perera</span></span>
+            <span className="text-slate-400">Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
           </div>
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded border border-emerald-900/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
