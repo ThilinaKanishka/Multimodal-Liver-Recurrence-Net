@@ -796,3 +796,21 @@ async def get_patients():
             "total_scans": doc["total_scans"]
         })
     return patients
+
+@app.get("/api/v1/patients/{pseudo_id}")
+async def get_patient_details(pseudo_id: str):
+    cursor = audit_logs_collection.find({"pseudo_anonymous_id": pseudo_id}).sort("timestamp", -1)
+    history = []
+    async for doc in cursor:
+        doc['_id'] = str(doc['_id'])
+        history.append(doc)
+    
+    if not history:
+        raise HTTPException(status_code=404, detail="Patient not found")
+        
+    return {
+        "pseudo_id": pseudo_id,
+        "total_scans": len(history),
+        "last_scan": history[0]["timestamp"],
+        "history": history
+    }
