@@ -117,7 +117,7 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-export const PredictPage: React.FC = () => {
+export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = ({ onViewHistory }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
     tumor_number: 1,
@@ -157,6 +157,7 @@ export const PredictPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [extracting, setExtracting] = useState<boolean>(false);
   const [autoFilled, setAutoFilled] = useState<boolean>(false);
+  const [historyInfo, setHistoryInfo] = useState<{has_history: boolean, pseudo_id: string, count: number} | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -229,6 +230,13 @@ export const PredictPage: React.FC = () => {
           });
         }
         
+        
+        if (data.has_history && data.pseudo_anonymous_id) {
+            setHistoryInfo({ has_history: true, pseudo_id: data.pseudo_anonymous_id, count: data.total_past_scans || 1 });
+        } else {
+            setHistoryInfo(null);
+        }
+
         if (data.patient_mismatch) {
             setErrorMessage(data.mismatch_warning);
         } else {
@@ -361,7 +369,7 @@ export const PredictPage: React.FC = () => {
                   </div>
                   
                   {/* Auto-Extract Status */}
-                  <div className="h-8 flex items-center justify-center">
+                  <div className="h-auto min-h-[32px] flex flex-col items-center justify-center gap-2">
                     {extracting && (
                       <div className="text-[10px] font-mono text-amber-400 bg-amber-950/30 px-3 py-1.5 rounded-sm border border-amber-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
                         <span className="animate-spin inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full"></span> 
@@ -372,6 +380,21 @@ export const PredictPage: React.FC = () => {
                       <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-3 py-1.5 rounded-sm border border-emerald-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
                         <CheckCircle className="w-3.5 h-3.5" /> 
                         EXTRACTION COMPLETE
+                      </div>
+                    )}
+                    {!extracting && historyInfo?.has_history && (
+                      <div className="w-full bg-indigo-950/40 border border-indigo-500/40 rounded-sm p-2 flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="flex items-center gap-2 text-indigo-300 text-[10px] font-bold tracking-wider">
+                           <Activity className="w-4 h-4 text-indigo-400" />
+                           <span>Previous History Found ({historyInfo.count} Scan{historyInfo.count > 1 ? 's' : ''})</span>
+                        </div>
+                        <button 
+                           type="button"
+                           onClick={(e) => { e.preventDefault(); onViewHistory?.(historyInfo.pseudo_id); }}
+                           className="bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] px-2 py-1 rounded shadow uppercase tracking-widest transition-colors font-bold"
+                        >
+                           View Records
+                        </button>
                       </div>
                     )}
                   </div>

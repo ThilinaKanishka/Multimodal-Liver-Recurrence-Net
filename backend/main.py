@@ -493,6 +493,7 @@ async def extract_clinical_data(
         pass
         
     # 2. DICOM Extraction
+    dcm_bytes = None
     try:
         dcm_bytes = await dcm_file.read()
         ds = pydicom.dcmread(io.BytesIO(dcm_bytes))
@@ -533,6 +534,25 @@ async def extract_clinical_data(
     except Exception as e:
         print(f"DICOM Extraction Error: {e}")
         pass
+
+    # Check for historical records in the database
+    if dcm_bytes is not None:
+        try:
+            phi_data = ""
+            # Re-read ds or use existing
+            for tag in ['PatientName', 'InstitutionName', 'ReferringPhysicianName', 'PatientID', 'PhysiciansOfRecord']:
+                if tag in ds:
+                    phi_data += str(ds.data_element(tag).value)
+            
+            pseudo_id = hashlib.sha256(phi_data.encode()).hexdigest() if phi_data else hashlib.sha256(dcm_bytes[:100]).hexdigest()
+            extracted_data["pseudo_anonymous_id"] = pseudo_id
+            
+            count = await audit_logs_collection.count_documents({"pseudo_anonymous_id": pseudo_id})
+            extracted_data["has_history"] = count > 0
+            extracted_data["total_past_scans"] = count
+        except Exception as e:
+            print(f"History Check Error: {e}")
+            pass
         
     extracted_data["patient_mismatch"] = False
     extracted_data["mismatch_warning"] = ""
