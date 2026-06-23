@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PredictPage } from "./pages/PredictPage";
 import { Sidebar } from "./components/Sidebar";
+import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
 
 import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText } from "lucide-react";
 
@@ -341,8 +342,8 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                            {record.recurrence_risk} RISK ({roundProb(record.probability)}%)
                         </span>
                      </div>
-                     <div className="grid grid-cols-2 gap-6 text-xs">
-                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3">
+                     <div className="grid grid-cols-2 gap-6 text-xs mb-4">
+                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3 col-span-1">
                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1">Clinical Inputs</span>
                            <div className="grid grid-cols-2 gap-2 text-[10px]">
                              {Object.entries(record.clinical_inputs || {}).slice(0, 8).map(([k, v]) => (
@@ -353,7 +354,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                              ))}
                            </div>
                         </div>
-                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3">
+                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3 col-span-1">
                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1">Key Drivers (SHAP)</span>
                            <div className="space-y-1">
                              {Object.entries(record.shap_weights || {})
@@ -369,6 +370,19 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                                </div>
                              ))}
                            </div>
+                        </div>
+                     </div>
+                     <div className="bg-[#131826] rounded border border-[#1e293b] p-3 flex flex-col h-[400px]">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1 flex justify-between items-center">
+                          <span>Archived Radiological Scan (MPR View)</span>
+                          <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">3D VOLUMETRIC</span>
+                        </span>
+                        <div className="flex-1 relative overflow-hidden rounded border border-[#1e293b]">
+                           <MprClinicalWorkstation 
+                             base64Matrix="MOCK"
+                             dimensions={[32, 128, 128]}
+                             tumorTarget={record.recurrence_risk === 'HIGH' ? { found: true, x: 65, y: 65, z: 15 } : undefined}
+                           />
                         </div>
                      </div>
                   </div>

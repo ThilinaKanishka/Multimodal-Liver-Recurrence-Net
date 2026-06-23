@@ -43,6 +43,30 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
   // Parse Matrices
   useEffect(() => {
+    if (base64Matrix === 'MOCK') {
+      const size = dimensions[0] * dimensions[1] * dimensions[2];
+      const mockData = new Float32Array(size);
+      if (tumorTarget && tumorTarget.found) {
+         // Create a synthetic heatmap activation around the tumor target
+         const cz = tumorTarget.z;
+         const cy = tumorTarget.y;
+         const cx = tumorTarget.x;
+         const sigma = 8.0;
+         for(let z=0; z<dimensions[0]; z++) {
+            for(let y=0; y<dimensions[1]; y++) {
+               for(let x=0; x<dimensions[2]; x++) {
+                  const distSq = Math.pow(z-cz, 2)*2.0 + Math.pow(y-cy, 2) + Math.pow(x-cx, 2);
+                  if(distSq < 150) {
+                     mockData[z*dimensions[1]*dimensions[2] + y*dimensions[2] + x] = Math.exp(-distSq / (2 * sigma * sigma));
+                  }
+               }
+            }
+         }
+      }
+      setFloat32Data(mockData);
+      setIsDecoding(false);
+      return;
+    }
     if (!base64Matrix) {
       setFloat32Data(new Float32Array(0));
       setIsDecoding(false);
@@ -59,7 +83,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         setFloat32Data(new Float32Array(0));
         setIsDecoding(false);
       });
-  }, [base64Matrix]);
+  }, [base64Matrix, dimensions, tumorTarget]);
 
   useEffect(() => {
     if (!dicomBase64Matrix) {
