@@ -443,9 +443,20 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                   DECODING STREAM
                </div>
             )}
-            <div className="absolute top-2 left-2 text-cyan-400 text-[9px] font-mono font-bold bg-black/60 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+            {/* DICOM Overlays */}
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              MRN: PT-77542 | THILINA
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               AXIAL (XY) | Z: {coord.z} | {(zoomAxial).toFixed(1)}x
             </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+
             <canvas 
               ref={axialCanvasRef} 
               className="w-full h-full object-contain cursor-crosshair block"
@@ -469,7 +480,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, x, y }));
               }}
             />
-            <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
@@ -477,9 +488,20 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
           {/* Coronal View */}
           <div className="bg-black relative overflow-hidden group min-h-0">
-            <div className="absolute top-2 left-2 text-cyan-400 text-[9px] font-mono font-bold bg-black/60 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+            {/* DICOM Overlays */}
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              MRN: PT-77542 | THILINA
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               CORONAL (XZ) | Y: {coord.y} | {(zoomCoronal).toFixed(1)}x
             </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+
             <canvas 
               ref={coronalCanvasRef} 
               className="w-full h-full object-contain cursor-crosshair block"
@@ -503,7 +525,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, x, z }));
               }}
             />
-            <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
@@ -511,9 +533,20 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
           {/* Sagittal View */}
           <div className="bg-black relative overflow-hidden group min-h-0">
-            <div className="absolute top-2 left-2 text-cyan-400 text-[9px] font-mono font-bold bg-black/60 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+            {/* DICOM Overlays */}
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              MRN: PT-77542 | THILINA
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               SAGITTAL (YZ) | X: {coord.x} | {(zoomSagittal).toFixed(1)}x
             </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+
             <canvas 
               ref={sagittalCanvasRef} 
               className="w-full h-full object-contain cursor-crosshair block"
@@ -537,7 +570,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, z, y }));
               }}
             />
-            <div className="absolute bottom-2 right-2 flex flex-col gap-1 z-10 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
