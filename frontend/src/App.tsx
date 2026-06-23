@@ -405,14 +405,14 @@ function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case "activity": return <PredictPage />;
+      case "activity": return <PredictPage onViewHistory={handlePatientClick} />;
       case "dashboard": return <DashboardPage />;
       case "users": return <UsersPage onPatientClick={handlePatientClick} />;
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("users")} /> : <UsersPage onPatientClick={handlePatientClick} />;
       case "database": return <DatabasePage />;
       case "search": return <SearchPage />;
       case "settings": return <SettingsPage />;
-      default: return <PredictPage />;
+      default: return <PredictPage onViewHistory={handlePatientClick} />;
     }
   };
 
