@@ -579,7 +579,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
           
           {/* Controls Area inside Grid Bottom Right */}
-          <div className="bg-[#0f141f] p-4 flex flex-col justify-center gap-4 border-t border-[#1e293b] min-h-0 overflow-y-auto">
+          <div id="mpr-controls-area" className="bg-[#0f141f] p-4 flex flex-col justify-center gap-4 border-t border-[#1e293b] min-h-0 overflow-y-auto">
             <div>
                <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
                  <span>X-Axis (Sagittal)</span>

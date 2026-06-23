@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   Upload,
@@ -13,9 +13,12 @@ import {
   Database,
   LayoutDashboard,
   ShieldAlert,
-  Search
+  Search,
+  Download
 } from "lucide-react";
 import axios from "axios";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 
 export interface DiagnosticInput {
@@ -160,6 +163,63 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
   const [historyInfo, setHistoryInfo] = useState<{has_history: boolean, pseudo_id: string, count: number} | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current) return;
+    try {
+      // 1. Capture the MPR Workstation canvas first
+      const mprElement = document.getElementById("mpr-workstation-capture");
+      const mprControls = document.getElementById("mpr-controls-area");
+      
+      if (mprControls) {
+        mprControls.style.display = 'none'; // Hide sliders
+      }
+
+      if (mprElement) {
+        const mprCanvas = await html2canvas(mprElement, { useCORS: true, backgroundColor: '#000000', scale: 1.5 });
+        const mprImgData = mprCanvas.toDataURL('image/jpeg', 0.9);
+        const reportMprImg = document.getElementById("report-mpr-img") as HTMLImageElement;
+        if (reportMprImg) {
+           reportMprImg.src = mprImgData;
+           reportMprImg.style.display = 'block';
+        }
+      }
+      
+      if (mprControls) {
+        mprControls.style.display = 'flex'; // Restore sliders
+      }
+      
+      // Give DOM a tick to update the image
+      await new Promise(r => setTimeout(r, 100));
+
+      // 2. Capture the full hidden A4 report
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`HepatoAI_Clinical_Report_${patientInfo.mrn || 'Unknown'}.pdf`);
+      
+      // Cleanup
+      const reportMprImg = document.getElementById("report-mpr-img") as HTMLImageElement;
+      if (reportMprImg) {
+         reportMprImg.style.display = 'none';
+         reportMprImg.src = '';
+      }
+    } catch (err) {
+      console.error("PDF generation failed", err);
+      alert("Failed to generate PDF report.");
+    }
+  };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const target = e.target;
@@ -555,14 +615,24 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                         {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
                     </span>
                   </div>
-                  <div className="font-mono text-[10px] text-slate-500 bg-[#0a0e17] px-2 py-1 rounded">
-                    ID: {result.pseudo_anonymous_id}
+                  <div className="flex items-center gap-3">
+                    <button 
+                      type="button" 
+                      onClick={handleDownloadPdf}
+                      className="bg-[#1e293b] hover:bg-[#2a364a] text-slate-300 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-wider transition-colors border border-[#334155]"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      EXPORT PDF
+                    </button>
+                    <div className="font-mono text-[10px] text-slate-500 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
+                      ID: {result.pseudo_anonymous_id}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
                     {/* MPR Viewer Area */}
-                    <div className="flex-1 p-2 border-b xl:border-b-0 xl:border-r border-[#1e293b] flex flex-col bg-black min-w-[70%] min-h-0">
+                    <div id="mpr-workstation-capture" className="flex-1 p-2 border-b xl:border-b-0 xl:border-r border-[#1e293b] flex flex-col bg-black min-w-[70%] min-h-0">
                       {result?.interpretability_layer?.gradcam_3d_matrix ? (
                         <MprClinicalWorkstation 
                           base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
@@ -617,6 +687,111 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
           )}
           
       </form>
+      
+      {/* HIDDEN PRINTABLE A4 REPORT TEMPLATE */}
+      <div className="fixed top-0 left-0 w-0 h-0 overflow-hidden pointer-events-none z-[-9999] opacity-0">
+        <div 
+           ref={reportRef} 
+           className="bg-white text-black font-sans flex flex-col"
+           style={{ width: '794px', minHeight: '1123px', padding: '60px 50px' }}
+        >
+          {/* Header */}
+          <div className="flex justify-between items-center border-b-[3px] border-black pb-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center border border-cyan-800">
+                 <Activity className="w-8 h-8 text-cyan-800" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black uppercase tracking-widest text-slate-900">Hepato<span className="text-cyan-700">AI</span></h1>
+                <p className="text-[10px] text-slate-600 font-bold tracking-widest">CLINICAL DIAGNOSTIC PIPELINE</p>
+              </div>
+            </div>
+            <div className="text-right text-xs font-mono text-slate-600">
+              <p className="font-bold text-black text-sm mb-1">MEDICAL PROGNOSIS REPORT</p>
+              <p>Date: {new Date().toISOString().split('T')[0]}</p>
+              <p>System Ver: 2.4.1 (Build 8092)</p>
+            </div>
+          </div>
+
+          {/* Patient Info */}
+          <div className="mb-8 grid grid-cols-2 gap-6 border-2 border-slate-200 p-5 rounded-md bg-slate-50">
+             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Patient Name</span><span className="text-lg font-black text-slate-800">{patientInfo.name}</span></div>
+             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-lg font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
+             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Date of Birth (Age)</span><span className="text-sm font-medium">{patientInfo.dob} ({patientInfo.age}y)</span></div>
+             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Biological Sex</span><span className="text-sm font-medium">{patientInfo.sex}</span></div>
+          </div>
+
+          {/* Prognosis Result */}
+          {result && (
+            <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${result.recurrence_risk === 'HIGH' ? 'bg-rose-50 border-rose-600 text-rose-900' : 'bg-emerald-50 border-emerald-600 text-emerald-900'}`}>
+              <h2 className="text-xs font-bold uppercase tracking-widest mb-2 opacity-80">Primary AI Inference Result</h2>
+              <div className="text-2xl font-black uppercase tracking-wide">
+                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%)
+              </div>
+              <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
+                 <span>Ref ID: {result.inference_id?.substring(0, 18)}...</span>
+                 <span>Network Status: SECURE</span>
+              </div>
+            </div>
+          )}
+
+          {/* Radiological Imaging Output */}
+          <div className="mb-6">
+             <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Radiological Imaging (MPR Views)</h3>
+             <img id="report-mpr-img" className="w-full h-auto object-contain rounded-md border-2 border-slate-800" style={{ display: 'none', maxHeight: '400px' }} />
+          </div>
+
+          {/* Clinical Parameters & SHAP */}
+          <div className="grid grid-cols-2 gap-10 mb-8">
+             <div>
+                <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Clinical Bio-Markers</h3>
+                <div className="text-xs grid grid-cols-2 gap-y-3">
+                   {Object.entries(formData).slice(0, 16).map(([k, v]) => (
+                      <React.Fragment key={k}>
+                        <div className="text-slate-600 capitalize">{k.replace(/_/g, ' ')}</div>
+                        <div className="font-mono font-bold text-right text-slate-900">{String(v)}</div>
+                      </React.Fragment>
+                   ))}
+                </div>
+             </div>
+             
+             {result && result.explainable_ai_weights && (
+               <div>
+                  <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">SHAP Explanations</h3>
+                  <div className="text-xs space-y-3">
+                    {Object.entries(result.explainable_ai_weights).map(([k, v]) => (
+                       <div key={k} className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="capitalize text-slate-700">{k.replace(/_/g, ' ')}</span>
+                          <span className={`font-mono font-bold ${v > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{v > 0 ? '+' : ''}{v}</span>
+                       </div>
+                    ))}
+                  </div>
+               </div>
+             )}
+          </div>
+
+          {/* AI Insights Log */}
+          {result && result.ai_insights && (
+            <div className="mb-8 flex-1">
+              <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Automated Clinical Insights</h3>
+              <ul className="text-xs space-y-3 list-disc pl-5 text-slate-700 leading-relaxed">
+                {result.ai_insights.map((msg, i) => <li key={i}>{msg}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-auto pt-6 flex justify-between items-end border-t-[3px] border-black">
+            <div className="text-[9px] text-slate-500 max-w-[60%] leading-relaxed text-justify">
+              <strong>CONFIDENTIAL MEDICAL DOCUMENT:</strong> This report is generated by an investigational AI diagnostic pipeline (HepatoAI). It is not a substitute for professional medical judgment. All findings must be verified by a certified oncologist. Compliant with HIPAA and Data Protection regulations.
+            </div>
+            <div className="text-center w-48">
+               <div className="border-b border-black mb-2 border-dashed"></div>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800">Physician Signature</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
     </div>
   );
 };
