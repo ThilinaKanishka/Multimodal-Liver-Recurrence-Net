@@ -382,6 +382,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                              base64Matrix="MOCK"
                              dimensions={[32, 128, 128]}
                              tumorTarget={record.recurrence_risk === 'HIGH' ? { found: true, x: 65, y: 65, z: 15 } : undefined}
+                             patientInfo={{ name: 'ARCHIVED PATIENT', id: details.pseudo_id.substring(0, 12) }}
                            />
                         </div>
                      </div>

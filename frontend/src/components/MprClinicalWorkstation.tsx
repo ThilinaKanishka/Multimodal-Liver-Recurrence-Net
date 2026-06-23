@@ -5,6 +5,7 @@ interface MprClinicalWorkstationProps {
   dicomBase64Matrix?: string;
   dimensions: [number, number, number]; // [Depth (Z), Height (Y), Width (X)]
   tumorTarget?: { found: boolean; x: number; y: number; z: number };
+  patientInfo?: { name: string; id: string };
 }
 
 type LUTType = 'Jet' | 'Viridis' | 'Magma' | 'Plasma';
@@ -14,6 +15,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   dicomBase64Matrix,
   dimensions,
   tumorTarget,
+  patientInfo,
 }) => {
   const [Depth, Height, Width] = dimensions;
 
@@ -445,7 +447,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
             )}
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: PT-77542 | THILINA
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
             <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               AXIAL (XY) | Z: {coord.z} | {(zoomAxial).toFixed(1)}x
@@ -490,7 +492,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           <div className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: PT-77542 | THILINA
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
             <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               CORONAL (XZ) | Y: {coord.y} | {(zoomCoronal).toFixed(1)}x
@@ -535,7 +537,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           <div className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: PT-77542 | THILINA
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
             <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               SAGITTAL (YZ) | X: {coord.x} | {(zoomSagittal).toFixed(1)}x
