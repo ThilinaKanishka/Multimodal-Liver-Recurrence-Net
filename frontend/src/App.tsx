@@ -418,9 +418,22 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
-      {renderPage()}
+    <div className="flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <Sidebar activePage={activePage} setActivePage={setActivePage} />
+        <div className="flex-1 overflow-auto bg-[#070b14] relative">
+          {renderPage()}
+        </div>
+      </div>
+      
+      {/* Medical Footer (Bottom Status Bar) */}
+      <div className="h-6 w-full bg-[#0a0e17] border-t border-[#1e293b] flex items-center justify-between px-4 text-[10px] text-slate-500 flex-shrink-0 z-50">
+        <div className="font-mono">Version 2.4.1 Build 8092</div>
+        <div className="font-mono uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+           HIPAA Compliant & FDA Cleared for Investigational Use Only
+        </div>
+        <div>© 2026 SLIIT Faculty of Computing - AI Labs. All rights reserved.</div>
+      </div>
     </div>
   );
 }
