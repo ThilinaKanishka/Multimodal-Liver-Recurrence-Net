@@ -292,7 +292,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen">
+    <div className="flex-1 flex flex-col min-h-full">
       {/* TOP HEADER: Patient Context Banner */}
       <div className="h-12 bg-[#131826] border-b border-[#1e293b] flex items-center px-4 justify-between flex-shrink-0 shadow-md sticky top-0 z-20">
           <div className="flex items-center gap-4 text-xs">
@@ -314,6 +314,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                 SYSTEM SECURE
              </div>
              <div className="text-xs text-slate-500 font-mono">{new Date().toISOString().split('T')[0]}</div>
+             <div className="h-4 w-px bg-[#1e293b] mx-1"></div>
+             <div className="text-xs text-slate-400 font-medium">
+               Dr. P. Weerasinghe <span className="text-slate-500">- Chief Oncologist</span>
+             </div>
           </div>
         </div>
 
