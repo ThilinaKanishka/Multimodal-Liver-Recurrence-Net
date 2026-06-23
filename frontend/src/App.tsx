@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PredictPage } from "./pages/PredictPage";
+import { LoginPage } from "./pages/LoginPage";
 import { Sidebar } from "./components/Sidebar";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
 
@@ -396,7 +397,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
 };
 
 function App() {
-  const [activePage, setActivePage] = useState("activity");
+  const [activePage, setActivePage] = useState("login");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const handlePatientClick = (id: string) => {
@@ -406,6 +407,7 @@ function App() {
 
   const renderPage = () => {
     switch (activePage) {
+      case "login": return <LoginPage onLogin={() => setActivePage("activity")} />;
       case "activity": return <PredictPage onViewHistory={handlePatientClick} />;
       case "dashboard": return <DashboardPage />;
       case "users": return <UsersPage onPatientClick={handlePatientClick} />;
@@ -416,6 +418,10 @@ function App() {
       default: return <PredictPage onViewHistory={handlePatientClick} />;
     }
   };
+
+  if (activePage === "login") {
+    return <LoginPage onLogin={() => setActivePage("activity")} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden">
