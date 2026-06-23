@@ -565,6 +565,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                           dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
                           dimensions={result.interpretability_layer.heatmap_spatial_shape} 
                           tumorTarget={result.interpretability_layer.tumor_target}
+                          patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
                         />
                       ) : (
                         <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
