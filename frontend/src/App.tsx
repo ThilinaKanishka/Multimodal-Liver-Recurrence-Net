@@ -343,7 +343,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                         </span>
                      </div>
                      <div className="grid grid-cols-2 gap-6 text-xs mb-4">
-                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3">
+                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3 col-span-1">
                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1">Clinical Inputs</span>
                            <div className="grid grid-cols-2 gap-2 text-[10px]">
                              {Object.entries(record.clinical_inputs || {}).slice(0, 8).map(([k, v]) => (
@@ -354,7 +354,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                              ))}
                            </div>
                         </div>
-                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3">
+                        <div className="bg-[#131826] rounded border border-[#1e293b] p-3 col-span-1">
                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1">Key Drivers (SHAP)</span>
                            <div className="space-y-1">
                              {Object.entries(record.shap_weights || {})
