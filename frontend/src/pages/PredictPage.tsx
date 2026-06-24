@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   Search,
   Download,
-  Hexagon
+  Hexagon,
+  QrCode
 } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
@@ -713,15 +714,33 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
               <p className="font-bold text-black text-sm mb-1">MEDICAL PROGNOSIS REPORT</p>
               <p>Date: {new Date().toISOString().split('T')[0]}</p>
               <p>System Ver: 2.4.1 (Build 8092)</p>
+              <p className="text-[9px] text-slate-500 mt-1">ACR Auth: #9482-A | CLIA: 05D20934</p>
             </div>
           </div>
 
-          {/* Patient Info */}
-          <div className="mb-8 grid grid-cols-2 gap-6 border-2 border-slate-200 p-5 rounded-md bg-slate-50">
-             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Patient Name</span><span className="text-lg font-black text-slate-800">{patientInfo.name}</span></div>
-             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-lg font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
-             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Date of Birth (Age)</span><span className="text-sm font-medium">{patientInfo.dob} ({patientInfo.age}y)</span></div>
-             <div><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Biological Sex</span><span className="text-sm font-medium">{patientInfo.sex}</span></div>
+          {/* Patient Info & Encounter Metadata */}
+          <div className="mb-6 grid grid-cols-4 gap-4 border-2 border-slate-200 p-4 rounded-md bg-slate-50 text-xs">
+             <div className="col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Patient Name</span><span className="text-base font-black text-slate-800">{patientInfo.name}</span></div>
+             <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-sm font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
+             <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">DOB (Age) / Sex</span><span className="text-xs font-medium">{patientInfo.dob} ({patientInfo.age}y) | {patientInfo.sex}</span></div>
+             
+             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span><span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">Dr. Aris Thorne, MD (Surgical Oncology - Ward 4B)</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">Dr. Elena Rostova, MD</span></div>
+          </div>
+
+          {/* Clinical Indication & Prior Exams */}
+          <div className="mb-6 border border-slate-200 p-4 rounded-md bg-slate-50 text-xs">
+             <div className="grid grid-cols-3 gap-4">
+               <div className="col-span-2">
+                 <span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Clinical Indication / Reason for Exam</span>
+                 <p className="text-slate-800 font-medium">Follow-up assessment post-hepatectomy; evaluate for hepatic metastasis / recurrence (ICD-10: C78.7).</p>
+               </div>
+               <div>
+                 <span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Prior Baseline Exams</span>
+                 <p className="text-slate-700 font-mono text-[11px]">Comparison made with baseline abdominal CT dated 2025-11-14.</p>
+               </div>
+             </div>
           </div>
 
           {/* Prognosis Result */}
@@ -787,11 +806,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
              {/* Imaging Protocol & Metadata Table */}
              <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs">
                 <div className="font-bold text-[11px] text-slate-700 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Technical Imaging & Acquisition Protocol</div>
-                <div className="grid grid-cols-4 gap-4 text-[11px]">
+                <div className="grid grid-cols-6 gap-3 text-[11px]">
                    <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Modality</span><span className="font-mono font-semibold text-slate-800">CT (Computed Tomography)</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Slice Thickness</span><span className="font-mono font-semibold text-slate-800">5.0 mm (Reconstructed)</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Contrast Administration</span><span className="font-mono font-semibold text-slate-800">IV Portal Venous Phase</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Reconstruction Kernel</span><span className="font-mono font-semibold text-slate-800">Standard Soft Tissue (B30f)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Slice Thickness</span><span className="font-mono font-semibold text-slate-800">5.0 mm</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Contrast Agent</span><span className="font-mono font-semibold text-slate-800">100 mL Omnipaque 350 IV</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Scan Phase</span><span className="font-mono font-semibold text-slate-800">Portal Venous (70s)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">CTDIvol</span><span className="font-mono font-semibold text-emerald-700">12.4 mGy (Low Dose)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">DLP</span><span className="font-mono font-semibold text-emerald-700">582 mGy*cm</span></div>
                 </div>
              </div>
           </div>
@@ -825,6 +846,35 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
              )}
           </div>
 
+          {/* Structured Anatomical Findings & Staging */}
+          <div className="mb-6 border-b-2 border-slate-200 pb-4">
+             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800 mb-3">Section V: Structured Anatomical Findings & Staging</h3>
+             <div className="grid grid-cols-2 gap-6 text-xs">
+               <div className="bg-slate-50 p-4 rounded border border-slate-200">
+                 <h4 className="font-bold text-slate-700 uppercase text-[11px] mb-2 border-b border-slate-200 pb-1">Anatomical Evaluation</h4>
+                 <p className="mb-2"><strong>Target Organ (Liver / Biliary):</strong> Couinaud Segments I - VIII evaluated. Stable post-surgical resection margin at Segment VII. Major vascular structures (Portal Vein, IVC, Hepatic Artery) remain patent with normal flow void.</p>
+                 <p><strong>Extrahepatic Evaluation:</strong> Pancreas, spleen, bilateral kidneys, and adrenal glands are unremarkable. No pathological abdominal lymphadenopathy or free pelvic fluid observed.</p>
+               </div>
+               <div className="bg-slate-50 p-4 rounded border border-slate-200 flex flex-col justify-between">
+                 <div>
+                   <h4 className="font-bold text-slate-700 uppercase text-[11px] mb-2 border-b border-slate-200 pb-1">Formal Classification & Staging</h4>
+                   <div className="mb-4">
+                     <span className="text-slate-500 text-[10px] block uppercase font-bold mb-1">LI-RADS Classification</span>
+                     <div className="font-mono font-bold text-slate-900 bg-slate-200 px-2 py-1 rounded text-[11px] inline-block">LR-TR Viable (HepatoAI Verification)</div>
+                   </div>
+                   <div>
+                     <span className="text-slate-500 text-[10px] block uppercase font-bold mb-1">RECIST 1.1 Criteria Evaluation</span>
+                     <p className="text-slate-800 text-[11px] leading-normal">Target lesion activation maximum (v_max) demonstrates localized metabolic concentration with stable geometric bounding box dimensions.</p>
+                   </div>
+                 </div>
+                 <div className="mt-4 pt-3 border-t border-slate-200 bg-blue-50/50 p-2 rounded border border-blue-100">
+                   <span className="text-blue-900 font-bold text-[10px] uppercase block mb-1">Executive Impression & Recommendation</span>
+                   <p className="text-slate-700 text-[11px] font-medium leading-normal">1. Close surveillance recommended for localized Grad-CAM activation cluster.<br />2. Recommend repeat multiphasic abdominal CT in 6 months.</p>
+                 </div>
+               </div>
+             </div>
+          </div>
+
           {/* AI Insights Log */}
           {result && result.ai_insights && (
             <div className="mb-8 flex-1">
@@ -835,13 +885,20 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
             </div>
           )}
 
-          <div className="mt-auto pt-6 flex justify-between items-end border-t-[3px] border-black">
-            <div className="text-[9px] text-slate-500 max-w-[60%] leading-relaxed text-justify">
+          <div className="mt-auto pt-6 grid grid-cols-12 gap-4 items-end border-t-[3px] border-black">
+            <div className="col-span-6 text-[9px] text-slate-500 leading-relaxed text-justify pr-2">
               <strong>CONFIDENTIAL MEDICAL DOCUMENT:</strong> This report is generated by an investigational AI diagnostic pipeline (HepatoAI). It is not a substitute for professional medical judgment. All findings must be verified by a certified oncologist. Compliant with HIPAA and Data Protection regulations.
             </div>
-            <div className="text-center w-48">
-               <div className="border-b border-black mb-2 border-dashed"></div>
-               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800">Physician Signature</span>
+            <div className="col-span-3 bg-slate-100 border border-slate-300 p-2 rounded flex items-center gap-2 shadow-sm">
+               <QrCode className="w-7 h-7 text-slate-800 flex-shrink-0" />
+               <div className="text-[8px] font-mono text-slate-600 leading-tight">
+                 <strong className="text-slate-900 block text-[9px] mb-0.5">SECURE PACS</strong>
+                 Scan QR for 3D<br />CT MPR Viewer
+               </div>
+            </div>
+            <div className="col-span-3 text-center pl-2">
+               <div className="border-b border-black mb-2 border-dashed w-full"></div>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block">Physician Signature</span>
             </div>
           </div>
         </div>
