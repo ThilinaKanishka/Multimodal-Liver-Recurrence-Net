@@ -14,7 +14,8 @@ import {
   LayoutDashboard,
   ShieldAlert,
   Search,
-  Download
+  Download,
+  Hexagon
 } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
@@ -168,30 +169,31 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
     try {
-      // 1. Capture the MPR Workstation canvas first
-      const mprElement = document.getElementById("mpr-workstation-capture");
-      const mprControls = document.getElementById("mpr-controls-area");
+      // 1. Capture the individual MPR views cleanly without web UI controls
+      const axialElement = document.getElementById("pdf-axial-capture");
+      const coronalElement = document.getElementById("pdf-coronal-capture");
+      const sagittalElement = document.getElementById("pdf-sagittal-capture");
       
-      if (mprControls) {
-        mprControls.style.display = 'none'; // Hide sliders
+      if (axialElement) {
+        const axialCanvas = await html2canvas(axialElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportAxialImg = document.getElementById("report-axial-img") as HTMLImageElement;
+        if (reportAxialImg) { reportAxialImg.src = axialCanvas.toDataURL('image/jpeg', 0.95); reportAxialImg.style.display = 'block'; }
       }
 
-      if (mprElement) {
-        const mprCanvas = await html2canvas(mprElement, { useCORS: true, backgroundColor: '#000000', scale: 1.5 });
-        const mprImgData = mprCanvas.toDataURL('image/jpeg', 0.9);
-        const reportMprImg = document.getElementById("report-mpr-img") as HTMLImageElement;
-        if (reportMprImg) {
-           reportMprImg.src = mprImgData;
-           reportMprImg.style.display = 'block';
-        }
+      if (coronalElement) {
+        const coronalCanvas = await html2canvas(coronalElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportCoronalImg = document.getElementById("report-coronal-img") as HTMLImageElement;
+        if (reportCoronalImg) { reportCoronalImg.src = coronalCanvas.toDataURL('image/jpeg', 0.95); reportCoronalImg.style.display = 'block'; }
+      }
+
+      if (sagittalElement) {
+        const sagittalCanvas = await html2canvas(sagittalElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportSagittalImg = document.getElementById("report-sagittal-img") as HTMLImageElement;
+        if (reportSagittalImg) { reportSagittalImg.src = sagittalCanvas.toDataURL('image/jpeg', 0.95); reportSagittalImg.style.display = 'block'; }
       }
       
-      if (mprControls) {
-        mprControls.style.display = 'flex'; // Restore sliders
-      }
-      
-      // Give DOM a tick to update the image
-      await new Promise(r => setTimeout(r, 100));
+      // Give DOM a tick to update the images
+      await new Promise(r => setTimeout(r, 150));
 
       // 2. Capture the full hidden A4 report
       const canvas = await html2canvas(reportRef.current, {
@@ -210,11 +212,12 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
       pdf.save(`HepatoAI_Clinical_Report_${patientInfo.mrn || 'Unknown'}.pdf`);
       
       // Cleanup
-      const reportMprImg = document.getElementById("report-mpr-img") as HTMLImageElement;
-      if (reportMprImg) {
-         reportMprImg.style.display = 'none';
-         reportMprImg.src = '';
-      }
+      const reportAxialImg = document.getElementById("report-axial-img") as HTMLImageElement;
+      const reportCoronalImg = document.getElementById("report-coronal-img") as HTMLImageElement;
+      const reportSagittalImg = document.getElementById("report-sagittal-img") as HTMLImageElement;
+      if (reportAxialImg) { reportAxialImg.style.display = 'none'; reportAxialImg.src = ''; }
+      if (reportCoronalImg) { reportCoronalImg.style.display = 'none'; reportCoronalImg.src = ''; }
+      if (reportSagittalImg) { reportSagittalImg.style.display = 'none'; reportSagittalImg.src = ''; }
     } catch (err) {
       console.error("PDF generation failed", err);
       alert("Failed to generate PDF report.");
@@ -699,7 +702,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
           <div className="flex justify-between items-center border-b-[3px] border-black pb-4 mb-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center border border-cyan-800">
-                 <Activity className="w-8 h-8 text-cyan-800" />
+                 <Hexagon className="w-8 h-8 text-cyan-800" />
               </div>
               <div>
                 <h1 className="text-3xl font-black uppercase tracking-widest text-slate-900">Hepato<span className="text-cyan-700">AI</span></h1>
@@ -736,9 +739,61 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
           )}
 
           {/* Radiological Imaging Output */}
-          <div className="mb-6">
-             <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Radiological Imaging (MPR Views)</h3>
-             <img id="report-mpr-img" className="w-full h-auto object-contain rounded-md border-2 border-slate-800" style={{ display: 'none', maxHeight: '400px' }} />
+          <div className="mb-8">
+             <div className="border-b-2 border-slate-300 pb-2 mb-4 flex justify-between items-end">
+               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Section IV: Key Diagnostic Images (CT Multiplanar Reconstruction)</h3>
+               <span className="text-[10px] font-mono text-slate-500 uppercase">AI Overlay: Grad-CAM Thermal Activation & RECIST ROI</span>
+             </div>
+             
+             {/* 3-Column Key Images Layout */}
+             <div className="grid grid-cols-3 gap-6 mb-4">
+                {/* Axial View */}
+                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
+                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
+                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 1: Axial Plane</span>
+                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">XY Slice</span>
+                   </div>
+                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
+                     <img id="report-axial-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
+                   </div>
+                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Transaxial cross-section intersecting primary tumor activation maximum (v_max).</p>
+                </div>
+
+                {/* Coronal View */}
+                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
+                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
+                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 2: Coronal Plane</span>
+                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">XZ Slice</span>
+                   </div>
+                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
+                     <img id="report-coronal-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
+                   </div>
+                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Coronal reconstruction demonstrating superior-inferior hepatic extent & vascular proximity.</p>
+                </div>
+
+                {/* Sagittal View */}
+                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
+                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
+                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 3: Sagittal Plane</span>
+                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">YZ Slice</span>
+                   </div>
+                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
+                     <img id="report-sagittal-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
+                   </div>
+                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Sagittal reconstruction defining anterior-posterior tumor margin boundaries.</p>
+                </div>
+             </div>
+
+             {/* Imaging Protocol & Metadata Table */}
+             <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs">
+                <div className="font-bold text-[11px] text-slate-700 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Technical Imaging & Acquisition Protocol</div>
+                <div className="grid grid-cols-4 gap-4 text-[11px]">
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Modality</span><span className="font-mono font-semibold text-slate-800">CT (Computed Tomography)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Slice Thickness</span><span className="font-mono font-semibold text-slate-800">5.0 mm (Reconstructed)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Contrast Administration</span><span className="font-mono font-semibold text-slate-800">IV Portal Venous Phase</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Reconstruction Kernel</span><span className="font-mono font-semibold text-slate-800">Standard Soft Tissue (B30f)</span></div>
+                </div>
+             </div>
           </div>
 
           {/* Clinical Parameters & SHAP */}
