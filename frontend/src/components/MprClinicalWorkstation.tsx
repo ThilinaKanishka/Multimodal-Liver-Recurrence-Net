@@ -38,6 +38,9 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   const coronalCanvasRef = useRef<HTMLCanvasElement>(null);
   const sagittalCanvasRef = useRef<HTMLCanvasElement>(null);
   const legendCanvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfAxialCanvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfCoronalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfSagittalCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [float32Data, setFloat32Data] = useState<Float32Array>(new Float32Array(0));
   const [dicomUint8Data, setDicomUint8Data] = useState<Uint8Array | null>(null);
@@ -381,6 +384,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     if (sagittalCanvasRef.current) renderView(sagittalCanvasRef.current, 'Sagittal', zoomSagittal, Depth, Height, Depth * zScale, Height);
     if (coronalCanvasRef.current) renderView(coronalCanvasRef.current, 'Coronal', zoomCoronal, Width, Depth, Width, Depth * zScale);
 
+    if (pdfAxialCanvasRef.current) renderView(pdfAxialCanvasRef.current, 'Axial', 1.0, Width, Height, Width, Height);
+    if (pdfSagittalCanvasRef.current) renderView(pdfSagittalCanvasRef.current, 'Sagittal', 1.0, Depth, Height, Depth * zScale, Height);
+    if (pdfCoronalCanvasRef.current) renderView(pdfCoronalCanvasRef.current, 'Coronal', 1.0, Width, Depth, Width, Depth * zScale);
+
   }, [coord, float32Data, dicomUint8Data, activeLUT, globalOpacity, zoomAxial, zoomCoronal, zoomSagittal, Width, Height, Depth, getLUTColor]);
 
   // Hook to prevent page scroll ONLY when holding CTRL to zoom
@@ -438,7 +445,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-[2px] min-h-0">
           
           {/* Axial View */}
-          <div className="bg-black relative overflow-hidden group min-h-0">
+          <div id="axial-view-capture" className="bg-black relative overflow-hidden group min-h-0">
             {isDecoding && (
                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 text-cyan-400 text-xs font-mono">
                   <span className="animate-spin mb-2 text-xl">◌</span>
@@ -482,14 +489,14 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, x, y }));
               }}
             />
-            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
           </div>
 
           {/* Coronal View */}
-          <div className="bg-black relative overflow-hidden group min-h-0">
+          <div id="coronal-view-capture" className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
@@ -527,14 +534,14 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, x, z }));
               }}
             />
-            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
           </div>
 
           {/* Sagittal View */}
-          <div className="bg-black relative overflow-hidden group min-h-0">
+          <div id="sagittal-view-capture" className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
@@ -572,7 +579,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 setCoord(prev => ({ ...prev, z, y }));
               }}
             />
-            <div className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
+            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
               <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
             </div>
@@ -632,6 +639,62 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           <span className="text-[8px] text-slate-600 mt-6 [writing-mode:vertical-rl] rotate-180 tracking-[0.2em] font-bold uppercase">
             ACTIVATION
           </span>
+        </div>
+      </div>
+
+      {/* HIDDEN UNZOOMED MPR VIEWS FOR PDF EXPORT */}
+      <div className="fixed top-0 left-0 w-0 h-0 overflow-hidden pointer-events-none z-[-9999] opacity-0">
+        <div className="flex gap-4 bg-black p-4" style={{ width: '1200px', height: '400px' }}>
+          {/* Unzoomed Axial */}
+          <div id="pdf-axial-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              AXIAL (XY) | Z: {coord.z} | 1.0x
+            </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+            <canvas ref={pdfAxialCanvasRef} className="w-full h-full object-contain block" />
+          </div>
+
+          {/* Unzoomed Coronal */}
+          <div id="pdf-coronal-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              CORONAL (XZ) | Y: {coord.y} | 1.0x
+            </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+            <canvas ref={pdfCoronalCanvasRef} className="w-full h-full object-contain block" />
+          </div>
+
+          {/* Unzoomed Sagittal */}
+          <div id="pdf-sagittal-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
+            </div>
+            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              SAGITTAL (YZ) | X: {coord.x} | 1.0x
+            </div>
+            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              W: 400 L: 40
+            </div>
+            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
+              Thickness: 5.0mm | Spacing: 1.0x
+            </div>
+            <canvas ref={pdfSagittalCanvasRef} className="w-full h-full object-contain block" />
+          </div>
         </div>
       </div>
     </div>
