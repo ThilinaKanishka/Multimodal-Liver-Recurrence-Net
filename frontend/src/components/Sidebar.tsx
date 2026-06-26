@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon } from "lucide-react";
+import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut } from "lucide-react";
 
 interface SidebarProps {
   activePage: string;
@@ -53,6 +53,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) =
         <div className={getIconClass("settings")} onClick={() => setActivePage("settings")} title="System Configuration">
           <Settings className="w-5 h-5 flex-shrink-0" />
           <span className="text-xs font-bold uppercase tracking-wider">Settings</span>
+        </div>
+        <div className="w-full h-10 px-3 text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-2 shadow-[0_0_10px_rgba(244,63,94,0.1)]" onClick={() => setActivePage("login")} title="Log Out / Exit Portal">
+          <LogOut className="w-5 h-5 flex-shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-wider">Log Out</span>
         </div>
       </div>
     </div>

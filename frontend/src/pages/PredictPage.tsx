@@ -16,7 +16,8 @@ import {
   Search,
   Download,
   Hexagon,
-  QrCode
+  QrCode,
+  RotateCcw
 } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
@@ -386,6 +387,46 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
     }
   };
 
+  const handleResetWorkspace = () => {
+    setFormData({
+      tumor_size_cm: "",
+      afp_ngml: "",
+      alp_iul: "",
+      bilirubin_mgdl: "",
+      albumin_gdl: "",
+      platelet_k_ul: "",
+      alt_iul: "",
+      ast_iul: "",
+      bclc_stage: "A",
+      child_pugh_score: "A",
+      cirrhosis_present: false,
+      mvi_pathology: false,
+      hepatitis_b: false,
+      hepatitis_c: false,
+      enhancement_pattern: "Arterial Hyperenhancement (APHE)"
+    });
+    setPatientInfo({
+      mrn: "---",
+      name: "NO PATIENT LOADED",
+      dob: "---",
+      age: "-",
+      sex: "-",
+      attending: "---"
+    });
+    setImageFile(null);
+    setImagePreview(null);
+    setPdfFile(null);
+    setLoading(false);
+    setExtracting(false);
+    setAutoFilled(false);
+    setHistoryInfo(null);
+    setResult(null);
+    setErrorMessage(null);
+    setPipelineStep("IDLE");
+    setProgress(0);
+    setLoadingText("");
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-full relative">
       {/* Subtle Screen Flash on Completion */}
@@ -408,6 +449,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
             <span className="text-slate-400">Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
           </div>
           <div className="flex items-center gap-3">
+             <button
+               type="button"
+               onClick={handleResetWorkspace}
+               className="bg-[#1e293b] hover:bg-blue-600 hover:text-white text-slate-300 px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border border-[#334155] shadow flex items-center gap-1.5"
+               title="Clear active patient encounter and reset workspace"
+             >
+               <RotateCcw className="w-3.5 h-3.5" />
+               NEW ENCOUNTER
+             </button>
              <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded border border-emerald-900/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 SYSTEM SECURE
