@@ -22,6 +22,7 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
+import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -688,78 +689,81 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
 
           {/* FULL WIDTH RESULTS AREA */}
           {result ? (
-              <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
-                <div className={`px-4 py-2 border-b flex justify-between items-center flex-shrink-0 ${
-                  result.recurrence_risk === "HIGH" ? "bg-rose-950/40 border-rose-900/50" : "bg-emerald-950/40 border-emerald-900/50"
-                }`}>
-                  <div className="flex items-center gap-3">
-                    {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                    <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
-                        {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      type="button" 
-                      onClick={handleDownloadPdf}
-                      className="bg-[#1e293b] hover:bg-[#2a364a] text-slate-300 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-wider transition-colors border border-[#334155]"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      EXPORT PDF
-                    </button>
-                    <div className="font-mono text-[10px] text-slate-500 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
-                      ID: {result.pseudo_anonymous_id}
+              <>
+                <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
+                  <div className={`px-4 py-2 border-b flex justify-between items-center flex-shrink-0 ${
+                    result.recurrence_risk === "HIGH" ? "bg-rose-950/40 border-rose-900/50" : "bg-emerald-950/40 border-emerald-900/50"
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
+                      <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
+                          {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button" 
+                        onClick={handleDownloadPdf}
+                        className="bg-[#1e293b] hover:bg-[#2a364a] text-slate-300 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-wider transition-colors border border-[#334155]"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        EXPORT PDF
+                      </button>
+                      <div className="font-mono text-[10px] text-slate-500 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
+                        ID: {result.pseudo_anonymous_id}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
-                    {/* MPR Viewer Area */}
-                    <div id="mpr-workstation-capture" className="flex-1 p-2 border-b xl:border-b-0 xl:border-r border-[#1e293b] flex flex-col bg-black min-w-[70%] min-h-0">
-                      {result?.interpretability_layer?.gradcam_3d_matrix ? (
-                        <MprClinicalWorkstation 
-                          base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
-                          dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
-                          dimensions={result.interpretability_layer.heatmap_spatial_shape} 
-                          tumorTarget={result.interpretability_layer.tumor_target}
-                          patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
-                        />
-                      ) : (
-                        <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
-                            NO VOLUMETRIC DATA RENDERED
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* SHAP & Metrics Sidebar */}
-                    <div className="w-full xl:w-[350px] p-4 flex flex-col gap-4 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
-                      {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
-                        <div className="p-3 bg-red-950/30 border border-red-500/30 rounded text-[10px] text-red-200">
-                            <p className="font-bold text-red-400 mb-1 border-b border-red-500/20 pb-1">🛑 UNCERTAINTY BOUNDARY BREACHED</p>
-                            <p className="mb-2">Physician manual review strictly required.</p>
-                            <button onClick={() => handlePhysicianOverride("HIGH")} className="w-full py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded mb-1 font-bold shadow transition-colors">AUTHORIZE HIGH RISK</button>
-                            <button onClick={() => handlePhysicianOverride("LOW")} className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold shadow transition-colors">AUTHORIZE LOW RISK</button>
-                        </div>
-                      )}
-
-                      {result.explainable_ai_weights && (
-                        <div>
-                          <h4 className="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider border-b border-[#1e293b] pb-2">SHAP Feature Importance</h4>
-                          <div className="space-y-2">
-                            {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
-                              <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-3 py-2 rounded border border-[#1e293b] shadow-sm">
-                                <span className="text-slate-300 font-mono truncate mr-2">{key.replace(/_/g, ' ')}</span>
-                                <span className={`font-mono font-bold ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                                  {value > 0 ? "+" : ""}{value}
-                                </span>
-                              </div>
-                            ))}
+                  <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
+                      {/* MPR Viewer Area */}
+                      <div id="mpr-workstation-capture" className="flex-1 p-2 border-b xl:border-b-0 xl:border-r border-[#1e293b] flex flex-col bg-black min-w-[70%] min-h-0">
+                        {result?.interpretability_layer?.gradcam_3d_matrix ? (
+                          <MprClinicalWorkstation 
+                            base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
+                            dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
+                            dimensions={result.interpretability_layer.heatmap_spatial_shape} 
+                            tumorTarget={result.interpretability_layer.tumor_target}
+                            patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
+                          />
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
+                              NO VOLUMETRIC DATA RENDERED
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                      
+                      {/* SHAP & Metrics Sidebar */}
+                      <div className="w-full xl:w-[350px] p-4 flex flex-col gap-4 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
+                        {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
+                          <div className="p-3 bg-red-950/30 border border-red-500/30 rounded text-[10px] text-red-200">
+                              <p className="font-bold text-red-400 mb-1 border-b border-red-500/20 pb-1">🛑 UNCERTAINTY BOUNDARY BREACHED</p>
+                              <p className="mb-2">Physician manual review strictly required.</p>
+                              <button onClick={() => handlePhysicianOverride("HIGH")} className="w-full py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded mb-1 font-bold shadow transition-colors">AUTHORIZE HIGH RISK</button>
+                              <button onClick={() => handlePhysicianOverride("LOW")} className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold shadow transition-colors">AUTHORIZE LOW RISK</button>
+                          </div>
+                        )}
+
+                        {result.explainable_ai_weights && (
+                          <div>
+                            <h4 className="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider border-b border-[#1e293b] pb-2">SHAP Feature Importance</h4>
+                            <div className="space-y-2">
+                              {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
+                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-3 py-2 rounded border border-[#1e293b] shadow-sm">
+                                  <span className="text-slate-300 font-mono truncate mr-2">{key.replace(/_/g, ' ')}</span>
+                                  <span className={`font-mono font-bold ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                                    {value > 0 ? "+" : ""}{value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                  </div>
                 </div>
-              </div>
+                <PhysicianVerificationNotes inferenceId={result.inference_id} />
+              </>
           ) : (
               <div className="w-full border border-dashed border-[#1e293b] rounded-md flex items-center justify-center bg-[#070b14] h-[300px] mt-4">
                 <div className="text-center text-[#1e293b]">
