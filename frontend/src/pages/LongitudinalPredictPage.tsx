@@ -125,7 +125,7 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = ({ onViewHistory }) => {
+export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void; onSwitchToWorkspace?: () => void }> = ({ onViewHistory, onSwitchToWorkspace }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
     tumor_number: 1,
@@ -269,7 +269,14 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
           });
         }
         
-        if (data.has_history && data.pseudo_anonymous_id) {
+        if (data.is_new_patient || (!data.has_history && !data.past_records?.length)) {
+            alert("⚠️ NEW PATIENT DETECTED: No prior historical baseline records found for this patient. Automatically switching to primary Diagnostic Workspace.");
+            if (onSwitchToWorkspace) {
+                onSwitchToWorkspace();
+            }
+            setHistoryInfo(null);
+            setPastRecords([]);
+        } else if (data.has_history && data.pseudo_anonymous_id) {
             setHistoryInfo({ has_history: true, pseudo_id: data.pseudo_anonymous_id, count: data.total_past_scans || 1 });
             if (data.past_records && data.past_records.length > 0) {
                 setPastRecords(data.past_records);
