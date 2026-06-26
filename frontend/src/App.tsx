@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { PredictPage } from "./pages/PredictPage";
+import { LongitudinalPredictPage } from "./pages/LongitudinalPredictPage";
 import { LoginPage } from "./pages/LoginPage";
 import { Sidebar } from "./components/Sidebar";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
@@ -447,6 +448,9 @@ function App() {
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
             <PredictPage onViewHistory={handlePatientClick} />
+          </div>
+          <div className={activePage === "longitudinal" ? "block h-full w-full" : "hidden"}>
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} />
           </div>
           {renderPage()}
         </div>

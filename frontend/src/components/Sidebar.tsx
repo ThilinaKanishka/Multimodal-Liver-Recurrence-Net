@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut } from "lucide-react";
+import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split } from "lucide-react";
 
 interface SidebarProps {
   activePage: string;
@@ -30,6 +30,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) =
         <div className={getIconClass("activity")} onClick={() => setActivePage("activity")} title="Diagnostic Workspace">
           <Activity className="w-5 h-5 flex-shrink-0" />
           <span className="text-xs font-bold uppercase tracking-wider">Workspace</span>
+        </div>
+        <div className={getIconClass("longitudinal")} onClick={() => setActivePage("longitudinal")} title="Longitudinal Tracking (Compare Mode)">
+          <Split className="w-5 h-5 flex-shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-wider">Compare</span>
         </div>
         <div className={getIconClass("dashboard")} onClick={() => setActivePage("dashboard")} title="System Dashboard">
           <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
