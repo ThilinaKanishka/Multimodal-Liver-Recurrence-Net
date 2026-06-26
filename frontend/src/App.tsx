@@ -450,7 +450,7 @@ function App() {
             <PredictPage onViewHistory={handlePatientClick} />
           </div>
           <div className={activePage === "longitudinal" ? "block h-full w-full" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} />
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} />
           </div>
           {renderPage()}
         </div>
