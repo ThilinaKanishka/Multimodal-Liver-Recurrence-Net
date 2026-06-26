@@ -15,7 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) =
   };
 
   return (
-    <div className="w-[240px] flex-shrink-0 bg-[#0f141f] border-r border-[#1e293b] flex flex-col items-start py-4 z-10 shadow-2xl sticky top-0 h-screen">
+    <div className="w-[240px] flex-shrink-0 bg-[#0f141f] border-r border-[#1e293b] flex flex-col items-start py-4 z-10 shadow-2xl sticky top-0 h-full pb-8">
       
       <div className="px-5 w-full flex items-center gap-3 mb-8 pb-5 border-b border-[#1e293b]">
         <div className="bg-cyan-500/20 p-1.5 rounded-lg border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
