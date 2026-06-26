@@ -165,6 +165,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
   const [historyInfo, setHistoryInfo] = useState<{has_history: boolean, pseudo_id: string, count: number} | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pipelineStep, setPipelineStep] = useState<"IDLE" | "STEP1" | "STEP2" | "STEP3" | "COMPLETE">("IDLE");
+  const [progress, setProgress] = useState<number>(0);
+  const [loadingText, setLoadingText] = useState<string>("");
+  const [screenFlash, setScreenFlash] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPdf = async () => {
@@ -323,21 +327,47 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
     setLoading(true);
     setResult(null);
     setErrorMessage(null);
+    setPipelineStep("STEP1");
+    setProgress(33);
+    setLoadingText("Extracting 3D Radiomics Features...");
 
     const payload = new FormData();
     payload.append("clinical_data", JSON.stringify(formData));
     if (imageFile) payload.append("ct_scan", imageFile);
     if (pdfFile) payload.append("text_report_pdf", pdfFile);
 
-    try {
-      const response = await axios.post("http://127.0.0.1:8000/api/v1/predict", payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setResult(response.data);
-    } catch (error: any) {
-      setErrorMessage(error.response?.data?.detail || "Backend communication failed.");
-    } finally {
-      setLoading(false);
+    // Start API request in parallel
+    const apiPromise = axios.post("http://127.0.0.1:8000/api/v1/predict", payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }).catch((error: any) => ({ error }));
+
+    // Step 1 (0s - 2s) - Image Processing
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Step 2 (2s - 4s) - Text Processing
+    setPipelineStep("STEP2");
+    setProgress(66);
+    setLoadingText("Executing NLP on Clinical Ledger...");
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Step 3 (4s - 6s) - The Fusion
+    setPipelineStep("STEP3");
+    setProgress(100);
+    setLoadingText("Executing Multimodal Vector Fusion & SHAP Analysis...");
+    await new Promise(r => setTimeout(r, 2000));
+
+    const res: any = await apiPromise;
+    setLoading(false);
+    setPipelineStep("COMPLETE");
+
+    if (res?.error) {
+      setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
+      setPipelineStep("IDLE");
+    } else {
+      setResult(res.data);
+      setScreenFlash(true);
+      setTimeout(() => setScreenFlash(false), 400);
+      setTimeout(() => setPipelineStep("IDLE"), 2000);
     }
   };
 
@@ -356,7 +386,11 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-full">
+    <div className="flex-1 flex flex-col min-h-full relative">
+      {/* Subtle Screen Flash on Completion */}
+      <div className={`fixed inset-0 bg-[#00b8d4] pointer-events-none transition-opacity duration-300 z-50 ${
+        screenFlash ? "opacity-15" : "opacity-0"
+      }`} />
       {/* TOP HEADER: Patient Context Banner */}
       <div className="h-12 bg-[#131826] border-b border-[#1e293b] flex items-center px-4 justify-between flex-shrink-0 shadow-md sticky top-0 z-20">
           <div className="flex items-center gap-4 text-xs">
@@ -402,16 +436,22 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                   </h2>
                 </div>
                 <div className="p-3 flex flex-col gap-3 flex-1 justify-center">
-                  <div className="border border-dashed border-[#2a364a] hover:border-blue-500/50 bg-[#0a0e17] rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-colors group cursor-pointer">
-                    <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer ${
+                    pipelineStep === "STEP1" || pipelineStep === "STEP3"
+                      ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
+                      : "border-dashed border-[#2a364a] hover:border-blue-500/50 bg-[#0a0e17]"
+                  }`}>
+                    <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
-                        <div className="text-center text-blue-400">
-                          <Database className="w-8 h-8 mx-auto mb-1 opacity-80" />
+                        <div className={`text-center transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
+                          <Database className={`w-8 h-8 mx-auto mb-1 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-80"}`} />
                           <p className="font-bold text-[10px] uppercase tracking-wide">DICOM Loaded</p>
                         </div>
                       ) : (
-                        <img src={imagePreview} alt="Preview" className="max-h-20 rounded object-cover shadow-md" />
+                        <div className="relative w-full flex justify-center">
+                          <img src={imagePreview} alt="Preview" className={`max-h-20 rounded object-cover shadow-md transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "ring-2 ring-[#00b8d4] shadow-[0_0_12px_#00b8d4]" : ""}`} />
+                        </div>
                       )
                     ) : (
                       <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors">
@@ -421,11 +461,29 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                     )}
                   </div>
 
-                  <div className="border border-[#2a364a] bg-[#0a0e17] rounded-sm p-3 flex flex-col justify-center items-center relative hover:border-emerald-500/50 transition-colors group cursor-pointer h-16">
-                    <input type="file" accept=".pdf" onChange={handlePdfChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  {/* Multimodal Fusion Link / Connector */}
+                  <div className="flex items-center justify-center -my-1 z-10 relative h-6">
+                    <div className={`w-0.5 h-full transition-all duration-500 ${
+                      pipelineStep === "STEP3" 
+                        ? "bg-[#00b8d4] shadow-[0_0_10px_#00b8d4] animate-pulse" 
+                        : "bg-[#2a364a]"
+                    }`} />
+                    {pipelineStep === "STEP3" && (
+                      <div className="absolute bg-[#131524] border border-[#00b8d4] text-[#00b8d4] text-[9px] font-mono px-2 py-0.5 rounded shadow-[0_0_12px_rgba(0,184,212,0.3)] flex items-center gap-1 animate-pulse">
+                        <Activity className="w-3 h-3" /> FUSION ACTIVE
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`border rounded-sm p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-16 ${
+                    pipelineStep === "STEP2" || pipelineStep === "STEP3"
+                      ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
+                      : "border-[#2a364a] bg-[#0a0e17] hover:border-emerald-500/50"
+                  }`}>
+                    <input type="file" accept=".pdf" onChange={handlePdfChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {pdfFile ? (
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircle className="w-4 h-4" />
+                      <div className={`flex items-center gap-2 transition-colors duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-emerald-400"}`}>
+                        <CheckCircle className={`w-4 h-4 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : ""}`} />
                         <span className="text-xs font-mono truncate max-w-[200px]">{pdfFile.name}</span>
                       </div>
                     ) : (
@@ -436,36 +494,57 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                     )}
                   </div>
                   
+                  {/* Technical Loading Status & Progress Bar */}
+                  {loading && (
+                    <div className="bg-[#131524] border border-[#2a364a] rounded-sm p-3 flex flex-col gap-2 shadow-inner transition-all duration-300 mt-1">
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-[#00b8d4] font-bold flex items-center gap-1.5 animate-pulse">
+                          <span className="inline-block w-1.5 h-1.5 bg-[#00b8d4] rounded-full"></span>
+                          {loadingText}
+                        </span>
+                        <span className="text-slate-400 font-bold">{progress}%</span>
+                      </div>
+                      <div className="w-full bg-[#0a0e17] h-1.5 rounded-full overflow-hidden border border-[#1e293b]">
+                        <div 
+                          className="bg-[#00b8d4] h-full transition-all duration-500 ease-out shadow-[0_0_8px_#00b8d4]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Auto-Extract Status */}
-                  <div className="h-auto min-h-[32px] flex flex-col items-center justify-center gap-2">
-                    {extracting && (
-                      <div className="text-[10px] font-mono text-amber-400 bg-amber-950/30 px-3 py-1.5 rounded-sm border border-amber-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
-                        <span className="animate-spin inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full"></span> 
-                        PARSING CLINICAL DATA...
-                      </div>
-                    )}
-                    {!extracting && autoFilled && (
-                      <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-3 py-1.5 rounded-sm border border-emerald-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
-                        <CheckCircle className="w-3.5 h-3.5" /> 
-                        EXTRACTION COMPLETE
-                      </div>
-                    )}
-                    {!extracting && historyInfo?.has_history && (
-                      <div className="w-full bg-indigo-950/40 border border-indigo-500/40 rounded-sm p-2 flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-500">
-                        <div className="flex items-center gap-2 text-indigo-300 text-[10px] font-bold tracking-wider">
-                           <Activity className="w-4 h-4 text-indigo-400" />
-                           <span>Previous History Found ({historyInfo.count} Scan{historyInfo.count > 1 ? 's' : ''})</span>
+                  {!loading && (
+                    <div className="h-auto min-h-[32px] flex flex-col items-center justify-center gap-2">
+                      {extracting && (
+                        <div className="text-[10px] font-mono text-amber-400 bg-amber-950/30 px-3 py-1.5 rounded-sm border border-amber-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
+                          <span className="animate-spin inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full"></span> 
+                          PARSING CLINICAL DATA...
                         </div>
-                        <button 
-                           type="button"
-                           onClick={(e) => { e.preventDefault(); onViewHistory?.(historyInfo.pseudo_id); }}
-                           className="bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] px-2 py-1 rounded shadow uppercase tracking-widest transition-colors font-bold"
-                        >
-                           View Records
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {!extracting && autoFilled && (
+                        <div className="text-[10px] font-mono text-emerald-400 bg-emerald-950/30 px-3 py-1.5 rounded-sm border border-emerald-500/30 flex items-center gap-2 w-full justify-center shadow-inner">
+                          <CheckCircle className="w-3.5 h-3.5" /> 
+                          EXTRACTION COMPLETE
+                        </div>
+                      )}
+                      {!extracting && historyInfo?.has_history && (
+                        <div className="w-full bg-indigo-950/40 border border-indigo-500/40 rounded-sm p-2 flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-500">
+                          <div className="flex items-center gap-2 text-indigo-300 text-[10px] font-bold tracking-wider">
+                             <Activity className="w-4 h-4 text-indigo-400" />
+                             <span>Previous History Found ({historyInfo.count} Scan{historyInfo.count > 1 ? 's' : ''})</span>
+                          </div>
+                          <button 
+                             type="button"
+                             onClick={(e) => { e.preventDefault(); onViewHistory?.(historyInfo.pseudo_id); }}
+                             className="bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] px-2 py-1 rounded shadow uppercase tracking-widest transition-colors font-bold"
+                          >
+                             View Records
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-auto pt-4 border-t border-[#1e293b]">
                     <button
@@ -474,10 +553,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                       className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
                         loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
                           ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
-                          : "bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.2)]"
+                          : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
                       }`}
                     >
-                      {loading ? "Processing Inference..." : "Initialize Pipeline"}
+                      {loading ? "Pipeline Active..." : "Initialize Pipeline"}
                     </button>
                   </div>
                 </div>
