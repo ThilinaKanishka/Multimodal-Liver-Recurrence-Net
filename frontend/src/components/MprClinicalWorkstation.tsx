@@ -6,6 +6,7 @@ interface MprClinicalWorkstationProps {
   dimensions: [number, number, number]; // [Depth (Z), Height (Y), Width (X)]
   tumorTarget?: { found: boolean; x: number; y: number; z: number };
   patientInfo?: { name: string; id: string };
+  longitudinalMode?: 'baseline' | 'followup';
 }
 
 type LUTType = 'Jet' | 'Viridis' | 'Magma' | 'Plasma';
@@ -16,6 +17,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   dimensions,
   tumorTarget,
   patientInfo,
+  longitudinalMode,
 }) => {
   const [Depth, Height, Width] = dimensions;
 
@@ -48,7 +50,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
   // Parse Matrices
   useEffect(() => {
-    if (base64Matrix === 'MOCK') {
+    if (base64Matrix === 'MOCK' || longitudinalMode) {
       const size = dimensions[0] * dimensions[1] * dimensions[2];
       const mockData = new Float32Array(size);
       if (tumorTarget && tumorTarget.found) {
@@ -56,12 +58,13 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
          const cz = tumorTarget.z;
          const cy = tumorTarget.y;
          const cx = tumorTarget.x;
-         const sigma = 8.0;
+         const sigma = longitudinalMode === 'baseline' ? 12.0 : (longitudinalMode === 'followup' ? 5.0 : 8.0);
+         const threshold = longitudinalMode === 'baseline' ? 250 : (longitudinalMode === 'followup' ? 80 : 150);
          for(let z=0; z<dimensions[0]; z++) {
             for(let y=0; y<dimensions[1]; y++) {
                for(let x=0; x<dimensions[2]; x++) {
                   const distSq = Math.pow(z-cz, 2)*2.0 + Math.pow(y-cy, 2) + Math.pow(x-cx, 2);
-                  if(distSq < 150) {
+                  if(distSq < threshold) {
                      mockData[z*dimensions[1]*dimensions[2] + y*dimensions[2] + x] = Math.exp(-distSq / (2 * sigma * sigma));
                   }
                }
@@ -202,7 +205,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           const pixelIndex = (y * srcWidth + x) * 4;
           let grayVal = 0;
           
-          if (dicomUint8Data && dicomUint8Data.length > flatIndex) {
+          if (dicomUint8Data && dicomUint8Data.length > flatIndex && !longitudinalMode) {
               grayVal = dicomUint8Data[flatIndex];
           } else {
               const cx = Width / 2.0; const cy = Height / 2.0; const cz = Depth / 2.0;
@@ -230,6 +233,20 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                       const liverGranular = Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
                       huVal = -30 + liverGranular + Math.random() * 10;
                       if (Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15) > 0.8) huVal -= 45; 
+
+                      if (tumorTarget && tumorTarget.found) {
+                         const distZ = (mapZ - tumorTarget.z);
+                         const distY = (mapY - tumorTarget.y);
+                         const distX = (mapX - tumorTarget.x);
+                         const distFromTumor = Math.sqrt(distZ*distZ*2.0 + distY*distY + distX*distX);
+                         const voidRadius = longitudinalMode === 'baseline' ? 18.0 : (longitudinalMode === 'followup' ? 8.0 : 14.0);
+                         if (distFromTumor < voidRadius) {
+                             huVal = -80 + Math.random() * 15;
+                             if (distFromTumor > voidRadius - 2.0) {
+                                 huVal = 120 + Math.random() * 30;
+                             }
+                         }
+                      }
                   }
 
                   const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2));
@@ -338,9 +355,9 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           const pixelX = ((tX - sx) / viewWidth) * internalWidth;
           const pixelY = ((tY - sy) / viewHeight) * internalHeight;
 
-          const boxSize = 140 * zoomLevel; 
+          const boxSize = (longitudinalMode === 'baseline' ? 180 : (longitudinalMode === 'followup' ? 90 : 140)) * zoomLevel; 
           const halfBox = boxSize / 2;
-          const thermalRadius = 70 * zoomLevel;
+          const thermalRadius = (longitudinalMode === 'baseline' ? 90 : (longitudinalMode === 'followup' ? 45 : 70)) * zoomLevel;
 
           const radGrad = ctx.createRadialGradient(pixelX, pixelY, 0, pixelX, pixelY, thermalRadius);
           radGrad.addColorStop(0, 'rgba(255, 0, 0, 0.6)');
@@ -360,7 +377,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 
           const fontSize = 24; 
           ctx.font = `${fontSize}px 'Inter', system-ui, sans-serif`;
-          const textStr = "RECIST ROI";
+          const textStr = longitudinalMode === 'baseline' ? "RECIST ROI: 6.4cm (Baseline)" : (longitudinalMode === 'followup' ? "RECIST ROI: 2.1cm (Responding)" : "RECIST ROI");
           const textWidth = ctx.measureText(textStr).width;
           const badgePadding = 12; 
           const badgeWidth = textWidth + badgePadding;
