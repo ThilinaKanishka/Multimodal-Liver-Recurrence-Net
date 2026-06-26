@@ -272,20 +272,22 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 class AuditOverridePayload(BaseModel):
     inference_id: str
-    physician_override_risk: str
-    physician_notes: str
+    physician_override_risk: Optional[str] = None
+    physician_notes: Optional[str] = None
 
 @app.post("/api/v1/audit")
 async def clinical_audit_callback(payload: AuditOverridePayload):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        UPDATE audit_trail
-        SET physician_override_risk = ?, physician_notes = ?
-        WHERE inference_id = ?
-    ''', (payload.physician_override_risk, payload.physician_notes, payload.inference_id))
-    conn.commit()
-    conn.close()
+    update_fields = {}
+    if payload.physician_override_risk is not None:
+        update_fields["physician_override_risk"] = payload.physician_override_risk
+    if payload.physician_notes is not None:
+        update_fields["physician_notes"] = payload.physician_notes
+        
+    if update_fields:
+        await audit_logs_collection.update_one(
+            {"inference_id": payload.inference_id},
+            {"$set": update_fields}
+        )
     return {"status": "SUCCESS"}
 
 # ==========================================
