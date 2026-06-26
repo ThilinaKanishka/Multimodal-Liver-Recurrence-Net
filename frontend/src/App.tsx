@@ -206,14 +206,24 @@ const DatabasePage = () => {
                <p className="text-slate-600 font-mono text-xs uppercase text-center mt-10">No audit logs queried.</p>
             ) : (
                logs.map(log => (
-                 <div key={log._id} className="bg-[#131826] border border-[#1e293b] p-3 rounded flex justify-between items-center">
-                    <div>
-                       <p className="text-xs font-mono text-blue-400 mb-1">ID: {log.inference_id}</p>
-                       <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                 <div key={log._id} className="bg-[#131826] border border-[#1e293b] p-4 rounded flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                         <p className="text-xs font-mono text-blue-400 mb-1">ID: {log.inference_id}</p>
+                         <p className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</p>
+                      </div>
+                      <div className={`px-2 py-1 rounded text-xs font-bold tracking-wider ${log.recurrence_risk === 'HIGH' ? 'bg-rose-500/20 text-rose-400' : log.recurrence_risk === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {log.recurrence_risk} RISK
+                      </div>
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs font-bold tracking-wider ${log.recurrence_risk === 'HIGH' ? 'bg-rose-500/20 text-rose-400' : log.recurrence_risk === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                      {log.recurrence_risk} RISK
-                    </div>
+                    {log.physician_notes && (
+                      <div className="bg-[#0a0e17] border border-[#2a364a] p-3 rounded text-xs font-mono text-slate-300 flex flex-col gap-1 shadow-inner">
+                        <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-1.5 border-b border-[#1e293b] pb-1 mb-1">
+                          <FileText className="w-3 h-3" /> Attending Physician Clinical Evaluation
+                        </span>
+                        <p className="whitespace-pre-wrap leading-relaxed">{log.physician_notes}</p>
+                      </div>
+                    )}
                  </div>
                ))
             )}
@@ -373,6 +383,14 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                            </div>
                         </div>
                      </div>
+                     {record.physician_notes && (
+                       <div className="bg-[#131826] rounded border border-blue-500/30 p-4 mb-4 flex flex-col gap-1.5 shadow-inner">
+                         <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-1.5 border-b border-[#1e293b] pb-1">
+                           <FileText className="w-3.5 h-3.5" /> Attending Physician Clinical Evaluation
+                         </span>
+                         <p className="text-xs font-mono text-slate-200 mt-1 whitespace-pre-wrap leading-relaxed">{record.physician_notes}</p>
+                       </div>
+                     )}
                      <div className="bg-[#131826] rounded border border-[#1e293b] p-3 flex flex-col h-[400px]">
                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-2 border-b border-[#1e293b] pb-1 flex justify-between items-center">
                           <span>Archived Radiological Scan (MPR View)</span>
@@ -407,15 +425,13 @@ function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case "login": return <LoginPage onLogin={() => setActivePage("activity")} />;
-      case "activity": return <PredictPage onViewHistory={handlePatientClick} />;
       case "dashboard": return <DashboardPage />;
       case "users": return <UsersPage onPatientClick={handlePatientClick} />;
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("users")} /> : <UsersPage onPatientClick={handlePatientClick} />;
       case "database": return <DatabasePage />;
       case "search": return <SearchPage />;
       case "settings": return <SettingsPage />;
-      default: return <PredictPage onViewHistory={handlePatientClick} />;
+      default: return null;
     }
   };
 
@@ -428,6 +444,10 @@ function App() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={setActivePage} />
         <div className="flex-1 overflow-auto bg-[#070b14] relative">
+          {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
+          <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
+            <PredictPage onViewHistory={handlePatientClick} />
+          </div>
           {renderPage()}
         </div>
       </div>
