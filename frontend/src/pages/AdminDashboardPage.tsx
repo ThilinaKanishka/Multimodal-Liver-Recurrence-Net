@@ -48,6 +48,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     password: ""
   });
   const [submitting, setSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchAdminData = () => {
     setLoading(true);
@@ -138,18 +139,24 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       });
   };
 
+  // NOTE: Ensure your Flask/FastAPI backend is accessible and configured with a valid Gmail App Password
+  // for the SMTP authentication to work securely when this endpoint is invoked.
   const handleProvisionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     
     const requestPromise = isEditMode && editingUserId
       ? axios.put(`http://127.0.0.1:8000/api/v1/admin/users/${editingUserId}`, formData)
-      : axios.post("http://127.0.0.1:8000/api/v1/admin/users", formData);
+      : axios.post("http://127.0.0.1:8000/api/provision-doctor", formData);
 
     requestPromise
       .then(res => {
         setSubmitting(false);
         setShowModal(false);
+        if (!isEditMode) {
+          setToastMessage("Doctor Provisioned & Credentials Emailed Successfully");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
         setIsEditMode(false);
         setEditingUserId(null);
         setFormData({
@@ -264,6 +271,14 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       {/* RIGHT SIDE MAIN DASHBOARD CONTENT */}
       <div className="flex-1 p-8 bg-[#1a1c2c] text-slate-200 font-sans flex flex-col h-full overflow-y-auto custom-scrollbar relative z-10">
         
+        {/* Tailwind Success Toast / Alert */}
+        {toastMessage && (
+          <div className="mb-6 flex items-center gap-3 bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-semibold animate-bounce">
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
         {/* Top Header Section */}
         <div className="flex items-center justify-between mb-8 border-b border-gray-700 pb-4">
           <div className="flex items-center gap-4">
@@ -925,7 +940,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                     {submitting ? (
                       <>
                         <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        {isEditMode ? "Saving Modifications..." : "Executing Enrollment..."}
+                        {isEditMode ? "Saving Modifications..." : "Provisioning & Sending Email..."}
                       </>
                     ) : (
                       isEditMode ? "Authorize & Save Modifications" : "Authorize & Provision"

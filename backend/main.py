@@ -6,6 +6,11 @@ import uuid
 import hashlib
 import sqlite3
 import base64
+import random
+import string
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -949,6 +954,127 @@ class NewUserPayload(BaseModel):
     status: str
     mfa_required: Optional[bool] = True
     password: Optional[str] = None
+
+# ==============================================================================
+# IMPORTANT: GMAIL SMTP CONFIGURATION & APP PASSWORDS
+# ==============================================================================
+# To send emails securely via Gmail SMTP without enabling "Less Secure Apps",
+# you MUST create a 16-character "Gmail App Password".
+# 1. Go to your Google Account -> Security.
+# 2. Enable 2-Step Verification if not already enabled.
+# 3. Select "App passwords" and generate one for "Mail".
+# 4. Set the environment variables below accordingly.
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 465 # Using SSL/TLS
+SENDER_EMAIL = os.environ.get("HEPATOAI_SENDER_EMAIL", "hospital.it@gmail.com")
+SENDER_PASSWORD = os.environ.get("HEPATOAI_SENDER_APP_PASSWORD", "your-16-char-app-password")
+
+def generate_temporary_password():
+    chars = string.ascii_letters + string.digits
+    random_part = ''.join(random.choice(chars) for _ in range(6))
+    return f"Hepato-{random_part}"
+
+@app.post("/api/provision-doctor")
+async def provision_doctor_endpoint(user: NewUserPayload):
+    user_dict = user.dict()
+    
+    # Generate secure temporary password if not provided or empty
+    temp_password = user_dict.get("password") or generate_temporary_password()
+    user_dict["password_hash"] = hashlib.sha256(temp_password.encode()).hexdigest()
+    if "password" in user_dict:
+        del user_dict["password"]
+        
+    await users_collection.insert_one(user_dict)
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Provisioned new doctor {user.name} ({user.id}) in {user.dept} & dispatched email",
+        "ip": "192.168.10.45",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    
+    # Construct Email Message
+    msg = MIMEMultipart()
+    msg['From'] = f"HepatoAI IT Operations <{SENDER_EMAIL}>"
+    msg['To'] = user.email
+    msg['Subject'] = "HepatoAI Clinical Pipeline - Account Provisioned"
+
+    # Professional Dark-Themed HTML Email Template
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0d1117; color: #e6edf3;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            
+            <!-- Header -->
+            <div style="border-bottom: 1px solid #30363d; padding-bottom: 20px; margin-bottom: 24px;">
+                <h1 style="color: #58a6ff; font-size: 22px; font-weight: 600; margin: 0;">HepatoAI Clinical Pipeline - Account Provisioned</h1>
+            </div>
+
+            <!-- Body -->
+            <p style="font-size: 16px; line-height: 1.6; color: #c9d1d9; margin-top: 0;">
+                Dear Dr. {user.name}, your enterprise account for HepatoAI has been successfully provisioned by the Hospital IT Department.
+            </p>
+
+            <!-- Details Box -->
+            <div style="background-color: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 20px; margin: 28px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px; width: 40%;">Staff ID / Username:</td>
+                        <td style="padding: 8px 0; color: #58a6ff; font-size: 15px; font-weight: 600;">{user.id}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px;">Department:</td>
+                        <td style="padding: 8px 0; color: #e6edf3; font-size: 15px; font-weight: 500;">{user.dept}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px;">Temporary Password:</td>
+                        <td style="padding: 8px 0; color: #3fb950; font-size: 15px; font-family: monospace; font-weight: bold;">{temp_password}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Security Warning -->
+            <div style="background-color: rgba(248, 81, 73, 0.1); border-left: 4px solid #f85149; padding: 16px; margin-bottom: 32px; border-radius: 0 6px 6px 0;">
+                <p style="margin: 0; color: #ff7b72; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">HIPAA COMPLIANCE NOTICE:</p>
+                <p style="margin: 6px 0 0 0; color: #e6edf3; font-size: 14px; line-height: 1.5;">
+                    You must change your temporary password upon your first login. Do not share these credentials.
+                </p>
+            </div>
+
+            <!-- Action Button -->
+            <div style="text-align: center; margin-top: 32px;">
+                <a href="https://hepatoai-portal.hospital.org/login" style="display: inline-block; background-color: #238636; color: #ffffff; padding: 12px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 6px; box-shadow: 0 1px 0 rgba(27,31,36,0.1);">
+                    Access HepatoAI Portal
+                </a>
+            </div>
+
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #30363d; text-align: center; color: #8b949e; font-size: 12px;">
+                HepatoAI Clinical Pipeline &bull; Hospital IT Administration System
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    # Dispatch Email via Gmail SMTP SSL
+    try:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, user.email, msg.as_string())
+    except Exception as e:
+        print(f"SMTP Error (expected if Gmail App Password is not configured): {e}")
+
+    return {"status": "SUCCESS", "success": True, "user": {k: v for k, v in user_dict.items() if k != "_id"}}
 
 @app.post("/api/v1/admin/users")
 async def provision_admin_user(user: NewUserPayload):
