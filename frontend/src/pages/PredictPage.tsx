@@ -479,14 +479,14 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
             <div className="w-full xl:w-[380px] flex flex-col gap-4 flex-shrink-0">
               
               {/* Panel: Diagnostic Input */}
-              <div className="bg-[#131826] border border-[#1e293b] rounded-md flex flex-col shadow-lg overflow-hidden h-full">
-                <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between">
+              <div className="bg-[#131826] border border-[#1e293b] rounded-md flex flex-col shadow-lg h-full relative">
+                <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between rounded-t-md z-10">
                   <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-blue-400" />
                     1. Diagnostic Pipeline
                   </h2>
                 </div>
-                <div className="p-3 flex flex-col gap-3 flex-1 justify-center">
+                <div className="p-3 flex flex-col gap-3 flex-1 justify-center max-h-[calc(100vh-240px)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a364a] scrollbar-track-transparent">
                   <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer ${
                     pipelineStep === "STEP1" || pipelineStep === "STEP3"
                       ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
@@ -597,19 +597,19 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                     </div>
                   )}
 
-                  <div className="mt-auto pt-4 border-t border-[#1e293b]">
-                    <button
-                      type="submit"
-                      disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
-                      className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                        loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
-                          ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
-                          : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
-                      }`}
-                    >
-                      {loading ? "Pipeline Active..." : "Initialize Pipeline"}
-                    </button>
-                  </div>
+                </div>
+                <div className="p-3 bg-[#131826] border-t border-[#1e293b] sticky bottom-0 z-20 rounded-b-md shadow-[0_-8px_16px_rgba(0,0,0,0.4)] mt-auto">
+                  <button
+                    type="submit"
+                    disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
+                    className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
+                      loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                        ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
+                        : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
+                    }`}
+                  >
+                    {loading ? "Pipeline Active..." : "Initialize Pipeline"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -817,8 +817,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
           ) : (
               <div className="w-full border border-dashed border-[#1e293b] rounded-md flex items-center justify-center bg-[#070b14] h-[300px] mt-4">
                 <div className="text-center text-[#1e293b]">
-                    <Activity className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs font-mono uppercase tracking-widest font-bold">AWAITING INFERENCE EXECUTION</p>
+                    <Activity className="w-16 h-16 mx-auto mb-2 opacity-50 text-cyan-500" />
+                    <p className="text-xs font-mono uppercase tracking-widest font-bold text-slate-400">AWAITING INFERENCE EXECUTION</p>
                 </div>
               </div>
           )}

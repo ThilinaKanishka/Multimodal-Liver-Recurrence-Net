@@ -168,12 +168,14 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const [historyInfo, setHistoryInfo] = useState<{has_history: boolean, pseudo_id: string, count: number} | null>(null);
   const [pastRecords, setPastRecords] = useState<any[]>([]);
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>("BASE-2026-JAN15-89412");
+  const [baselineSearch, setBaselineSearch] = useState<string>("");
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pipelineStep, setPipelineStep] = useState<"IDLE" | "STEP1" | "STEP2" | "STEP3" | "COMPLETE">("IDLE");
   const [progress, setProgress] = useState<number>(0);
   const [loadingText, setLoadingText] = useState<string>("");
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
+  const [showBaselineModal, setShowBaselineModal] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPdf = async () => {
@@ -281,6 +283,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
             if (data.past_records && data.past_records.length > 0) {
                 setPastRecords(data.past_records);
                 setSelectedBaselineId(data.past_records[0].inference_id);
+                setShowBaselineModal(true);
             }
         } else {
             setHistoryInfo(null);
@@ -406,6 +409,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
     setPipelineStep("IDLE");
     setProgress(0);
     setLoadingText("");
+    setShowBaselineModal(false);
   };
 
   return (
@@ -460,14 +464,14 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
             <div className="w-full xl:w-[380px] flex flex-col gap-4 flex-shrink-0">
               
               {/* Panel: Diagnostic Input */}
-              <div className="bg-[#131826] border border-[#1e293b] rounded-md flex flex-col shadow-lg overflow-hidden h-full">
-                <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between">
+              <div className="bg-[#131826] border border-[#1e293b] rounded-md flex flex-col shadow-lg h-full relative">
+                <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between rounded-t-md z-10">
                   <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-blue-400" />
                     1. Diagnostic Pipeline
                   </h2>
                 </div>
-                <div className="p-3 flex flex-col gap-3 flex-1 justify-center">
+                <div className="p-3 flex flex-col gap-3 flex-1 justify-center max-h-[calc(100vh-240px)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a364a] scrollbar-track-transparent">
                   <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer ${
                     pipelineStep === "STEP1" || pipelineStep === "STEP3"
                       ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
@@ -561,53 +565,52 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                         </div>
                       )}
                       {!extracting && historyInfo?.has_history && (
-                        <div className="w-full bg-indigo-950/40 border border-indigo-500/40 rounded-sm p-3 flex flex-col gap-3 shadow-lg animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="w-full bg-[#0d121f] border border-indigo-500/40 rounded-md p-3 flex flex-col gap-3 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-500">
                           <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
                             <div className="flex items-center gap-2 text-indigo-300 text-[11px] font-bold tracking-wider uppercase">
                                <Activity className="w-4 h-4 text-indigo-400 animate-pulse" />
-                               <span>Prior Baseline Records Detected ({historyInfo.count})</span>
+                               <span>Prior Baseline Records ({historyInfo.count})</span>
                             </div>
                             <button 
                                type="button"
                                onClick={(e) => { e.preventDefault(); onViewHistory?.(historyInfo.pseudo_id); }}
-                               className="bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] px-2 py-1 rounded shadow uppercase tracking-widest transition-colors font-bold"
+                               className="bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] px-2.5 py-1 rounded shadow-md uppercase tracking-widest transition-colors font-bold"
                             >
                                EHR Ledger
                             </button>
                           </div>
                           
-                          {/* Past Records Selectable List */}
+                          {/* Currently Selected Baseline Summary */}
                           {pastRecords.length > 0 && (
-                            <div className="flex flex-col gap-2">
-                              <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Select Baseline for Comparison:</p>
-                              {pastRecords.map((rec) => (
-                                <label 
-                                  key={rec.inference_id} 
-                                  className={`flex flex-col p-2.5 rounded border cursor-pointer transition-all ${
-                                    selectedBaselineId === rec.inference_id 
-                                      ? "bg-indigo-900/40 border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)] text-slate-200" 
-                                      : "bg-[#0a0e17] border-[#2a364a] hover:border-slate-500 text-slate-400"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <input 
-                                      type="radio" 
-                                      name="baseline_select" 
-                                      checked={selectedBaselineId === rec.inference_id}
-                                      onChange={() => setSelectedBaselineId(rec.inference_id)}
-                                      className="text-indigo-600 bg-[#0a0e17] border-slate-600 focus:ring-0"
-                                    />
-                                    <span className="text-xs font-bold tracking-wide text-slate-200 truncate flex-1">{rec.scan_title}</span>
-                                    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${rec.recurrence_risk === 'HIGH' ? 'bg-rose-950/60 text-rose-400 border border-rose-800/50' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'}`}>
-                                      {rec.recurrence_risk} RISK
+                            <div className="flex flex-col gap-2.5">
+                              {pastRecords.find(r => r.inference_id === selectedBaselineId) && (
+                                <div className="bg-indigo-950/60 border border-indigo-400/40 rounded p-2.5 flex flex-col gap-1.5 shadow">
+                                  <div className="flex items-center justify-between border-b border-indigo-500/30 pb-1">
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping flex-shrink-0"></span>
+                                      <span className="text-[11px] font-mono font-bold text-indigo-200 truncate">
+                                        {pastRecords.find(r => r.inference_id === selectedBaselineId)?.scan_title}
+                                      </span>
+                                    </div>
+                                    <span className="text-[9px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded font-bold flex-shrink-0 ml-2">
+                                      ACTIVE BASELINE
                                     </span>
                                   </div>
-                                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pl-5">
-                                    <span className="text-emerald-400 font-sans truncate">📄 {rec.report_title}</span>
-                                    <span>Tumor: {rec.tumor_size_cm}cm | AFP: {rec.afp_ngml}</span>
+                                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                                    <span className="text-emerald-400 font-sans truncate mr-2">📄 {pastRecords.find(r => r.inference_id === selectedBaselineId)?.report_title}</span>
+                                    <span className="flex-shrink-0">Tumor: {pastRecords.find(r => r.inference_id === selectedBaselineId)?.tumor_size_cm}cm | AFP: {pastRecords.find(r => r.inference_id === selectedBaselineId)?.afp_ngml}</span>
                                   </div>
-                                </label>
-                              ))}
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setShowBaselineModal(true)}
+                                className="w-full py-2 bg-[#131826] hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 rounded text-xs font-bold tracking-wider transition-all shadow-md uppercase flex items-center justify-center gap-2"
+                              >
+                                <Search className="w-3.5 h-3.5" />
+                                Change / Select Baseline Record
+                              </button>
                             </div>
                           )}
                         </div>
@@ -615,19 +618,19 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                     </div>
                   )}
 
-                  <div className="mt-auto pt-4 border-t border-[#1e293b]">
-                    <button
-                      type="submit"
-                      disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
-                      className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                        loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
-                          ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
-                          : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
-                      }`}
-                    >
-                      {loading ? "Pipeline Active..." : "Initialize Compare Pipeline"}
-                    </button>
-                  </div>
+                </div>
+                <div className="p-3 bg-[#131826] border-t border-[#1e293b] sticky bottom-0 z-20 rounded-b-md shadow-[0_-8px_16px_rgba(0,0,0,0.4)] mt-auto">
+                  <button
+                    type="submit"
+                    disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
+                    className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
+                      loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                        ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
+                        : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
+                    }`}
+                  >
+                    {loading ? "Pipeline Active..." : "Initialize Compare Pipeline"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1044,6 +1047,118 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
         </div>
       </div>
       
+      {/* BASELINE SELECTION MODAL POPUP */}
+      {showBaselineModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#131826] border border-[#2a364a] rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9)] w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#1a2235] px-6 py-4 border-b border-[#1e293b] flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-100 tracking-wide uppercase">Select Patient Historical Baseline Record</h3>
+                  <p className="text-xs text-slate-400 font-mono">Select a prior CT study for 3D multi-epoch volumetric comparison</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowBaselineModal(false)}
+                className="text-slate-400 hover:text-white bg-[#0a0e17] hover:bg-rose-600/80 border border-[#2a364a] w-8 h-8 rounded flex items-center justify-center font-bold text-sm transition-all shadow"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 flex flex-col gap-4 overflow-hidden bg-[#070b14]">
+              {/* Search/Filter input */}
+              <div className="relative flex items-center flex-shrink-0">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                <input 
+                  type="text" 
+                  value={baselineSearch}
+                  onChange={(e) => setBaselineSearch(e.target.value)}
+                  placeholder="Filter past baseline scans by date, report title, or clinical evaluation..."
+                  className="w-full text-xs font-mono bg-[#0a0e17] border border-[#2a364a] rounded text-slate-200 py-2.5 pl-9 pr-3 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors shadow-inner placeholder:text-slate-500"
+                />
+                {baselineSearch && (
+                  <button 
+                    type="button" 
+                    onClick={() => setBaselineSearch("")}
+                    className="absolute right-3 text-xs text-slate-400 hover:text-white font-bold bg-[#131826] px-2 py-1 rounded border border-[#2a364a]"
+                  >
+                    CLEAR
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable Records List */}
+              <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 scrollbar-thin scrollbar-thumb-indigo-500/30 scrollbar-track-transparent min-h-[250px]">
+                {pastRecords.filter(rec => 
+                  rec.scan_title.toLowerCase().includes(baselineSearch.toLowerCase()) ||
+                  rec.report_title.toLowerCase().includes(baselineSearch.toLowerCase()) ||
+                  rec.timestamp.toLowerCase().includes(baselineSearch.toLowerCase())
+                ).map((rec) => (
+                  <div 
+                    key={rec.inference_id}
+                    onClick={() => setSelectedBaselineId(rec.inference_id)}
+                    className={`flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
+                      selectedBaselineId === rec.inference_id 
+                        ? "bg-indigo-950/70 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)] text-slate-100" 
+                        : "bg-[#0a0e17] border-[#2a364a] hover:border-slate-500 text-slate-300 hover:bg-[#131826]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2 border-b border-[#1e293b] pb-2">
+                      <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                        <input 
+                          type="radio" 
+                          name="modal_baseline_select" 
+                          checked={selectedBaselineId === rec.inference_id}
+                          onChange={() => setSelectedBaselineId(rec.inference_id)}
+                          className="text-indigo-600 bg-[#070b14] border-slate-600 focus:ring-0 w-4 h-4"
+                        />
+                        <span className="font-bold tracking-wide text-sm truncate">{rec.scan_title}</span>
+                      </div>
+                      <span className={`text-[10px] font-mono px-2.5 py-1 rounded font-bold flex-shrink-0 ml-4 ${rec.recurrence_risk === 'HIGH' ? 'bg-rose-950/80 text-rose-300 border border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'}`}>
+                        {rec.recurrence_risk} RISK
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-400 pl-7">
+                      <span className="text-emerald-400 font-sans truncate mr-4">📄 {rec.report_title}</span>
+                      <span className="flex-shrink-0 text-slate-300">Tumor Size: <strong className="text-white">{rec.tumor_size_cm}cm</strong> | AFP: <strong className="text-white">{rec.afp_ngml} ng/ml</strong></span>
+                    </div>
+                  </div>
+                ))}
+                {pastRecords.filter(rec => 
+                  rec.scan_title.toLowerCase().includes(baselineSearch.toLowerCase()) ||
+                  rec.report_title.toLowerCase().includes(baselineSearch.toLowerCase()) ||
+                  rec.timestamp.toLowerCase().includes(baselineSearch.toLowerCase())
+                ).length === 0 && (
+                  <div className="text-center py-12 text-slate-500 text-xs font-mono uppercase border border-dashed border-[#1e293b] rounded-lg bg-[#0a0e17]">
+                    No matching baseline scans found
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-[#1a2235] px-6 py-4 border-t border-[#1e293b] flex items-center justify-between flex-shrink-0">
+              <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+                <span>Selected: <strong className="text-white">{pastRecords.find(r => r.inference_id === selectedBaselineId)?.scan_title || "None"}</strong></span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowBaselineModal(false)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded text-xs font-bold tracking-wider uppercase shadow-lg transition-all border border-indigo-400/50"
+              >
+                Confirm Baseline Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
