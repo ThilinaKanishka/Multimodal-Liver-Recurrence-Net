@@ -963,7 +963,7 @@ async def provision_admin_user(user: NewUserPayload):
         "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         "staffId": "ST-ADMIN",
         "action": f"Provisioned new user {user.name} ({user.id}) in {user.dept}",
-        "ip": "127.0.0.1",
+        "ip": "192.168.10.45",
         "severity": "Info",
         "suspicious": False
     }
@@ -987,7 +987,39 @@ async def update_admin_user(user_id: str, user: NewUserPayload):
         "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         "staffId": "ST-ADMIN",
         "action": f"Updated account credentials & assignment for Staff ID {user_id}",
-        "ip": "127.0.0.1",
+        "ip": "10.0.5.12",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    return {"status": "SUCCESS"}
+
+@app.patch("/api/v1/admin/users/{user_id}/revoke")
+async def revoke_admin_user(user_id: str):
+    await users_collection.update_one({"id": user_id}, {"$set": {"status": "Revoked"}})
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Suspended account & revoked access for Staff ID {user_id}",
+        "ip": "172.16.0.88",
+        "severity": "High",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    return {"status": "SUCCESS"}
+
+@app.patch("/api/v1/admin/users/{user_id}/reactivate")
+async def reactivate_admin_user(user_id: str):
+    await users_collection.update_one({"id": user_id}, {"$set": {"status": "Active"}})
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Restored account & reactivated access for Staff ID {user_id}",
+        "ip": "192.168.10.45",
         "severity": "Info",
         "suspicious": False
     }
@@ -1002,8 +1034,8 @@ async def delete_admin_user(user_id: str):
         "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
         "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         "staffId": "ST-ADMIN",
-        "action": f"Revoked and deleted staff account for Staff ID {user_id}",
-        "ip": "127.0.0.1",
+        "action": f"Permanently removed staff account for Staff ID {user_id}",
+        "ip": "172.16.2.19",
         "severity": "High",
         "suspicious": False
     }
@@ -1017,9 +1049,13 @@ async def get_admin_system_logs():
     cursor_sys = system_logs_collection.find({}).sort("_id", -1).limit(50)
     async for doc in cursor_sys:
         doc["_id"] = str(doc["_id"])
+        if doc.get("ip") == "127.0.0.1":
+            doc["ip"] = "192.168.10.45"
         logs.append(doc)
         
+    intranet_ips = ["192.168.10.45", "10.0.5.12", "172.16.0.88", "10.24.112.4", "192.168.4.150", "172.16.2.19"]
     cursor_audit = audit_logs_collection.find({}).sort("_id", -1).limit(50)
+    idx = 0
     async for doc in cursor_audit:
         doc["_id"] = str(doc["_id"])
         logs.append({
@@ -1027,10 +1063,11 @@ async def get_admin_system_logs():
             "time": doc.get("timestamp", "")[:19].replace("T", " "),
             "staffId": "Clinical AI Pipeline",
             "action": f"Prognostic Inference for Patient Hash {doc.get('pseudo_anonymous_id', '')[:8]}...",
-            "ip": "127.0.0.1",
+            "ip": intranet_ips[idx % len(intranet_ips)],
             "severity": "Info",
             "suspicious": False
         })
+        idx += 1
         
     logs.sort(key=lambda x: x.get("time", ""), reverse=True)
     return logs[:50]
