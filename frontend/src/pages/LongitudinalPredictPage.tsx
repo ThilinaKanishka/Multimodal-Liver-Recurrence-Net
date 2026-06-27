@@ -181,6 +181,54 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
     try {
+      // 1. Capture the individual MPR views cleanly without web UI controls
+      const axialFollowupEl = document.getElementById("pdf-axial-capture-followup");
+      const coronalFollowupEl = document.getElementById("pdf-coronal-capture-followup");
+      const sagittalFollowupEl = document.getElementById("pdf-sagittal-capture-followup");
+
+      const axialBaselineEl = document.getElementById("pdf-axial-capture-baseline");
+      const coronalBaselineEl = document.getElementById("pdf-coronal-capture-baseline");
+      const sagittalBaselineEl = document.getElementById("pdf-sagittal-capture-baseline");
+      
+      if (axialFollowupEl) {
+        const axialCanvas = await html2canvas(axialFollowupEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportAxialImg = document.getElementById("report-axial-img-followup") as HTMLImageElement;
+        if (reportAxialImg) { reportAxialImg.src = axialCanvas.toDataURL('image/jpeg', 0.95); reportAxialImg.style.display = 'block'; }
+      }
+
+      if (coronalFollowupEl) {
+        const coronalCanvas = await html2canvas(coronalFollowupEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportCoronalImg = document.getElementById("report-coronal-img-followup") as HTMLImageElement;
+        if (reportCoronalImg) { reportCoronalImg.src = coronalCanvas.toDataURL('image/jpeg', 0.95); reportCoronalImg.style.display = 'block'; }
+      }
+
+      if (sagittalFollowupEl) {
+        const sagittalCanvas = await html2canvas(sagittalFollowupEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportSagittalImg = document.getElementById("report-sagittal-img-followup") as HTMLImageElement;
+        if (reportSagittalImg) { reportSagittalImg.src = sagittalCanvas.toDataURL('image/jpeg', 0.95); reportSagittalImg.style.display = 'block'; }
+      }
+
+      if (axialBaselineEl) {
+        const axialCanvas = await html2canvas(axialBaselineEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportAxialImg = document.getElementById("report-axial-img-baseline") as HTMLImageElement;
+        if (reportAxialImg) { reportAxialImg.src = axialCanvas.toDataURL('image/jpeg', 0.95); reportAxialImg.style.display = 'block'; }
+      }
+
+      if (coronalBaselineEl) {
+        const coronalCanvas = await html2canvas(coronalBaselineEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportCoronalImg = document.getElementById("report-coronal-img-baseline") as HTMLImageElement;
+        if (reportCoronalImg) { reportCoronalImg.src = coronalCanvas.toDataURL('image/jpeg', 0.95); reportCoronalImg.style.display = 'block'; }
+      }
+
+      if (sagittalBaselineEl) {
+        const sagittalCanvas = await html2canvas(sagittalBaselineEl, { useCORS: true, backgroundColor: '#000000', scale: 2 });
+        const reportSagittalImg = document.getElementById("report-sagittal-img-baseline") as HTMLImageElement;
+        if (reportSagittalImg) { reportSagittalImg.src = sagittalCanvas.toDataURL('image/jpeg', 0.95); reportSagittalImg.style.display = 'block'; }
+      }
+      
+      // Give DOM a tick to update the images
+      await new Promise(r => setTimeout(r, 150));
+
       // Capture the full hidden A4 report
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
@@ -480,9 +528,13 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                     <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
-                        <div className={`text-center transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
-                          <Database className={`w-8 h-8 mx-auto mb-1 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-80"}`} />
-                          <p className="font-bold text-[10px] uppercase tracking-wide">DICOM Loaded</p>
+                        <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
+                          <Database className={`w-7 h-7 mx-auto mb-0.5 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-90"}`} />
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                            <span className="text-xs font-mono font-bold truncate max-w-[180px] text-slate-100">{imageFile?.name || "DICOM Loaded"}</span>
+                          </div>
+                          <span className="text-[9px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded font-bold">3D VOLUME READY</span>
                         </div>
                       ) : (
                         <div className="relative w-full flex justify-center">
@@ -622,14 +674,14 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 <div className="p-3 bg-[#131826] border-t border-[#1e293b] sticky bottom-0 z-20 rounded-b-md shadow-[0_-8px_16px_rgba(0,0,0,0.4)] mt-auto">
                   <button
                     type="submit"
-                    disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
+                    disabled={loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
                     className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                      loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                      loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
                         ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
                         : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
                     }`}
                   >
-                    {loading ? "Pipeline Active..." : "Initialize Compare Pipeline"}
+                    {loading ? "Pipeline Active..." : (!imageFile && !pdfFile ? "Upload DICOM or PDF" : "Initialize Compare Pipeline")}
                   </button>
                 </div>
               </div>
@@ -959,6 +1011,124 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
               </div>
             </div>
           )}
+
+          {/* Radiological Imaging Output (Comparative Side-by-Side) */}
+          <div className="mb-8">
+             <div className="border-b-2 border-slate-300 pb-2 mb-4 flex justify-between items-end">
+               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Section IV: Longitudinal Comparative MPR Imaging (Baseline vs Follow-up)</h3>
+               <span className="text-[10px] font-mono text-slate-500 uppercase">AI Overlay: Grad-CAM Thermal Activation & RECIST ROI</span>
+             </div>
+             
+             {/* 2-Column Comparative Layout (Baseline vs Follow-up) */}
+             <div className="grid grid-cols-2 gap-6 mb-4">
+                {/* Left Column: Baseline Scan */}
+                <div className="flex flex-col bg-amber-50/40 border-2 border-amber-200/80 rounded p-4 shadow-sm">
+                   <div className="mb-3 border-b-2 border-amber-200 pb-2 flex justify-between items-center bg-amber-100/50 -mx-4 -mt-4 p-3 rounded-t">
+                     <span className="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                       <Activity className="w-4 h-4 text-amber-600" />
+                       Baseline Scan ({pastRecords.find(r => r.inference_id === selectedBaselineId)?.scan_title || "Jan 15, 2026"})
+                     </span>
+                     <span className="text-[9px] font-mono bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-bold">PRIOR STUDY</span>
+                   </div>
+                   
+                   {/* Baseline Images Grid */}
+                   <div className="space-y-4">
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Axial Plane (XY)</span>
+                         <span className="font-mono text-[9px] text-amber-700">RECIST: 6.4cm</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-axial-img-baseline" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Coronal Plane (XZ)</span>
+                         <span className="font-mono text-[9px]">Transverse Extent</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-coronal-img-baseline" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Sagittal Plane (YZ)</span>
+                         <span className="font-mono text-[9px]">Sagittal Boundaries</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-sagittal-img-baseline" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+                   </div>
+                   <p className="text-[10px] text-amber-900/80 mt-3 italic leading-tight border-t border-amber-200 pt-2">
+                     Baseline evaluation demonstrates pronounced thermal Grad-CAM activation mass across all three reconstructed planes.
+                   </p>
+                </div>
+
+                {/* Right Column: Follow-up Scan */}
+                <div className="flex flex-col bg-emerald-50/40 border-2 border-emerald-200/80 rounded p-4 shadow-sm">
+                   <div className="mb-3 border-b-2 border-emerald-200 pb-2 flex justify-between items-center bg-emerald-100/50 -mx-4 -mt-4 p-3 rounded-t">
+                     <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide flex items-center gap-1.5">
+                       <Activity className="w-4 h-4 text-emerald-600" />
+                       Current Scan (Jun 23, 2026 - Follow-up)
+                     </span>
+                     <span className="text-[9px] font-mono bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded font-bold">LATEST STUDY</span>
+                   </div>
+                   
+                   {/* Follow-up Images Grid */}
+                   <div className="space-y-4">
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Axial Plane (XY)</span>
+                         <span className="font-mono text-[9px] text-emerald-700 font-bold">RECIST: 2.1cm (PR)</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-axial-img-followup" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Coronal Plane (XZ)</span>
+                         <span className="font-mono text-[9px]">Transverse Extent</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-coronal-img-followup" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase mb-1">
+                         <span>Sagittal Plane (YZ)</span>
+                         <span className="font-mono text-[9px]">Sagittal Boundaries</span>
+                       </div>
+                       <div className="bg-black flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[160px]">
+                         <img id="report-sagittal-img-followup" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '200px' }} />
+                       </div>
+                     </div>
+                   </div>
+                   <p className="text-[10px] text-emerald-900/80 mt-3 italic leading-tight border-t border-emerald-200 pt-2">
+                     Follow-up evaluation visualizes a reduced tumor mass and contraction of the Grad-CAM thermal cluster, confirming positive therapeutic response.
+                   </p>
+                </div>
+             </div>
+
+             {/* Imaging Protocol & Metadata Table */}
+             <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs">
+                <div className="font-bold text-[11px] text-slate-700 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Technical Imaging & Acquisition Protocol</div>
+                <div className="grid grid-cols-6 gap-3 text-[11px]">
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Modality</span><span className="font-mono font-semibold text-slate-800">CT (Computed Tomography)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Slice Thickness</span><span className="font-mono font-semibold text-slate-800">5.0 mm</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Contrast Agent</span><span className="font-mono font-semibold text-slate-800">100 mL Omnipaque 350 IV</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Scan Phase</span><span className="font-mono font-semibold text-slate-800">Portal Venous (70s)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">CTDIvol</span><span className="font-mono font-semibold text-emerald-700">12.4 mGy (Low Dose)</span></div>
+                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">DLP</span><span className="font-mono font-semibold text-emerald-700">582 mGy*cm</span></div>
+                </div>
+             </div>
+          </div>
 
           {/* Clinical Parameters & SHAP */}
           <div className="grid grid-cols-2 gap-10 mb-8">

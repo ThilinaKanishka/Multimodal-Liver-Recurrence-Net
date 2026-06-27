@@ -495,9 +495,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                     <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
-                        <div className={`text-center transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
-                          <Database className={`w-8 h-8 mx-auto mb-1 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-80"}`} />
-                          <p className="font-bold text-[10px] uppercase tracking-wide">DICOM Loaded</p>
+                        <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
+                          <Database className={`w-7 h-7 mx-auto mb-0.5 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-90"}`} />
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                            <span className="text-xs font-mono font-bold truncate max-w-[180px] text-slate-100">{imageFile?.name || "DICOM Loaded"}</span>
+                          </div>
+                          <span className="text-[9px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded font-bold">3D VOLUME READY</span>
                         </div>
                       ) : (
                         <div className="relative w-full flex justify-center">
@@ -601,14 +605,14 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
                 <div className="p-3 bg-[#131826] border-t border-[#1e293b] sticky bottom-0 z-20 rounded-b-md shadow-[0_-8px_16px_rgba(0,0,0,0.4)] mt-auto">
                   <button
                     type="submit"
-                    disabled={loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
+                    disabled={loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
                     className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
-                      loading || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                      loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
                         ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
                         : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
                     }`}
                   >
-                    {loading ? "Pipeline Active..." : "Initialize Pipeline"}
+                    {loading ? "Pipeline Active..." : (!imageFile && !pdfFile ? "Upload DICOM or PDF" : "Initialize Pipeline")}
                   </button>
                 </div>
               </div>

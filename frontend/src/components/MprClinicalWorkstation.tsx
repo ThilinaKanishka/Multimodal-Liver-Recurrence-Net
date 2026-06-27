@@ -462,7 +462,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-[2px] min-h-0">
           
           {/* Axial View */}
-          <div id="axial-view-capture" className="bg-black relative overflow-hidden group min-h-0">
+          <div id={longitudinalMode ? `axial-view-capture-${longitudinalMode}` : "axial-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
             {isDecoding && (
                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 text-cyan-400 text-xs font-mono">
                   <span className="animate-spin mb-2 text-xl">◌</span>
@@ -513,7 +513,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
 
           {/* Coronal View */}
-          <div id="coronal-view-capture" className="bg-black relative overflow-hidden group min-h-0">
+          <div id={longitudinalMode ? `coronal-view-capture-${longitudinalMode}` : "coronal-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
@@ -558,7 +558,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
 
           {/* Sagittal View */}
-          <div id="sagittal-view-capture" className="bg-black relative overflow-hidden group min-h-0">
+          <div id={longitudinalMode ? `sagittal-view-capture-${longitudinalMode}` : "sagittal-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
             {/* DICOM Overlays */}
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
@@ -663,7 +663,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       <div className="fixed top-0 left-0 w-0 h-0 overflow-hidden pointer-events-none z-[-9999] opacity-0">
         <div className="flex gap-4 bg-black p-4" style={{ width: '1200px', height: '400px' }}>
           {/* Unzoomed Axial */}
-          <div id="pdf-axial-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+          <div id={longitudinalMode ? `pdf-axial-capture-${longitudinalMode}` : "pdf-axial-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
@@ -680,7 +680,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
 
           {/* Unzoomed Coronal */}
-          <div id="pdf-coronal-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+          <div id={longitudinalMode ? `pdf-coronal-capture-${longitudinalMode}` : "pdf-coronal-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
@@ -697,7 +697,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
 
           {/* Unzoomed Sagittal */}
-          <div id="pdf-sagittal-capture" className="bg-black relative overflow-hidden w-[350px] h-[350px]">
+          <div id={longitudinalMode ? `pdf-sagittal-capture-${longitudinalMode}` : "pdf-sagittal-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
             <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
               MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
             </div>
