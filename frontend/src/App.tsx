@@ -3,6 +3,7 @@ import axios from "axios";
 import { PredictPage } from "./pages/PredictPage";
 import { LongitudinalPredictPage } from "./pages/LongitudinalPredictPage";
 import { LoginPage } from "./pages/LoginPage";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { Sidebar } from "./components/Sidebar";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
 
@@ -437,7 +438,11 @@ function App() {
   };
 
   if (activePage === "login") {
-    return <LoginPage onLogin={() => setActivePage("activity")} />;
+    return <LoginPage onLogin={() => setActivePage("activity")} onAdminLogin={() => setActivePage("admin")} />;
+  }
+
+  if (activePage === "admin") {
+    return <AdminDashboardPage onBack={() => setActivePage("login")} />;
   }
 
   return (

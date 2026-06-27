@@ -14,7 +14,7 @@ import shap
 from scipy.ndimage import rotate
 import pydicom
 import PyPDF2
-from database import patients_collection, audit_logs_collection, predictions_collection
+from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection
 try:
     import fitz
 except ImportError:
@@ -901,3 +901,136 @@ async def get_patient_details(pseudo_id: str):
         "last_scan": history[0]["timestamp"],
         "history": history
     }
+
+# ==========================================
+# API Endpoints: IT Admin Mission Control
+# ==========================================
+
+@app.get("/api/v1/admin/stats")
+async def get_admin_stats():
+    await users_collection.delete_many({"id": {"$in": ["ST-8901", "ST-8902", "ST-8905", "ST-8910", "ST-8914"]}})
+    await system_logs_collection.delete_many({"id": {"$in": ["LOG-101", "LOG-102", "LOG-103", "LOG-104", "LOG-105", "LOG-106"]}})
+
+    total_scans = await audit_logs_collection.count_documents({})
+    active_users = await users_collection.count_documents({"status": "Active"})
+    total_users = await users_collection.count_documents({})
+
+    return {
+        "ai_server_status": "Python API: ONLINE",
+        "api_latency": "42ms",
+        "database_status": "MongoDB: Secure",
+        "storage_usage": "78% Capacity",
+        "scans_processed_today": total_scans,
+        "total_users": total_users,
+        "active_users": active_users
+    }
+
+@app.get("/api/v1/admin/users")
+async def get_admin_users():
+    await users_collection.delete_many({"id": {"$in": ["ST-8901", "ST-8902", "ST-8905", "ST-8910", "ST-8914"]}})
+    cursor = users_collection.find({}).sort("_id", -1)
+    users = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        users.append(doc)
+    return users
+
+class NewUserPayload(BaseModel):
+    id: str
+    name: str
+    credentials: Optional[str] = "MD"
+    license_number: Optional[str] = "SLMC-00000"
+    dept: str
+    level: str
+    subspecialty: Optional[str] = "General"
+    email: Optional[str] = "dr@hospital.org"
+    phone: Optional[str] = "+94700000000"
+    extension: Optional[str] = "Ext. 0000"
+    status: str
+    mfa_required: Optional[bool] = True
+    password: Optional[str] = None
+
+@app.post("/api/v1/admin/users")
+async def provision_admin_user(user: NewUserPayload):
+    user_dict = user.dict()
+    if user_dict.get("password"):
+        user_dict["password_hash"] = hashlib.sha256(user_dict["password"].encode()).hexdigest()
+        del user_dict["password"]
+    await users_collection.insert_one(user_dict)
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Provisioned new user {user.name} ({user.id}) in {user.dept}",
+        "ip": "127.0.0.1",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    return {"status": "SUCCESS", "user": {k: v for k, v in user_dict.items() if k != "_id"}}
+
+@app.put("/api/v1/admin/users/{user_id}")
+async def update_admin_user(user_id: str, user: NewUserPayload):
+    user_dict = user.dict()
+    if user_dict.get("password"):
+        user_dict["password_hash"] = hashlib.sha256(user_dict["password"].encode()).hexdigest()
+        del user_dict["password"]
+    
+    # Remove id from update fields if present to avoid modifying immutable identifier
+    update_fields = {k: v for k, v in user_dict.items() if k != "id" and k != "_id"}
+    
+    await users_collection.update_one({"id": user_id}, {"$set": update_fields})
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Updated account credentials & assignment for Staff ID {user_id}",
+        "ip": "127.0.0.1",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    return {"status": "SUCCESS"}
+
+@app.delete("/api/v1/admin/users/{user_id}")
+async def delete_admin_user(user_id: str):
+    await users_collection.delete_one({"id": user_id})
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Revoked and deleted staff account for Staff ID {user_id}",
+        "ip": "127.0.0.1",
+        "severity": "High",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    return {"status": "SUCCESS"}
+
+@app.get("/api/v1/admin/audit-logs")
+async def get_admin_system_logs():
+    await system_logs_collection.delete_many({"id": {"$in": ["LOG-101", "LOG-102", "LOG-103", "LOG-104", "LOG-105", "LOG-106"]}})
+    logs = []
+    cursor_sys = system_logs_collection.find({}).sort("_id", -1).limit(50)
+    async for doc in cursor_sys:
+        doc["_id"] = str(doc["_id"])
+        logs.append(doc)
+        
+    cursor_audit = audit_logs_collection.find({}).sort("_id", -1).limit(50)
+    async for doc in cursor_audit:
+        doc["_id"] = str(doc["_id"])
+        logs.append({
+            "id": doc.get("inference_id", str(doc["_id"])),
+            "time": doc.get("timestamp", "")[:19].replace("T", " "),
+            "staffId": "Clinical AI Pipeline",
+            "action": f"Prognostic Inference for Patient Hash {doc.get('pseudo_anonymous_id', '')[:8]}...",
+            "ip": "127.0.0.1",
+            "severity": "Info",
+            "suspicious": False
+        })
+        
+    logs.sort(key=lambda x: x.get("time", ""), reverse=True)
+    return logs[:50]
