@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu } from "lucide-react";
 
-export const LoginPage: React.FC<{ onLogin?: () => void }> = ({ onLogin }) => {
+export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => void }> = ({ onLogin, onAdminLogin }) => {
   const [credentials, setCredentials] = useState({ id: "", password: "" });
   const [loading, setLoading] = useState(false);
 
@@ -144,6 +144,17 @@ export const LoginPage: React.FC<{ onLogin?: () => void }> = ({ onLogin }) => {
               <span className="text-rose-400 font-bold uppercase block mb-1">RESTRICTED SYSTEM</span>
               Unauthorized access is strictly prohibited and monitored. Compliant with HIPAA & Data Protection regulations. All authentication attempts are logged. Accounts are provisioned exclusively by IT Administration.
             </p>
+          </div>
+
+          {/* TASK 1: Subtle IT Admin Console Link */}
+          <div className="mt-8 text-center">
+            <button
+              type="button"
+              onClick={onAdminLogin}
+              className="text-xs text-gray-500 hover:text-gray-400 font-mono transition-colors tracking-widest cursor-pointer inline-flex items-center gap-1.5"
+            >
+              🔒 IT Admin Console
+            </button>
           </div>
 
         </div>
