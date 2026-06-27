@@ -4,6 +4,7 @@ import { PredictPage } from "./pages/PredictPage";
 import { LongitudinalPredictPage } from "./pages/LongitudinalPredictPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
+import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { Sidebar } from "./components/Sidebar";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
 
@@ -438,7 +439,11 @@ function App() {
   };
 
   if (activePage === "login") {
-    return <LoginPage onLogin={() => setActivePage("activity")} onAdminLogin={() => setActivePage("admin")} />;
+    return <LoginPage onLogin={() => setActivePage("activity")} onAdminLogin={() => setActivePage("admin_login")} />;
+  }
+
+  if (activePage === "admin_login") {
+    return <AdminLoginPage onLogin={() => setActivePage("admin")} onBack={() => setActivePage("login")} />;
   }
 
   if (activePage === "admin") {
