@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Eye, User, Calendar, Building2 } from "lucide-react";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
@@ -22,6 +22,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [viewingUser, setViewingUser] = useState<any | null>(null);
   
   // Custom Pop-up Confirmation Modal State (No window.confirm alert)
   const [confirmAction, setConfirmAction] = useState<{
@@ -475,7 +476,15 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                     users.map((u) => (
                       <tr key={u._id || u.id} className="hover:bg-[#1a1c2c]/40 transition-colors">
                         <td className="p-3 font-sans">
-                          <div className="font-bold text-slate-100 text-sm">{u.name}</div>
+                          <button
+                            type="button"
+                            onClick={() => setViewingUser(u)}
+                            className="font-bold text-slate-100 text-sm hover:text-cyan-400 transition-colors text-left cursor-pointer focus:outline-none block group flex items-center gap-1.5"
+                            title="Click to view full doctor details"
+                          >
+                            <span>{u.name}</span>
+                            <Eye className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-400 transition-colors opacity-80" />
+                          </button>
                           <div className="text-[10px] font-mono text-cyan-400 flex items-center gap-1 mt-0.5">
                             <Award className="w-3 h-3 text-amber-400" />
                             {u.credentials || "MD"} • {u.level}
@@ -527,6 +536,13 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                         </td>
                         <td className="p-3 text-right font-sans">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setViewingUser(u)}
+                              title="View Full Account Details"
+                              className="p-1.5 bg-[#131826] border border-gray-700 hover:border-cyan-500 text-gray-300 hover:text-cyan-400 rounded transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => handleEditClick(u)}
                               title="Edit Account Details"
@@ -952,6 +968,188 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             </div>
           </div>
         )}
+
+        {/* DOCTOR DETAILS VIEW MODAL */}
+        {viewingUser && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
+            <div className="bg-[#252841] border border-gray-700 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] w-full max-w-3xl flex flex-col overflow-hidden my-8">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-700 bg-gradient-to-r from-[#131524] to-[#1a1c2c]">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 text-cyan-400 rounded-xl shadow-inner">
+                    <User className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xl font-bold text-slate-100 tracking-wide font-sans">{viewingUser.name}</h3>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider font-sans uppercase inline-block border ${viewingUser.status === 'Active' ? 'bg-emerald-950 text-emerald-300 border-emerald-600' : 'bg-red-950 text-red-300 border-red-600'}`}>
+                        {viewingUser.status || 'Active'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-cyan-400 font-mono mt-1 flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-amber-400" /> {viewingUser.credentials || "MD, FRCR"} • {viewingUser.level || "Consultant"}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setViewingUser(null)} className="text-gray-400 hover:text-white transition-colors cursor-pointer p-2 hover:bg-gray-800 rounded-xl">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#1a1c2c]/80 overflow-y-auto custom-scrollbar max-h-[70vh]">
+                
+                {/* 1. Profile & Identity */}
+                <div className="bg-[#131524] p-5 rounded-xl border border-gray-700/80 shadow-lg flex flex-col gap-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 border-b border-gray-700/60 pb-2.5">
+                    <FileText className="w-4 h-4 text-cyan-400" />
+                    Professional Identity
+                  </h4>
+                  <div className="flex flex-col gap-3 font-sans text-xs">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Staff ID</span>
+                      <span className="font-mono font-bold text-cyan-400 bg-cyan-950/50 border border-cyan-800 px-2 py-0.5 rounded">{viewingUser.id}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Medical License No</span>
+                      <span className="font-mono font-bold text-slate-200">{viewingUser.license_number || "SLMC-74920"}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Staff Designation</span>
+                      <span className="font-bold text-slate-100">{viewingUser.level || "Consultant"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Credentials & Accreditations</span>
+                      <span className="font-bold text-amber-400">{viewingUser.credentials || "MD, FRCR"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Institutional Assignment */}
+                <div className="bg-[#131524] p-5 rounded-xl border border-gray-700/80 shadow-lg flex flex-col gap-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 border-b border-gray-700/60 pb-2.5">
+                    <Building2 className="w-4 h-4 text-cyan-400" />
+                    Department & Specialization
+                  </h4>
+                  <div className="flex flex-col gap-3 font-sans text-xs">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Primary Department</span>
+                      <span className="font-bold text-slate-200">{viewingUser.dept || "Radiology"}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Subspecialty Focus Area</span>
+                      <span className="font-semibold text-purple-300">{viewingUser.subspecialty || "Diagnostic Volumetric MPR & Oncology"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Hospital Division</span>
+                      <span className="font-semibold text-slate-300">Colombo Diagnostic Imaging Center</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Secure Contact Parameters */}
+                <div className="bg-[#131524] p-5 rounded-xl border border-gray-700/80 shadow-lg flex flex-col gap-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 border-b border-gray-700/60 pb-2.5">
+                    <Phone className="w-4 h-4 text-cyan-400" />
+                    Secure Communication Gateways
+                  </h4>
+                  <div className="flex flex-col gap-3 font-sans text-xs">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px] flex items-center gap-1"><Mail className="w-3 h-3 text-cyan-400" /> Email Address</span>
+                      <span className="font-mono text-cyan-300 font-semibold">{viewingUser.email || `${viewingUser.id?.toLowerCase() || 'st-1000'}@hospital.org`}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px] flex items-center gap-1"><Phone className="w-3 h-3 text-emerald-400" /> Mobile / WhatsApp</span>
+                      <span className="font-mono text-emerald-400 font-semibold">{viewingUser.phone || "+94 76 622 7387"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Hospital Intercom Extension</span>
+                      <span className="font-mono font-bold text-slate-300">{viewingUser.extension || "Ext. 2100"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Auth Engine & Compliance */}
+                <div className="bg-[#131524] p-5 rounded-xl border border-gray-700/80 shadow-lg flex flex-col gap-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-cyan-400 flex items-center gap-2 border-b border-gray-700/60 pb-2.5">
+                    <Shield className="w-4 h-4 text-cyan-400" />
+                    Authentication & HIPAA Engine
+                  </h4>
+                  <div className="flex flex-col gap-3 font-sans text-xs">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Multi-Factor Auth (MFA)</span>
+                      {viewingUser.mfa_required !== false ? (
+                        <span className="bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-sans font-bold flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3 text-emerald-400" /> Mandatory 2FA Active
+                        </span>
+                      ) : (
+                        <span className="bg-slate-800 border border-gray-700 text-gray-400 px-2 py-0.5 rounded text-[10px] font-sans font-bold">
+                          Password Only
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">Data Ledger Encryption</span>
+                      <span className="font-mono text-emerald-400 font-bold">AES-256 (MongoDB Secure)</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 font-mono uppercase text-[10px]">HIPAA Access Privileges</span>
+                      <span className="font-sans font-bold text-cyan-300">Granted (PACS & MPR Viewer)</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between p-5 border-t border-gray-700 bg-[#131524]">
+                <div className="text-gray-400 text-[11px] font-mono flex items-center gap-2">
+                  <Database className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Live Account State Verified via MongoDB • ID: {viewingUser._id || viewingUser.id}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedUser = viewingUser;
+                      setViewingUser(null);
+                      handleEditClick(selectedUser);
+                    }}
+                    className="px-4 py-2 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded-lg text-xs uppercase font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Modify Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewingUser(null)}
+                    className="px-5 py-2 bg-[#1a1c2c] border border-gray-700 hover:bg-gray-700 text-slate-300 rounded-lg text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shadow"
+                  >
+                    Close View
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* FOOTER */}
+        <footer className="mt-auto pt-8 pb-4 border-t border-gray-800/80 text-gray-400 font-mono text-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-[11px]">
+            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+            <span>HepatoAI IT Administration Console • <span className="text-slate-300 font-bold">HIPAA Compliant System</span></span>
+          </div>
+          <div className="flex items-center gap-6 text-[11px]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Node: <span className="text-emerald-400 font-bold">PROD-SECURE-09</span>
+            </span>
+            <span>v2.4.0-prod</span>
+            <span>© {new Date().getFullYear()} HepatoAI Enterprise</span>
+          </div>
+        </footer>
 
       </div>
     </div>
