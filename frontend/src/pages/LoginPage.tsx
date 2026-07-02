@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu } from "lucide-react";
+import axios from "axios";
 
 export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => void }> = ({ onLogin, onAdminLogin }) => {
   const [credentials, setCredentials] = useState({ id: "", password: "" });
@@ -15,14 +16,27 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
    * 4. Comprehensive audit logging for all auth attempts.
    */
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate secure network request
-    setTimeout(() => {
+    setError(null);
+    
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/login", {
+        id: credentials.id,
+        password: credentials.password
+      });
       setLoading(false);
-      if (onLogin) onLogin();
-    }, 1200);
+      if (response.data.message === "Login successful" && onLogin) {
+        onLogin();
+      }
+    } catch (err: any) {
+      setLoading(false);
+      const errorMessage = err.response?.data?.detail || "Invalid login credentials";
+      setError(errorMessage);
+    }
   };
 
   return (
@@ -71,6 +85,11 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            {error && (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs p-3 rounded text-center">
+                {error}
+              </div>
+            )}
             
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex justify-between">
