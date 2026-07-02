@@ -1,4 +1,15 @@
+# Trigger Uvicorn Reload
 import os
+import sys
+
+from dotenv import load_dotenv
+load_dotenv(override=True)  # Load variables from backend/.env into os.environ
+
+# Force UTF-8 on Windows so emoji print() calls don't crash the server
+if sys.stdout.encoding != "utf-8":
+    sys.stdout = open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1)
+if sys.stderr.encoding != "utf-8":
+    sys.stderr = open(sys.stderr.fileno(), mode="w", encoding="utf-8", buffering=1)
 import io
 import json
 import re
@@ -11,6 +22,7 @@ import string
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -965,9 +977,10 @@ class NewUserPayload(BaseModel):
 # 3. Select "App passwords" and generate one for "Mail".
 # 4. Set the environment variables below accordingly.
 SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465 # Using SSL/TLS
-SENDER_EMAIL = os.environ.get("HEPATOAI_SENDER_EMAIL", "hospital.it@gmail.com")
-SENDER_PASSWORD = os.environ.get("HEPATOAI_SENDER_APP_PASSWORD", "your-16-char-app-password")
+SMTP_PORT = 465  # SSL/TLS
+# These names match the keys defined in backend/.env
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "thilinakanishka20010313@gmail.com").strip().replace('"', '')
+SENDER_PASSWORD = os.environ.get("EMAIL_PASSWORD", "uolodxmmlxzotoyn").strip().replace('"', '').replace(' ', '')
 
 def generate_temporary_password():
     chars = string.ascii_letters + string.digits
@@ -999,80 +1012,143 @@ async def provision_doctor_endpoint(user: NewUserPayload):
     
     # Construct Email Message
     msg = MIMEMultipart()
-    msg['From'] = f"HepatoAI IT Operations <{SENDER_EMAIL}>"
+    msg['From'] = formataddr(("HepatoAI IT Operations", SENDER_EMAIL))
     msg['To'] = user.email
     msg['Subject'] = "HepatoAI Clinical Pipeline - Account Provisioned"
 
-    # Professional Dark-Themed HTML Email Template
+    # ── Professional HTML Email Template (Dark Clinical Theme) ──────────────
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HepatoAI – Account Provisioned</title>
     </head>
-    <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0d1117; color: #e6edf3;">
-        <div style="max-width: 600px; margin: 40px auto; background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            
-            <!-- Header -->
-            <div style="border-bottom: 1px solid #30363d; padding-bottom: 20px; margin-bottom: 24px;">
-                <h1 style="color: #58a6ff; font-size: 22px; font-weight: 600; margin: 0;">HepatoAI Clinical Pipeline - Account Provisioned</h1>
-            </div>
+    <body style="margin:0;padding:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background-color:#0d1117;color:#e6edf3;">
 
-            <!-- Body -->
-            <p style="font-size: 16px; line-height: 1.6; color: #c9d1d9; margin-top: 0;">
-                Dear Dr. {user.name}, your enterprise account for HepatoAI has been successfully provisioned by the Hospital IT Department.
-            </p>
+        <!-- Outer wrapper -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d1117;padding:40px 16px;">
+        <tr><td align="center">
 
-            <!-- Details Box -->
-            <div style="background-color: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 20px; margin: 28px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px; width: 40%;">Staff ID / Username:</td>
-                        <td style="padding: 8px 0; color: #58a6ff; font-size: 15px; font-weight: 600;">{user.id}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px;">Department:</td>
-                        <td style="padding: 8px 0; color: #e6edf3; font-size: 15px; font-weight: 500;">{user.dept}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 0; color: #8b949e; font-size: 14px;">Temporary Password:</td>
-                        <td style="padding: 8px 0; color: #3fb950; font-size: 15px; font-family: monospace; font-weight: bold;">{temp_password}</td>
-                    </tr>
-                </table>
-            </div>
+            <!-- Card -->
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
 
-            <!-- Security Warning -->
-            <div style="background-color: rgba(248, 81, 73, 0.1); border-left: 4px solid #f85149; padding: 16px; margin-bottom: 32px; border-radius: 0 6px 6px 0;">
-                <p style="margin: 0; color: #ff7b72; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">HIPAA COMPLIANCE NOTICE:</p>
-                <p style="margin: 6px 0 0 0; color: #e6edf3; font-size: 14px; line-height: 1.5;">
-                    You must change your temporary password upon your first login. Do not share these credentials.
-                </p>
-            </div>
+                <!-- ── Header Banner ── -->
+                <tr>
+                    <td style="background:linear-gradient(135deg,#0f2a4a 0%,#0a1628 60%,#0d1117 100%);padding:32px 40px;border-bottom:1px solid #21262d;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td>
+                                <span style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#06b6d4;font-weight:700;">HEPATOAI CLINICAL PLATFORM</span>
+                                <h1 style="margin:8px 0 4px;font-size:24px;font-weight:700;color:#f0f6fc;letter-spacing:-0.3px;">
+                                    &#9679; Account Successfully Provisioned
+                                </h1>
+                                <p style="margin:0;font-size:13px;color:#7d8590;">Secure credential dispatch from Hospital IT Operations</p>
+                            </td>
+                            <td align="right" style="vertical-align:top;">
+                                <span style="display:inline-block;background:#06b6d4;color:#0d1117;font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:4px;">AUTHORIZED</span>
+                            </td>
+                        </tr>
+                        </table>
+                    </td>
+                </tr>
 
-            <!-- Action Button -->
-            <div style="text-align: center; margin-top: 32px;">
-                <a href="https://hepatoai-portal.hospital.org/login" style="display: inline-block; background-color: #238636; color: #ffffff; padding: 12px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 6px; box-shadow: 0 1px 0 rgba(27,31,36,0.1);">
-                    Access HepatoAI Portal
-                </a>
-            </div>
+                <!-- ── Body ── -->
+                <tr>
+                    <td style="padding:32px 40px;">
 
-            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #30363d; text-align: center; color: #8b949e; font-size: 12px;">
-                HepatoAI Clinical Pipeline &bull; Hospital IT Administration System
-            </div>
-        </div>
+                        <p style="margin:0 0 24px;font-size:16px;line-height:1.7;color:#c9d1d9;">
+                            Dear <strong style="color:#f0f6fc;">Dr. {user.name}</strong>,
+                        </p>
+                        <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#8b949e;">
+                            Your enterprise clinical account for the <strong style="color:#c9d1d9;">HepatoAI Multimodal Diagnostic Platform</strong> has been officially provisioned by the Hospital IT Department. Your login credentials and access role are listed below.
+                        </p>
+
+                        <!-- ── Credentials Card ── -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d1117;border:1px solid #21262d;border-radius:8px;overflow:hidden;margin-bottom:28px;">
+                            <!-- Section header -->
+                            <tr style="background-color:#161b22;border-bottom:1px solid #21262d;">
+                                <td colspan="2" style="padding:12px 20px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#06b6d4;">&#128274;&nbsp; Your Login Credentials</td>
+                            </tr>
+                            <!-- Rows -->
+                            <tr style="border-bottom:1px solid #161b22;">
+                                <td style="padding:14px 20px;color:#7d8590;font-size:13px;width:42%;">Staff ID&nbsp;/&nbsp;Username</td>
+                                <td style="padding:14px 20px;color:#58a6ff;font-size:15px;font-weight:700;font-family:monospace;">{user.id}</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #161b22;">
+                                <td style="padding:14px 20px;color:#7d8590;font-size:13px;">Department</td>
+                                <td style="padding:14px 20px;color:#e6edf3;font-size:14px;font-weight:500;">{user.dept}</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #161b22;">
+                                <td style="padding:14px 20px;color:#7d8590;font-size:13px;">Access Role</td>
+                                <td style="padding:14px 20px;color:#a371f7;font-size:14px;font-weight:600;">{user.level}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:14px 20px;color:#7d8590;font-size:13px;">Initial Temporary Password</td>
+                                <td style="padding:14px 20px;color:#3fb950;font-size:16px;font-family:monospace;font-weight:800;letter-spacing:1px;">{temp_password}</td>
+                            </tr>
+                        </table>
+
+                        <!-- ── HIPAA Warning ── -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.3);border-left:4px solid #f85149;border-radius:0 8px 8px 0;margin-bottom:32px;">
+                            <tr>
+                                <td style="padding:18px 20px;">
+                                    <p style="margin:0 0 6px;color:#ff7b72;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#9888;&nbsp; HIPAA Compliance Notice</p>
+                                    <p style="margin:0;color:#c9d1d9;font-size:14px;line-height:1.6;">
+                                        You <strong>must change</strong> your temporary password immediately upon first login. Do not share these credentials with any unauthorized personnel. All access events are immutably logged.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- ── CTA Button ── -->
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td align="center">
+                                    <a href="http://localhost:5173" style="display:inline-block;background:linear-gradient(135deg,#0891b2,#1d4ed8);color:#ffffff;padding:14px 36px;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(8,145,178,0.4);">
+                                        &#128421;&nbsp; Launch HepatoAI Portal
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+
+                <!-- ── Footer ── -->
+                <tr>
+                    <td style="padding:20px 40px;background-color:#0d1117;border-top:1px solid #21262d;text-align:center;">
+                        <p style="margin:0;color:#484f58;font-size:11px;letter-spacing:0.5px;">
+                            HepatoAI Clinical Platform &bull; Hospital IT Operations &bull; This is an automated system message.
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </td></tr>
+        </table>
     </body>
     </html>
     """
     msg.attach(MIMEText(html_content, 'html'))
 
-    # Dispatch Email via Gmail SMTP SSL
+    # ── Dispatch Email via smtplib (Native Python) ───────────────────────
     try:
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+        print(f"[SMTP] Preparing to send email to {user.email} using Auth Email {SENDER_EMAIL}")
+        msg['Bcc'] = SENDER_EMAIL
+        
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, user.email, msg.as_string())
+            server.send_message(msg)
+            
+        print(f"[SMTP] Email dispatched successfully to {user.email}")
     except Exception as e:
-        print(f"SMTP Error (expected if Gmail App Password is not configured): {e}")
+        print(f"[SMTP] Unexpected error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Email dispatch failed: {str(e)}"
+        )
 
     return {"status": "SUCCESS", "success": True, "user": {k: v for k, v in user_dict.items() if k != "_id"}}
 

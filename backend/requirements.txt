@@ -13,3 +13,4 @@ scikit-learn
 torch
 PyPDF2
 SimpleITK
+python-dotenv

@@ -142,24 +142,36 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       });
   };
 
-  const handleProvisionSubmit = (e: React.FormEvent) => {
+  const handleProvisionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    
-    const requestPromise = isEditMode && editingUserId
-      ? axios.put(`http://127.0.0.1:8000/api/v1/admin/users/${editingUserId}`, formData)
-      : axios.post("http://127.0.0.1:8000/api/provision-doctor", formData);
 
-    requestPromise
-      .then(res => {
+    try {
+      if (isEditMode && editingUserId) {
+        // ── Edit Mode: update existing user record ──────────────────────────
+        await axios.put(
+          `http://127.0.0.1:8000/api/v1/admin/users/${editingUserId}`,
+          formData
+        );
         setSubmitting(false);
         setShowModal(false);
-        if (!isEditMode) {
-          setToastMessage("Doctor Provisioned & Credentials Emailed Successfully");
-          setTimeout(() => setToastMessage(null), 4000);
-        }
         setIsEditMode(false);
         setEditingUserId(null);
+        fetchAdminData();
+      } else {
+        // ── Provision Mode: create user + dispatch credential email ─────────
+        await axios.post("http://127.0.0.1:8000/api/provision-doctor", formData);
+
+        setSubmitting(false);
+        setShowModal(false);
+
+        // Success toast — confirms both DB write and email dispatch
+        setToastMessage(
+          `✅ Account provisioned & credential email dispatched to ${formData.email}`
+        );
+        setTimeout(() => setToastMessage(null), 5000);
+
+        // Reset form to clean defaults
         setFormData({
           id: `ST-${Math.floor(1000 + Math.random() * 9000)}`,
           name: "",
@@ -173,14 +185,23 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           extension: "Ext. 2100",
           status: "Active",
           mfa_required: true,
-          password: ""
+          password: "",
         });
-        fetchAdminData(); // Live reload data
-      })
-      .catch(err => {
-        console.error("Provision/Update Error:", err);
-        setSubmitting(false);
-      });
+        fetchAdminData();
+      }
+    } catch (err: any) {
+      setSubmitting(false);
+
+      // Surface the backend error detail so the IT admin knows what failed
+      const backendDetail: string =
+        err?.response?.data?.detail ??
+        err?.message ??
+        "Unknown error. Check backend logs.";
+
+      setToastMessage(`❌ Error: ${backendDetail}`);
+      setTimeout(() => setToastMessage(null), 8000);
+      console.error("Provision/Update Error:", err);
+    }
   };
 
   return (
@@ -276,9 +297,13 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       {/* RIGHT SIDE MAIN DASHBOARD CONTENT */}
       <div className={`flex-1 p-8 font-sans flex flex-col h-full overflow-y-auto custom-scrollbar relative z-10 transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#1a1c2c] text-slate-200' : 'bg-slate-100 text-slate-800'}`}>
         
-        {/* Tailwind Success Toast / Alert */}
+        {/* Dynamic Success / Error Toast */}
         {toastMessage && (
-          <div className="mb-6 flex items-center gap-3 bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-semibold animate-bounce">
+          <div className={`mb-6 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-semibold animate-bounce ${
+            toastMessage.startsWith("❌")
+              ? "bg-rose-600 text-white"
+              : "bg-emerald-500 text-white"
+          }`}>
             <CheckCircle className="w-5 h-5 flex-shrink-0" />
             <span>{toastMessage}</span>
           </div>
