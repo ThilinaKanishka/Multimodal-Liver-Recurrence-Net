@@ -44,8 +44,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     level: "Consultant",
     subspecialty: "Diagnostic Volumetric MPR",
     email: "",
-    phone: "+94 76 622 7387",
-    extension: "Ext. 2100",
+    phone: "",
+    extension: "",
     status: "Active",
     mfa_required: true,
     password: ""
@@ -86,7 +86,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       level: "Consultant",
       subspecialty: "Diagnostic Volumetric MPR",
       email: "",
-      phone: "+94 76 622 7387",
+      phone: "",
       extension: "Ext. 2100",
       status: "Active",
       mfa_required: true,
@@ -107,7 +107,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       level: u.level || "Consultant",
       subspecialty: u.subspecialty || "General",
       email: u.email || "",
-      phone: u.phone || "+94 76 622 7387",
+      phone: u.phone || "",
       extension: u.extension || "Ext. 1000",
       status: u.status || "Active",
       mfa_required: u.mfa_required !== false,
@@ -181,8 +181,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           level: "Consultant",
           subspecialty: "Diagnostic Volumetric MPR",
           email: "",
-          phone: "+94 76 622 7387",
-          extension: "Ext. 2100",
+          phone: "",
+          extension: "",
           status: "Active",
           mfa_required: true,
           password: "",
@@ -570,11 +570,11 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                         <td className="p-3 font-sans">
                           <div className={`text-xs flex items-center gap-1.5 ${theme === 'DARK' ? 'text-gray-300' : 'text-gray-700'}`}>
                             <Mail className="w-3 h-3 text-cyan-500 flex-shrink-0" />
-                            {u.email || `${u.id.toLowerCase()}@hospital.org`}
+                            {u.email || "No Email Provided"}
                           </div>
                           <div className={`text-[10px] font-mono flex items-center gap-1.5 mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
                             <Phone className="w-3 h-3 text-emerald-500 flex-shrink-0" />
-                            {u.phone || "+94 76 622 7387"} ({u.extension || "Ext. 1000"})
+                            {u.phone || "No Mobile"} ({u.extension || "No Ext"})
                           </div>
                         </td>
                         <td className="p-3">
@@ -970,26 +970,26 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1 md:col-span-1">
-                      <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Hospital Email</label>
+                      <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Doctor's Email Address</label>
                       <input
                         type="email"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        placeholder="dr.name@hospital.org"
+                        placeholder="doctor@email.com"
                         className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-cyan-500 ${
                           theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-slate-200' : 'bg-white border-gray-300 text-slate-900'
                         }`}
                       />
                     </div>
                     <div className="flex flex-col gap-1 md:col-span-1">
-                      <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Mobile / WhatsApp (MFA)</label>
+                      <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Doctor's Mobile Number</label>
                       <input
                         type="text"
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        placeholder="+94 76 622 7387"
+                        placeholder="+94 7X XXX XXXX"
                         className={`w-full border rounded px-3 py-2.5 text-xs text-emerald-500 font-mono focus:outline-none focus:border-cyan-500 ${
                           theme === 'DARK' ? 'bg-[#131826] border-gray-700' : 'bg-white border-gray-300'
                         }`}
@@ -1002,7 +1002,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                         required
                         value={formData.extension}
                         onChange={(e) => setFormData({...formData, extension: e.target.value})}
-                        placeholder="Ext. 2100"
+                        placeholder="Ext. XXXX"
                         className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-cyan-500 ${
                           theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-slate-300' : 'bg-white border-gray-300 text-slate-800'
                         }`}
@@ -1036,13 +1036,15 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                         {isEditMode ? "New Login Password (Leave blank to keep current)" : "Initial Temporary Login Password"}
                       </label>
                       <input
-                        type="password"
-                        required={!isEditMode}
-                        value={formData.password}
+                        type={isEditMode ? "password" : "text"}
+                        disabled={!isEditMode}
+                        value={isEditMode ? formData.password : "AUTO-GENERATED SECURELY BY BACKEND"}
                         onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        placeholder={isEditMode ? "•••••••••••• (Unchanged)" : "••••••••••••"}
+                        placeholder={isEditMode ? "•••••••••••• (Unchanged)" : ""}
                         className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-cyan-500 ${
-                          theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-slate-200' : 'bg-white border-gray-300 text-slate-900'
+                          !isEditMode 
+                            ? (theme === 'DARK' ? 'bg-cyan-900/20 border-cyan-500/30 text-cyan-500 cursor-not-allowed' : 'bg-cyan-50 border-cyan-200 text-cyan-600 cursor-not-allowed')
+                            : (theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-slate-200' : 'bg-white border-gray-300 text-slate-900')
                         }`}
                       />
                     </div>
@@ -1187,7 +1189,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                     </div>
                     <div className={`flex justify-between items-center border-b pb-2 ${theme === 'DARK' ? 'border-gray-800' : 'border-gray-100'}`}>
                       <span className={`font-mono uppercase text-[10px] flex items-center gap-1 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}><Phone className="w-3 h-3 text-emerald-500" /> Mobile / WhatsApp</span>
-                      <span className="font-mono text-emerald-500 font-semibold">{viewingUser.phone || "+94 76 622 7387"}</span>
+                      <span className="font-mono text-emerald-500 font-semibold">{viewingUser.phone || "No Mobile"}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={`font-mono uppercase text-[10px] ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Hospital Intercom Extension</span>

@@ -1152,6 +1152,27 @@ async def provision_doctor_endpoint(user: NewUserPayload):
 
     return {"status": "SUCCESS", "success": True, "user": {k: v for k, v in user_dict.items() if k != "_id"}}
 
+class LoginPayload(BaseModel):
+    id: str
+    password: str
+
+@app.post("/api/login")
+async def login_user(payload: LoginPayload):
+    user = await users_collection.find_one({"id": payload.id})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid Staff ID or Password")
+    
+    # Check password hash
+    password_hash = hashlib.sha256(payload.password.encode()).hexdigest()
+    if user.get("password_hash") != password_hash:
+        raise HTTPException(status_code=401, detail="Invalid Staff ID or Password")
+    
+    if user.get("status") != "Active":
+        raise HTTPException(status_code=403, detail="Account is revoked or suspended")
+
+    return {"message": "Login successful", "user": {"id": user["id"], "name": user["name"], "level": user["level"]}}
+
+
 @app.post("/api/v1/admin/users")
 async def provision_admin_user(user: NewUserPayload):
     user_dict = user.dict()
