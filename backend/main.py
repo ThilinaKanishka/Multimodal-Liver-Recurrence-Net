@@ -1170,7 +1170,7 @@ async def login_user(payload: LoginPayload):
     if user.get("status") != "Active":
         raise HTTPException(status_code=403, detail="Account is revoked or suspended")
 
-    return {"message": "Login successful", "user": {"id": user["id"], "name": user["name"], "level": user["level"]}}
+    return {"message": "Login successful", "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email")}}
 
 
 @app.post("/api/v1/admin/users")
@@ -1293,4 +1293,145 @@ async def get_admin_system_logs():
         idx += 1
         
     logs.sort(key=lambda x: x.get("time", ""), reverse=True)
-    return logs[:50]
+    return logs[:50]
+
+# ==========================================
+# API Endpoints: Password Management
+# ==========================================
+
+class ForgotPasswordPayload(BaseModel):
+    email: str
+
+@app.post("/api/forgot-password")
+async def forgot_password(payload: ForgotPasswordPayload):
+    user = await users_collection.find_one({"email": payload.email})
+    if not user:
+        # Returning 404 temporarily so the user knows if the email is wrong during testing
+        raise HTTPException(status_code=404, detail="Email not found in the system.")
+
+    # Generate 6-digit OTP
+    otp = "".join(random.choices(string.digits, k=6))
+    expiry = datetime.utcnow().timestamp() + 900  # 15 minutes
+
+    await users_collection.update_one(
+        {"email": payload.email},
+        {"$set": {"reset_otp": otp, "reset_otp_expiry": expiry}}
+    )
+
+    msg = MIMEMultipart()
+    msg['From'] = formataddr(("HepatoAI Security", SENDER_EMAIL))
+    msg['To'] = payload.email
+    msg['Subject'] = "HepatoAI Security: Your password reset OTP is " + otp
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#0d1117;color:#e6edf3;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+        <tr><td align="center">
+            <table width="500" cellpadding="0" cellspacing="0" style="background-color:#161b22;border:1px solid #30363d;border-radius:12px;padding:30px;">
+                <tr>
+                    <td align="center">
+                        <h2 style="color:#f0f6fc;margin-top:0;">HepatoAI Security</h2>
+                        <p style="color:#8b949e;font-size:15px;line-height:1.6;">You requested a password reset. Here is your 6-digit One-Time Password (OTP):</p>
+                        <div style="background-color:#0d1117;border:1px solid #21262d;border-radius:8px;padding:20px;margin:20px 0;">
+                            <span style="font-size:32px;font-weight:700;letter-spacing:6px;color:#06b6d4;">{otp}</span>
+                        </div>
+                        <p style="color:#ff7b72;font-size:13px;margin-bottom:0;">This code will expire in 15 minutes.</p>
+                    </td>
+                </tr>
+            </table>
+        </td></tr>
+        </table>
+    </body>
+    </html>
+    """
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        print(f"[SMTP] Error sending OTP: {e}")
+        raise HTTPException(status_code=502, detail="Failed to send OTP email.")
+
+    return {"message": "OTP sent successfully."}
+
+class ResetPasswordPayload(BaseModel):
+    email: str
+    otp: str
+    newPassword: str
+
+@app.post("/api/reset-password")
+async def reset_password(payload: ResetPasswordPayload):
+    user = await users_collection.find_one({"email": payload.email})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid request")
+        
+    stored_otp = user.get("reset_otp")
+    expiry = user.get("reset_otp_expiry")
+    
+    if not stored_otp or stored_otp != payload.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    if expiry and datetime.utcnow().timestamp() > expiry:
+        raise HTTPException(status_code=400, detail="OTP has expired")
+        
+    password_hash = hashlib.sha256(payload.newPassword.encode()).hexdigest()
+    
+    await users_collection.update_one(
+        {"email": payload.email},
+        {
+            "$set": {"password_hash": password_hash},
+            "$unset": {"reset_otp": "", "reset_otp_expiry": ""}
+        }
+    )
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": user.get("id", "UNKNOWN"),
+        "action": "User reset password via self-service OTP",
+        "ip": "Unknown",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    
+    return {"message": "Password reset successfully."}
+
+class ChangePasswordPayload(BaseModel):
+    id: str
+    currentPassword: str
+    newPassword: str
+
+@app.post("/api/change-password")
+async def change_password(payload: ChangePasswordPayload):
+    user = await users_collection.find_one({"id": payload.id})
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid request")
+        
+    current_hash = hashlib.sha256(payload.currentPassword.encode()).hexdigest()
+    if user.get("password_hash") != current_hash:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+    new_hash = hashlib.sha256(payload.newPassword.encode()).hexdigest()
+    await users_collection.update_one(
+        {"id": payload.id},
+        {"$set": {"password_hash": new_hash}}
+    )
+    
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": payload.id,
+        "action": "User changed password (Forced or Settings)",
+        "ip": "Unknown",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    
+    return {"message": "Password changed successfully"}
+

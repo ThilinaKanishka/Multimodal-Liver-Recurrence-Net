@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu } from "lucide-react";
 import axios from "axios";
+import ForcedPasswordReset from "../components/ForcedPasswordReset";
+import ForgotPassword from "../components/ForgotPassword";
 
 export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => void }> = ({ onLogin, onAdminLogin }) => {
   const [credentials, setCredentials] = useState({ id: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [requiresReset, setRequiresReset] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<any>(null);
 
   /*
    * BACKEND INTEGRATION NOTE:
@@ -30,7 +35,12 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
       });
       setLoading(false);
       if (response.data.message === "Login successful" && onLogin) {
-        onLogin();
+        if (credentials.password.startsWith("Hepato-")) {
+          setLoggedInUser(response.data.user);
+          setRequiresReset(true);
+        } else {
+          onLogin();
+        }
       }
     } catch (err: any) {
       setLoading(false);
@@ -39,8 +49,18 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
     }
   };
 
+  if (requiresReset && loggedInUser) {
+    return <ForcedPasswordReset user={loggedInUser} onComplete={() => onLogin && onLogin()} />;
+  }
+
   return (
     <div className="min-h-screen w-full bg-[#070b14] flex text-slate-300 font-sans selection:bg-cyan-500/30 overflow-hidden">
+      {showForgot && (
+        <ForgotPassword 
+          onCancel={() => setShowForgot(false)} 
+          onSuccess={() => setShowForgot(false)} 
+        />
+      )}
       
       {/* LEFT PANEL: Branding & System Identity */}
       <div className="hidden lg:flex w-1/2 relative bg-[#0f141f] border-r border-[#1e293b] flex-col items-center justify-center overflow-hidden">
@@ -112,7 +132,8 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex justify-between">
-                Secure Password
+                <span>Secure Password</span>
+                <button type="button" onClick={() => setShowForgot(true)} className="text-cyan-400 hover:text-cyan-300">Forgot?</button>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

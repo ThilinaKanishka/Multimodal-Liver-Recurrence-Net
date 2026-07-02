@@ -7,6 +7,7 @@ import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { Sidebar } from "./components/Sidebar";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
+import SecuritySettingsTab from "./components/SecuritySettingsTab";
 
 import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText } from "lucide-react";
 
@@ -293,6 +294,11 @@ const SettingsPage = () => (
             </div>
          </div>
       </div>
+    </div>
+    
+    <div className="mt-8">
+      <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4 border-b border-[#1e293b] pb-2">Account Security</h2>
+      <SecuritySettingsTab userId="ST-ADMIN" />
     </div>
   </div>
 );
