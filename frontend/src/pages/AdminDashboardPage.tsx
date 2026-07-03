@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { getGravatarUrl } from "../utils/gravatar";
 import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2 } from "lucide-react";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
@@ -52,6 +53,15 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   });
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (formData.email && formData.email.includes('@')) {
+      getGravatarUrl(formData.email, 80).then(setAvatarPreview);
+    } else {
+      setAvatarPreview(null);
+    }
+  }, [formData.email]);
 
   const fetchAdminData = () => {
     setLoading(true);
@@ -970,7 +980,12 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1 md:col-span-1">
-                      <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Doctor's Email Address</label>
+                      <div className="flex justify-between items-end">
+                        <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>Doctor's Email Address</label>
+                        {avatarPreview && (
+                          <img src={avatarPreview} alt="Avatar Preview" className="w-6 h-6 rounded-full border border-cyan-500/50 object-cover shadow-sm -mb-1" />
+                        )}
+                      </div>
                       <input
                         type="email"
                         required

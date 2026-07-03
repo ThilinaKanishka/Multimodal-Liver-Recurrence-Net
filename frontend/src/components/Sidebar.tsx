@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split } from "lucide-react";
+import { getGravatarUrl } from "../utils/gravatar";
 
 interface SidebarProps {
   activePage: string;
@@ -8,6 +9,15 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user }) => {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && user.email) {
+      getGravatarUrl(user.email, 100).then(setAvatarUrl);
+    } else {
+      setAvatarUrl(null);
+    }
+  }, [user]);
   const getIconClass = (page: string) => {
     if (activePage === page) {
       return "w-full h-10 px-3 bg-blue-600/20 text-blue-400 rounded-md flex items-center gap-3 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all";
@@ -31,9 +41,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
         {user && (
           <div className="bg-[#131826] border border-[#1e293b] rounded-xl p-3 flex flex-col hover:border-[#2a364a] transition-all mt-2 shadow-lg">
             <div className="flex flex-row items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-cyan-950/50 border border-cyan-500/30 flex items-center justify-center flex-shrink-0 text-cyan-400 font-bold shadow-inner text-sm">
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full border border-cyan-500/30 flex-shrink-0 object-cover" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-cyan-950/50 border border-cyan-500/30 flex items-center justify-center flex-shrink-0 text-cyan-400 font-bold shadow-inner text-sm">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
               <div className="flex flex-col min-w-0">
                  <span className="text-xs font-bold text-slate-200 truncate">Dr. {user.name}</span>
                  <span className="text-[10px] text-slate-400 truncate">{user.level || 'Clinician'}</span>
