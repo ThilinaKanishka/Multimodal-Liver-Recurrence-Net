@@ -4,7 +4,7 @@ import axios from "axios";
 import ForcedPasswordReset from "../components/ForcedPasswordReset";
 import ForgotPassword from "../components/ForgotPassword";
 
-export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => void }> = ({ onLogin, onAdminLogin }) => {
+export const LoginPage: React.FC<{ onLogin?: (user?: any) => void, onAdminLogin?: () => void }> = ({ onLogin, onAdminLogin }) => {
   const [credentials, setCredentials] = useState({ id: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [requiresReset, setRequiresReset] = useState(false);
@@ -35,11 +35,11 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
       });
       setLoading(false);
       if (response.data.message === "Login successful" && onLogin) {
-        if (credentials.password.startsWith("Hepato-")) {
+        if (response.data.requires_reset) {
           setLoggedInUser(response.data.user);
           setRequiresReset(true);
         } else {
-          onLogin();
+          onLogin(response.data.user);
         }
       }
     } catch (err: any) {
@@ -50,7 +50,7 @@ export const LoginPage: React.FC<{ onLogin?: () => void, onAdminLogin?: () => vo
   };
 
   if (requiresReset && loggedInUser) {
-    return <ForcedPasswordReset user={loggedInUser} onComplete={() => onLogin && onLogin()} />;
+    return <ForcedPasswordReset user={loggedInUser} onComplete={() => onLogin && onLogin(loggedInUser)} />;
   }
 
   return (

@@ -26,6 +26,19 @@ export default function ForcedPasswordReset({ user, onComplete }: ForcedPassword
   const isSecure = newPassword.length >= 8;
   const isFormValid = currentPassword && newPassword && confirmPassword && passwordsMatch && isSecure;
 
+  const handleSkip = async () => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/skip-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id })
+      });
+    } catch (e) {
+      console.error("Failed to mark as skipped", e);
+    }
+    onComplete();
+  };
+
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
@@ -117,7 +130,8 @@ export default function ForcedPasswordReset({ user, onComplete }: ForcedPassword
         
         {/* Skip Button */}
         <button 
-          onClick={onComplete}
+          type="button"
+          onClick={handleSkip}
           className="absolute top-4 right-4 text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-700/50 p-2 rounded-full transition-all"
           title="Skip for now"
         >
@@ -208,7 +222,7 @@ export default function ForcedPasswordReset({ user, onComplete }: ForcedPassword
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={onComplete}
+                  onClick={handleSkip}
                   className="flex-1 py-3.5 px-4 rounded-xl font-semibold bg-gray-700/50 hover:bg-gray-700 text-gray-300 transition-all duration-200"
                 >
                   Skip
