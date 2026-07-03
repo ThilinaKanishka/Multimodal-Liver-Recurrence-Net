@@ -862,8 +862,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
              <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">DOB (Age) / Sex</span><span className="text-xs font-medium">{patientInfo.dob} ({patientInfo.age}y) | {patientInfo.sex}</span></div>
              
              <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span><span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span></div>
-             <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">Dr. Aris Thorne, MD (Surgical Oncology - Ward 4B)</span></div>
-             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">Dr. Elena Rostova, MD</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">{patientInfo.attending !== "---" ? `Dr. ${patientInfo.attending}` : "Unknown Physician"}</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">{user ? `Dr. ${user.name}, ${user.level || 'MD'}` : "Unknown Radiologist"}</span></div>
           </div>
 
           {/* Clinical Indication & Prior Exams */}
