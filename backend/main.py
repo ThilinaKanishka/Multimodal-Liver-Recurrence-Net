@@ -1170,7 +1170,20 @@ async def login_user(payload: LoginPayload):
     if user.get("status") != "Active":
         raise HTTPException(status_code=403, detail="Account is revoked or suspended")
 
-    return {"message": "Login successful", "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email")}}
+    requires_reset = payload.password.startswith("Hepato-") and not user.get("first_login_skipped")
+
+    return {
+        "message": "Login successful", 
+        "requires_reset": requires_reset,
+        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email")}
+    }
+
+@app.post("/api/skip-reset")
+async def skip_reset(payload: dict):
+    if "id" not in payload:
+        raise HTTPException(status_code=400, detail="Missing user id")
+    await users_collection.update_one({"id": payload["id"]}, {"$set": {"first_login_skipped": True}})
+    return {"status": "SUCCESS"}
 
 
 @app.post("/api/v1/admin/users")

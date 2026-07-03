@@ -124,7 +124,7 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = ({ onViewHistory }) => {
+export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?: any }> = ({ onViewHistory, user }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
     tumor_number: 1,
@@ -465,7 +465,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void }> = (
              <div className="text-xs text-slate-500 font-mono">{new Date().toISOString().split('T')[0]}</div>
              <div className="h-4 w-px bg-[#1e293b] mx-1"></div>
              <div className="text-xs text-slate-400 font-medium">
-               Dr. P. Weerasinghe <span className="text-slate-500">- Chief Oncologist</span>
+               {user ? `Dr. ${user.name}` : "Unknown User"} <span className="text-slate-500">- {user?.level || "Clinician"}</span>
              </div>
           </div>
         </div>

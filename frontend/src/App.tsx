@@ -426,6 +426,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
 function App() {
   const [activePage, setActivePage] = useState("login");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const handlePatientClick = (id: string) => {
     setSelectedPatientId(id);
@@ -445,7 +446,13 @@ function App() {
   };
 
   if (activePage === "login") {
-    return <LoginPage onLogin={() => setActivePage("activity")} onAdminLogin={() => setActivePage("admin_login")} />;
+    return <LoginPage 
+      onLogin={(user) => {
+        if (user) setCurrentUser(user);
+        setActivePage("activity");
+      }} 
+      onAdminLogin={() => setActivePage("admin_login")} 
+    />;
   }
 
   if (activePage === "admin_login") {
@@ -459,14 +466,14 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden">
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <Sidebar activePage={activePage} setActivePage={setActivePage} />
+        <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} />
         <div className="flex-1 overflow-auto bg-[#070b14] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
-            <PredictPage onViewHistory={handlePatientClick} />
+            <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
           </div>
           <div className={activePage === "longitudinal" ? "block h-full w-full" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} />
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
           </div>
           {renderPage()}
         </div>
