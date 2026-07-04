@@ -112,7 +112,7 @@ else:
 # ==========================================
 # PHASE 04: Immutable Audit Trail DB Initialization (MongoDB)
 # ==========================================
-async def log_inference_to_ledger(inference_id, pseudo_id, clinical_inputs, shap_weights, probability, risk, ui_state):
+async def log_inference_to_ledger(inference_id, pseudo_id, clinical_inputs, shap_weights, probability, risk, ui_state, doctor_id=None):
     document = {
         "inference_id": inference_id,
         "timestamp": datetime.utcnow().isoformat(),
@@ -123,7 +123,8 @@ async def log_inference_to_ledger(inference_id, pseudo_id, clinical_inputs, shap
         "recurrence_risk": risk,
         "ui_rendering_state": ui_state,
         "physician_override_risk": None,
-        "physician_notes": None
+        "physician_notes": None,
+        "doctor_id": doctor_id
     }
     await audit_logs_collection.insert_one(document)
 # PHASE 03: Unified Master Initialization & SMOTE
@@ -666,7 +667,8 @@ async def extract_clinical_data(
 async def predict_recurrence(
     clinical_data: str = Form(...),
     ct_scan: UploadFile = File(None),
-    text_report_pdf: UploadFile = File(None)
+    text_report_pdf: UploadFile = File(None),
+    doctor_id: str = Form(None)
 ):
     try:
         tabular_data = json.loads(clinical_data)
@@ -813,7 +815,7 @@ async def predict_recurrence(
         
     ai_insights.append("XAI Analyzer: Tumor Size and Texture contributed significantly with SHAP bounds [-1.4135, -0.5449].")
     inference_id = str(uuid.uuid4())
-    await log_inference_to_ledger(inference_id, pseudo_id, tabular_data, display_weights, prob_score, recurrence_risk_str, ui_rendering_state)
+    await log_inference_to_ledger(inference_id, pseudo_id, tabular_data, display_weights, prob_score, recurrence_risk_str, ui_rendering_state, doctor_id)
 
     return {
         # Strict FastAPI Output Schema Contract added
@@ -951,6 +953,26 @@ async def get_admin_users():
         doc["_id"] = str(doc["_id"])
         users.append(doc)
     return users
+
+@app.get("/api/v1/admin/doctor-stats")
+async def get_doctor_stats():
+    doctors_cursor = users_collection.find({"status": "Active"})
+    doctors = []
+    async for doc in doctors_cursor:
+        # count unique patients seen
+        patient_count = len(await audit_logs_collection.distinct("pseudo_anonymous_id", {"doctor_id": doc["id"]}))
+        inferences_count = await audit_logs_collection.count_documents({"doctor_id": doc["id"]})
+        doctors.append({
+            "id": doc["id"],
+            "name": doc["name"],
+            "level": doc.get("level", ""),
+            "dept": doc.get("dept", ""),
+            "is_logged_in": doc.get("is_logged_in", False),
+            "last_login": doc.get("last_login", ""),
+            "patients_seen": patient_count,
+            "total_inferences": inferences_count
+        })
+    return doctors
 
 class NewUserPayload(BaseModel):
     id: str
@@ -1172,11 +1194,21 @@ async def login_user(payload: LoginPayload):
 
     requires_reset = payload.password.startswith("Hepato-") and not user.get("first_login_skipped")
 
+    await users_collection.update_one({"id": user["id"]}, {"$set": {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}})
+
     return {
         "message": "Login successful", 
         "requires_reset": requires_reset,
         "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email")}
     }
+
+class LogoutPayload(BaseModel):
+    id: str
+
+@app.post("/api/logout")
+async def logout_user(payload: LogoutPayload):
+    await users_collection.update_one({"id": payload.id}, {"$set": {"is_logged_in": False}})
+    return {"message": "Logged out"}
 
 @app.post("/api/skip-reset")
 async def skip_reset(payload: dict):

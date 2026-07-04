@@ -337,6 +337,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     payload.append("clinical_data", JSON.stringify(formData));
     if (imageFile) payload.append("ct_scan", imageFile);
     if (pdfFile) payload.append("text_report_pdf", pdfFile);
+    if (user && user.id) payload.append("doctor_id", user.id);
 
     // Start API request in parallel
     const apiPromise = axios.post("http://127.0.0.1:8000/api/v1/predict", payload, {

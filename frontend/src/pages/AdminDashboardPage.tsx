@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getGravatarUrl } from "../utils/gravatar";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2 } from "lucide-react";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS'>('OVERVIEW');
   // Theme Toggle State
   const [theme, setTheme] = useState<'DARK' | 'LIGHT'>('DARK');
 
   const [users, setUsers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [doctorStats, setDoctorStats] = useState<any[]>([]);
   const [stats, setStats] = useState({
     ai_server_status: "Python API: ONLINE",
     api_latency: "42ms",
@@ -68,16 +71,33 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     Promise.all([
       axios.get("http://127.0.0.1:8000/api/v1/admin/stats"),
       axios.get("http://127.0.0.1:8000/api/v1/admin/users"),
-      axios.get("http://127.0.0.1:8000/api/v1/admin/audit-logs")
-    ]).then(([statsRes, usersRes, logsRes]) => {
+      axios.get("http://127.0.0.1:8000/api/v1/admin/audit-logs"),
+      axios.get("http://127.0.0.1:8000/api/v1/admin/doctor-stats")
+    ]).then(([statsRes, usersRes, logsRes, doctorStatsRes]) => {
       setStats(statsRes.data);
       setUsers(usersRes.data);
       setLogs(logsRes.data);
+      setDoctorStats(doctorStatsRes.data);
       setLoading(false);
     }).catch(err => {
       console.error("Admin Fetch Error:", err);
       setLoading(false);
     });
+  };
+
+  const downloadDoctorStatsCSV = () => {
+    const headers = ["ID", "Name", "Department", "Scans Processed", "Accuracy Rate", "Status"];
+    const csvContent = [
+      headers.join(","),
+      ...doctorStats.map(d => [d.id, d.name, d.dept, d.scans, d.accuracy, d.status].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `doctor_analytics_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
   };
 
   useEffect(() => {
@@ -286,6 +306,18 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             <Settings className={`w-4 h-4 flex-shrink-0 ${activeTab === 'SYSTEM_CONFIG' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
             System Config
           </button>
+
+          <button 
+            onClick={() => setActiveTab('DOCTOR_ANALYTICS')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'DOCTOR_ANALYTICS' 
+                ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
+                : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Activity className={`w-4 h-4 flex-shrink-0 ${activeTab === 'DOCTOR_ANALYTICS' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            Doctor Analytics
+          </button>
         </div>
 
         {/* Bottom Action */}
@@ -435,6 +467,36 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   <span className={`text-lg font-mono font-bold ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Scans Processed Today</span>
                   <span className="text-3xl font-mono font-bold text-purple-500">{stats.scans_processed_today}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Currently Logged In Doctors */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col mb-4 transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-emerald-500" />
+                  <div>
+                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Currently Active Staff</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Medical personnel actively logged into the clinical workstation</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {doctorStats.filter(d => d.is_logged_in).length === 0 ? (
+                   <div className="col-span-3 text-center text-sm text-gray-500 font-sans p-4">No medical staff are currently active in the system.</div>
+                ) : (
+                  doctorStats.filter(d => d.is_logged_in).map(doc => (
+                    <div key={doc.id} className={`border rounded p-3 flex items-center gap-3 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700' : 'bg-slate-50 border-gray-200'}`}>
+                      <div className="w-10 h-10 rounded-full bg-cyan-950/50 flex items-center justify-center text-cyan-500 font-bold">
+                        {doc.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className={`font-bold text-sm ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{doc.name}</div>
+                        <div className="text-[10px] text-emerald-500 uppercase font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Active Session</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -770,6 +832,94 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             <div className={`mt-6 px-4 py-2 border text-xs font-mono rounded flex items-center gap-2 ${theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
               <Lock className="w-4 h-4 text-amber-500" />
               Requires Super-Admin Cryptographic Smart Card Authorization
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: DOCTOR_ANALYTICS TAB */}
+        {activeTab === 'DOCTOR_ANALYTICS' && (
+          <div className={`border rounded-lg shadow-md p-6 flex flex-col mb-4 transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-500" />
+                <div>
+                  <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Physician Activity & Analytics</h2>
+                  <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Track clinical workflows, patient examinations, and AI inferences per doctor</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={downloadDoctorStatsCSV}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md hover:shadow-cyan-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                Download Overall Report
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={`border-b text-[11px] uppercase tracking-wider ${theme === 'DARK' ? 'border-gray-700 text-gray-400 bg-[#1a1c2c]/50' : 'border-gray-200 text-gray-600 bg-slate-50'}`}>
+                    <th className="p-3 font-bold">Doctor Name & ID</th>
+                    <th className="p-3 font-bold">Department</th>
+                    <th className="p-3 font-bold text-center">Unique Patients Examined</th>
+                    <th className="p-3 font-bold text-center">Total AI Inferences</th>
+                    <th className="p-3 font-bold text-center">Last Active Session</th>
+                    <th className="p-3 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className={`text-xs font-mono divide-y ${theme === 'DARK' ? 'divide-gray-700/60' : 'divide-gray-200'}`}>
+                  {doctorStats.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500 font-sans">
+                        No physician data available to analyze.
+                      </td>
+                    </tr>
+                  ) : (
+                    doctorStats.map((doc) => (
+                      <tr key={doc.id} className={`transition-colors ${theme === 'DARK' ? 'hover:bg-[#1a1c2c]/40' : 'hover:bg-slate-50'}`}>
+                        <td className="p-3">
+                          <div className={`font-bold font-sans ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{doc.name}</div>
+                          <div className="text-[10px] text-cyan-500">{doc.id}</div>
+                        </td>
+                        <td className={`p-3 font-sans ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-600'}`}>{doc.dept} - {doc.level}</td>
+                        <td className="p-3 text-center">
+                           <span className="text-lg font-bold text-purple-500 bg-purple-500/10 px-3 py-1 rounded">
+                              {doc.patients_seen}
+                           </span>
+                        </td>
+                        <td className={`p-3 text-center font-bold ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>{doc.total_inferences}</td>
+                        <td className="p-3 text-center">
+                          {doc.is_logged_in ? (
+                             <span className="text-emerald-500 font-bold uppercase tracking-widest text-[10px]">🟢 Currently Online</span>
+                          ) : (
+                             <span className="text-gray-500">{doc.last_login ? new Date(doc.last_login).toLocaleString() : 'Never'}</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => {
+                               const csvContent = `ID,Name,Department,Patients Seen,Total Inferences,Last Login\n${doc.id},${doc.name},${doc.dept},${doc.patients_seen},${doc.total_inferences},${doc.last_login}`;
+                               const blob = new Blob([csvContent], { type: 'text/csv' });
+                               const url = window.URL.createObjectURL(blob);
+                               const a = document.createElement('a');
+                               a.href = url;
+                               a.download = `report_${doc.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+                               a.click();
+                            }}
+                            title="Download Individual Doctor Report"
+                            className={`px-3 py-1.5 border rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ml-auto ${theme === 'DARK' ? 'bg-[#131826] border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/30' : 'bg-slate-50 border-cyan-200 text-cyan-600 hover:bg-cyan-50'}`}
+                          >
+                            <FileText className="w-3 h-3" />
+                            Download Report
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
