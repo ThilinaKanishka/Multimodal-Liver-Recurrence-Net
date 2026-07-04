@@ -3,13 +3,24 @@ import axios from "axios";
 import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2 } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown } from "lucide-react";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS'>('OVERVIEW');
   // Theme Toggle State
   const [theme, setTheme] = useState<'DARK' | 'LIGHT'>('DARK');
+  
+  // Sidebar Collapse State
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return sessionStorage.getItem("hepatoai_admin_sidebar_collapsed") === "true";
+  });
+
+  const toggleSidebar = () => {
+    const newState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newState);
+    sessionStorage.setItem("hepatoai_admin_sidebar_collapsed", String(newState));
+  };
 
   const [users, setUsers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -25,7 +36,10 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   });
 
   const [loading, setLoading] = useState(false);
+  // Modals state
   const [showModal, setShowModal] = useState(false);
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [viewingUser, setViewingUser] = useState<any | null>(null);
@@ -253,22 +267,34 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#1a1c2c] text-slate-200' : 'bg-slate-100 text-slate-800'}`}>
       
       {/* FIXED LEFT ADMIN SIDEBAR */}
-      <div className={`w-64 border-r flex flex-col justify-between flex-shrink-0 h-full shadow-2xl z-20 transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-white border-gray-200'}`}>
+      <div className={`${isSidebarCollapsed ? 'w-[80px]' : 'w-64'} border-r flex flex-col justify-between flex-shrink-0 h-full shadow-2xl z-20 transition-all duration-300 relative ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-white border-gray-200'}`}>
         
+        {/* Collapse Toggle Button */}
+        <button 
+          onClick={toggleSidebar}
+          className={`absolute -right-3 top-6 border rounded-full p-1 z-50 transition-all cursor-pointer ${
+            theme === 'DARK' ? 'bg-[#131524] border-cyan-500/30 text-cyan-400 hover:bg-[#1a1c2c] hover:text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-cyan-600 shadow-md'
+          }`}
+        >
+          {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
         {/* Brand/Logo Section */}
-        <div className={`p-6 border-b transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-800/80 bg-[#131524]' : 'border-gray-100 bg-white'}`}>
-          <div className="flex items-center gap-3">
+        <div className={`p-6 border-b transition-colors duration-300 flex items-center justify-center ${theme === 'DARK' ? 'border-gray-800/80 bg-[#131524]' : 'border-gray-100 bg-white'}`}>
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="bg-cyan-500/20 p-1.5 rounded-lg border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.4)] flex-shrink-0">
               <Hexagon className="w-6 h-6 text-cyan-500" />
             </div>
-            <div className="flex flex-col">
-              <span className={`text-xl font-bold tracking-widest uppercase ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
-                Hepato<span className="text-cyan-500">AI</span>
-              </span>
-              <span className="text-[10px] font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded font-bold tracking-widest w-max mt-1">
-                IT ADMIN CONSOLE
-              </span>
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="flex flex-col">
+                <span className={`text-xl font-bold tracking-widest uppercase ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
+                  Hepato<span className="text-cyan-500">AI</span>
+                </span>
+                <span className="text-[10px] font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded font-bold tracking-widest w-max mt-1">
+                  IT ADMIN CONSOLE
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -276,77 +302,83 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
         <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
           <button 
             onClick={() => setActiveTab('OVERVIEW')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            title="Overview"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'OVERVIEW' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <LayoutDashboard className={`w-4 h-4 flex-shrink-0 ${activeTab === 'OVERVIEW' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            Overview
+            {!isSidebarCollapsed && "Overview"}
           </button>
 
           <button 
             onClick={() => setActiveTab('USER_ACCESS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            title="User Access"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'USER_ACCESS' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <Users className={`w-4 h-4 flex-shrink-0 ${activeTab === 'USER_ACCESS' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            User Access
+            {!isSidebarCollapsed && "User Access"}
           </button>
 
           <button 
             onClick={() => setActiveTab('HIPAA_AUDITS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            title="HIPAA Audits"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'HIPAA_AUDITS' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <ShieldAlert className={`w-4 h-4 flex-shrink-0 ${activeTab === 'HIPAA_AUDITS' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            HIPAA Audits
+            {!isSidebarCollapsed && "HIPAA Audits"}
           </button>
 
           <button 
             onClick={() => setActiveTab('SYSTEM_CONFIG')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            title="System Config"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'SYSTEM_CONFIG' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <Settings className={`w-4 h-4 flex-shrink-0 ${activeTab === 'SYSTEM_CONFIG' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            System Config
+            {!isSidebarCollapsed && "System Config"}
           </button>
 
           <button 
             onClick={() => setActiveTab('DOCTOR_ANALYTICS')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-r-lg font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            title="Doctor Analytics"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'DOCTOR_ANALYTICS' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <Activity className={`w-4 h-4 flex-shrink-0 ${activeTab === 'DOCTOR_ANALYTICS' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            Doctor Analytics
+            {!isSidebarCollapsed && "Doctor Analytics"}
           </button>
         </div>
 
         {/* Bottom Action */}
-        <div className={`p-4 border-t transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-800/80 bg-[#131524]' : 'border-gray-100 bg-white'}`}>
+        <div className={`p-4 border-t transition-colors duration-300 flex justify-center ${theme === 'DARK' ? 'border-gray-800/80 bg-[#131524]' : 'border-gray-100 bg-white'}`}>
           <button 
             onClick={onBack} 
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 border rounded-lg font-mono text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shadow-md group ${
+            title="Exit Console"
+            className={`w-full flex items-center justify-center ${isSidebarCollapsed ? 'p-3' : 'gap-2 px-4 py-3'} border rounded-lg font-mono text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shadow-md group ${
               theme === 'DARK' 
                 ? 'bg-[#1a1c2c] border-gray-700 hover:bg-rose-950/40 hover:border-rose-800 text-gray-300 hover:text-rose-200' 
                 : 'bg-slate-50 border-gray-200 hover:bg-rose-50 hover:border-rose-200 text-gray-700 hover:text-rose-600'
             }`}
           >
-            <LogOut className="w-4 h-4 text-rose-500 group-hover:-translate-x-0.5 transition-transform" />
-            Exit Console
+            <LogOut className={`w-4 h-4 text-rose-500 ${!isSidebarCollapsed && 'group-hover:-translate-x-0.5'} transition-transform`} />
+            {!isSidebarCollapsed && "Exit Console"}
           </button>
         </div>
       </div>
@@ -383,7 +415,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            
             {/* THEME TOGGLE BUTTON */}
             <button
               onClick={() => setTheme(theme === 'DARK' ? 'LIGHT' : 'DARK')}
@@ -397,27 +430,118 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
               {theme === 'DARK' ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
-                  <span>Light Mode</span>
+                  <span className="hidden xl:inline">Light Mode</span>
                 </>
               ) : (
                 <>
                   <Moon className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Dark Mode</span>
+                  <span className="hidden xl:inline">Dark Mode</span>
                 </>
               )}
             </button>
 
             <button 
               onClick={fetchAdminData}
-              className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-mono shadow-sm transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-mono shadow-sm transition-all cursor-pointer hidden lg:flex ${
                 theme === 'DARK' 
                   ? 'bg-[#252841] border-gray-700 hover:bg-gray-700 text-gray-300' 
                   : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
               }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-cyan-500 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? "Syncing..." : "Live Sync Active"}</span>
+              <span className="hidden xl:inline">{loading ? "Syncing..." : "Live Sync Active"}</span>
             </button>
+
+            <div className={`h-6 w-px mx-1 ${theme === 'DARK' ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
+
+            {/* Notification Bell */}
+            <div className="relative group pb-2 -mb-2 mr-1">
+              <div className="relative cursor-pointer hover:scale-105 transition-transform mt-2">
+                <Bell className={`w-5 h-5 ${theme === 'DARK' ? 'text-gray-400 group-hover:text-white' : 'text-gray-600 group-hover:text-black'} transition-colors`} />
+                <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">3</span>
+              </div>
+              
+              {/* Notification Dropdown */}
+              <div className="absolute right-0 top-[100%] mt-2 w-72 bg-white dark:bg-[#131524] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
+                <div className="p-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                  <span className="font-bold text-sm text-slate-800 dark:text-slate-200">System Alerts</span>
+                  <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full">3 New</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                  <div className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-[#1a1c2c] cursor-pointer transition-colors">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Database Sync Completed</p>
+                    <p className="text-[10px] text-slate-500 mt-1">All clinical records synchronized successfully.</p>
+                    <p className="text-[9px] text-cyan-500 mt-1">2 mins ago</p>
+                  </div>
+                  <div className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-[#1a1c2c] cursor-pointer transition-colors">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">New Doctor Provisioned</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Dr. Sarah Jenkins was added to the Radiology dept.</p>
+                    <p className="text-[9px] text-cyan-500 mt-1">1 hour ago</p>
+                  </div>
+                  <div className="p-3 hover:bg-slate-50 dark:hover:bg-[#1a1c2c] cursor-pointer transition-colors">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Security Audit Logged</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Weekly HIPAA compliance check passed.</p>
+                    <p className="text-[9px] text-cyan-500 mt-1">5 hours ago</p>
+                  </div>
+                </div>
+                <div className="p-2 border-t border-gray-100 dark:border-gray-800 text-center">
+                  <button className="text-xs text-cyan-500 hover:text-cyan-600 font-bold transition-colors">Mark all as read</button>
+                </div>
+              </div>
+            </div>
+
+            <div className={`h-6 w-px mx-1 ${theme === 'DARK' ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
+
+            {/* Profile Dropdown */}
+            <div className="relative group pb-2 -mb-2"> {/* Padding to prevent hover loss */}
+              <div className="flex items-center gap-2 cursor-pointer pl-1">
+                <div className="w-9 h-9 rounded-full border-2 border-emerald-400/60 bg-cyan-500/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                   <User className="w-5 h-5 text-cyan-500" fill="currentColor" />
+                </div>
+                <div className="flex flex-col hidden sm:flex justify-center">
+                  <span className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'} leading-none`}>Admin</span>
+                  <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-1 leading-none">ADMIN</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'} ml-1 hidden sm:block`} />
+              </div>
+
+              {/* Dropdown Menu Container */}
+              <div className="absolute right-0 top-[100%] mt-2 w-64 bg-white dark:bg-[#131524] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
+                
+                {/* User Info Header */}
+                <div className="p-4 bg-slate-50/80 dark:bg-[#1a1c2c]/80 rounded-t-xl border-b border-gray-200 dark:border-gray-800 m-1.5">
+                   <div className="flex items-center gap-3">
+                     <div className="w-12 h-12 rounded-full border-2 border-emerald-400/50 bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-7 h-7 text-cyan-500" fill="currentColor" />
+                     </div>
+                     <div className="flex flex-col min-w-0 justify-center">
+                       <span className="text-base font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">Admin</span>
+                       <span className="text-xs text-slate-500 dark:text-gray-400 truncate mt-0.5">admin@HepatoAI.com</span>
+                       <div className="mt-1.5">
+                         <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm">ADMIN</span>
+                       </div>
+                     </div>
+                   </div>
+                </div>
+                
+                {/* Menu Options */}
+                <div className="p-2">
+                  <button onClick={() => setShowAccountSettings(true)} className="w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#1a1c2c] rounded-lg transition-colors cursor-pointer">
+                    <Settings className="w-4 h-4 text-emerald-500" />
+                    Account Settings
+                  </button>
+                </div>
+                
+                <div className="p-2 border-t border-gray-100 dark:border-gray-800">
+                  <button onClick={onBack} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer shadow-sm">
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+                
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -1528,6 +1652,55 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
         </footer>
 
       </div>
+      {/* Admin Account Settings Modal */}
+      {showAccountSettings && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`px-6 py-4 border-b flex items-center justify-between ${theme === 'DARK' ? 'border-gray-800 bg-[#131524]' : 'border-gray-100 bg-slate-50'}`}>
+              <h3 className={`text-lg font-bold flex items-center gap-2 ${theme === 'DARK' ? 'text-white' : 'text-slate-900'}`}>
+                <Settings className="w-5 h-5 text-cyan-500" />
+                Account Settings
+              </h3>
+              <button onClick={() => setShowAccountSettings(false)} className={`p-1.5 rounded-lg transition-colors ${theme === 'DARK' ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-black'}`}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="flex flex-col items-center mb-6">
+                <div className="w-20 h-20 rounded-full border-4 border-cyan-500/20 bg-cyan-500/10 flex items-center justify-center mb-3">
+                  <User className="w-10 h-10 text-cyan-500" fill="currentColor" />
+                </div>
+                <h4 className={`text-lg font-bold ${theme === 'DARK' ? 'text-white' : 'text-slate-900'}`}>System Administrator</h4>
+                <p className="text-sm text-gray-500 font-mono">admin@HepatoAI.com</p>
+                <span className="mt-2 bg-blue-500/10 text-blue-500 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase">Root Access</span>
+              </div>
+              
+              <div className="space-y-4">
+                <div className={`p-4 rounded-xl border ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-slate-50 border-gray-200'}`}>
+                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-2">Change Password</label>
+                  <div className="flex gap-2">
+                    <input type="password" placeholder="New Password" disabled className={`flex-1 px-3 py-2 rounded border text-sm focus:outline-none opacity-50 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
+                    <button disabled className="px-4 py-2 bg-cyan-600 text-white rounded text-xs font-bold uppercase opacity-50 cursor-not-allowed">Update</button>
+                  </div>
+                  <p className="text-[10px] text-rose-500 mt-2 font-mono flex items-center gap-1"><Lock className="w-3 h-3" /> Root password can only be changed via server CLI.</p>
+                </div>
+                
+                <div className={`p-4 rounded-xl border ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-slate-50 border-gray-200'} flex items-center justify-between`}>
+                  <div>
+                    <h5 className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>Two-Factor Authentication</h5>
+                    <p className="text-xs text-gray-500">Hardware security key required.</p>
+                  </div>
+                  <div className="w-10 h-5 bg-emerald-500 rounded-full relative">
+                    <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5 shadow"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
