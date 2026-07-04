@@ -970,7 +970,9 @@ async def get_doctor_stats():
             "is_logged_in": doc.get("is_logged_in", False),
             "last_login": doc.get("last_login", ""),
             "patients_seen": patient_count,
-            "total_inferences": inferences_count
+            "total_inferences": inferences_count,
+            "email": doc.get("email", ""),
+            "signature": doc.get("signature", "")
         })
     return doctors
 
