@@ -74,11 +74,22 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       axios.get("http://127.0.0.1:8000/api/v1/admin/users"),
       axios.get("http://127.0.0.1:8000/api/v1/admin/audit-logs"),
       axios.get("http://127.0.0.1:8000/api/v1/admin/doctor-stats")
-    ]).then(([statsRes, usersRes, logsRes, doctorStatsRes]) => {
+    ]).then(async ([statsRes, usersRes, logsRes, doctorStatsRes]) => {
       setStats(statsRes.data);
-      setUsers(usersRes.data);
+      
+      const usersWithAvatars = await Promise.all(usersRes.data.map(async (u: any) => {
+         u.avatar_url = await getGravatarUrl(u.email, 100, u.name);
+         return u;
+      }));
+      setUsers(usersWithAvatars);
+      
       setLogs(logsRes.data);
-      setDoctorStats(doctorStatsRes.data);
+      
+      const doctorsWithAvatars = await Promise.all(doctorStatsRes.data.map(async (doc: any) => {
+         doc.avatar_url = await getGravatarUrl(doc.email, 100, doc.name);
+         return doc;
+      }));
+      setDoctorStats(doctorsWithAvatars);
       setLoading(false);
     }).catch(err => {
       console.error("Admin Fetch Error:", err);
@@ -491,8 +502,12 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                 ) : (
                   doctorStats.filter(d => d.is_logged_in).map(doc => (
                     <div key={doc.id} className={`border rounded p-3 flex items-center gap-3 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700' : 'bg-slate-50 border-gray-200'}`}>
-                      <div className="w-10 h-10 rounded-full bg-cyan-950/50 flex items-center justify-center text-cyan-500 font-bold">
-                        {doc.name.charAt(0).toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-cyan-950/50 flex items-center justify-center text-cyan-500 font-bold overflow-hidden">
+                        {doc.avatar_url ? (
+                          <img src={doc.avatar_url} alt={doc.name} className="w-full h-full object-cover" />
+                        ) : (
+                          doc.name.charAt(0).toUpperCase()
+                        )}
                       </div>
                       <div>
                         <div className={`font-bold text-sm ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{doc.name}</div>
@@ -1315,8 +1330,12 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
               {/* Modal Header */}
               <div className={`flex items-center justify-between p-6 border-b ${theme === 'DARK' ? 'border-gray-700 bg-gradient-to-r from-[#131524] to-[#1a1c2c]' : 'border-gray-200 bg-slate-100'}`}>
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 rounded-xl shadow-inner">
-                    <User className="w-8 h-8" />
+                  <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/30 text-cyan-500 rounded-xl shadow-inner flex items-center justify-center overflow-hidden">
+                    {viewingUser.avatar_url ? (
+                      <img src={viewingUser.avatar_url} alt={viewingUser.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-8 h-8" />
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
