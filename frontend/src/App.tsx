@@ -424,9 +424,29 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
 };
 
 function App() {
-  const [activePage, setActivePage] = useState("login");
+  const [activePage, setActivePage] = useState(() => {
+    const saved = localStorage.getItem("hepatoai_active_page");
+    return saved || "login";
+  });
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    const saved = localStorage.getItem("hepatoai_current_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("hepatoai_active_page", activePage);
+    if (activePage === "login") {
+      setCurrentUser(null);
+      localStorage.removeItem("hepatoai_current_user");
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem("hepatoai_current_user", JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
 
   const handlePatientClick = (id: string) => {
     setSelectedPatientId(id);
