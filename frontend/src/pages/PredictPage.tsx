@@ -488,11 +488,12 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </h2>
                 </div>
                 <div className="p-3 flex flex-col gap-3 flex-1 justify-center max-h-[calc(100vh-240px)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a364a] scrollbar-track-transparent">
-                  <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer ${
+                  <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer overflow-hidden ${
                     pipelineStep === "STEP1" || pipelineStep === "STEP3"
-                      ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
+                      ? "border-[#00b8d4] bg-[#131524] cyber-pulse"
                       : "border-dashed border-[#2a364a] hover:border-blue-500/50 bg-[#0a0e17]"
                   }`}>
+                    {pipelineStep === "STEP1" && <div className="scanning-laser"></div>}
                     <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
@@ -510,7 +511,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                         </div>
                       )
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors">
+                      <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors relative z-10">
                         <Upload className="w-6 h-6 mx-auto mb-2 opacity-60 group-hover:opacity-100" />
                         <p className="text-[10px] uppercase tracking-wider font-semibold">Load DICOM Volume</p>
                       </div>
@@ -519,23 +520,24 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
                   {/* Multimodal Fusion Link / Connector */}
                   <div className="flex items-center justify-center -my-1 z-10 relative h-6">
-                    <div className={`w-0.5 h-full transition-all duration-500 ${
+                    <div className={`h-full transition-all duration-500 ${
                       pipelineStep === "STEP3" 
-                        ? "bg-[#00b8d4] shadow-[0_0_10px_#00b8d4] animate-pulse" 
-                        : "bg-[#2a364a]"
+                        ? "w-1 data-fusion-flow shadow-[0_0_10px_#00b8d4]" 
+                        : "w-0.5 bg-[#2a364a]"
                     }`} />
                     {pipelineStep === "STEP3" && (
-                      <div className="absolute bg-[#131524] border border-[#00b8d4] text-[#00b8d4] text-[9px] font-mono px-2 py-0.5 rounded shadow-[0_0_12px_rgba(0,184,212,0.3)] flex items-center gap-1 animate-pulse">
+                      <div className="absolute bg-[#131524] border border-[#00b8d4] text-[#00b8d4] text-[9px] font-mono px-2 py-0.5 rounded shadow-[0_0_12px_rgba(0,184,212,0.5)] flex items-center gap-1 cyber-pulse">
                         <Activity className="w-3 h-3" /> FUSION ACTIVE
                       </div>
                     )}
                   </div>
 
-                  <div className={`border rounded-sm p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-16 ${
+                  <div className={`border rounded-sm p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-16 overflow-hidden ${
                     pipelineStep === "STEP2" || pipelineStep === "STEP3"
-                      ? "border-[#00b8d4] bg-[#131524] shadow-[0_0_15px_rgba(0,184,212,0.2)] animate-pulse"
+                      ? "border-[#10b981] bg-[#131524] cyber-pulse-green"
                       : "border-[#2a364a] bg-[#0a0e17] hover:border-emerald-500/50"
                   }`}>
+                    {pipelineStep === "STEP2" && <div className="scanning-laser-green"></div>}
                     <input type="file" accept=".pdf" onChange={handlePdfChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {pdfFile ? (
                       <div className={`flex items-center gap-2 transition-colors duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-emerald-400"}`}>
