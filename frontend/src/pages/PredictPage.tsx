@@ -1034,9 +1034,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                  Scan QR for 3D<br />CT MPR Viewer
                </div>
             </div>
-            <div className="col-span-3 text-center pl-2">
-               <div className="border-b border-black mb-2 border-dashed w-full"></div>
-               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block">Physician Signature</span>
+            <div className="col-span-3 text-center pl-2 flex flex-col items-center justify-end relative">
+               {user?.signature ? (
+                  <img src={user.signature} alt="Physician Signature" className="max-h-16 w-auto object-contain -mb-2" />
+               ) : (
+                  <div className="border-b border-black mb-2 border-dashed w-full h-8"></div>
+               )}
+               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">Physician Signature</span>
             </div>
           </div>
         </div>

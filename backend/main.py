@@ -988,6 +988,7 @@ class NewUserPayload(BaseModel):
     status: str
     mfa_required: Optional[bool] = True
     password: Optional[str] = None
+    signature: Optional[str] = None
 
 # ==============================================================================
 # IMPORTANT: GMAIL SMTP CONFIGURATION & APP PASSWORDS
@@ -1199,7 +1200,7 @@ async def login_user(payload: LoginPayload):
     return {
         "message": "Login successful", 
         "requires_reset": requires_reset,
-        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email")}
+        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature")}
     }
 
 class LogoutPayload(BaseModel):

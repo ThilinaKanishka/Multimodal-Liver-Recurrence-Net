@@ -52,7 +52,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     extension: "",
     status: "Active",
     mfa_required: true,
-    password: ""
+    password: "",
+    signature: ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -120,7 +121,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       extension: "Ext. 2100",
       status: "Active",
       mfa_required: true,
-      password: ""
+      password: "",
+      signature: ""
     });
     setShowModal(true);
   };
@@ -141,7 +143,8 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       extension: u.extension || "Ext. 1000",
       status: u.status || "Active",
       mfa_required: u.mfa_required !== false,
-      password: "" // Keep blank unless updating
+      password: "", // Keep blank unless updating
+      signature: u.signature || ""
     });
     setShowModal(true);
   };
@@ -216,6 +219,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           status: "Active",
           mfa_required: true,
           password: "",
+          signature: "",
         });
         fetchAdminData();
       }
@@ -1230,6 +1234,47 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   </div>
                 </div>
 
+                {/* SECTION 5: Authorization E-Signature */}
+                <div className={`flex flex-col gap-4 p-5 rounded-lg border ${theme === 'DARK' ? 'bg-[#1a1c2c]/50 border-gray-700/60' : 'bg-slate-50 border-gray-200'}`}>
+                  <h4 className={`text-xs font-bold uppercase tracking-widest text-cyan-500 flex items-center gap-2 border-b pb-2 ${theme === 'DARK' ? 'border-gray-700/60' : 'border-gray-200'}`}>
+                    <FileText className="w-4 h-4 text-cyan-500" />
+                    5. Clinical Authorization E-Signature
+                  </h4>
+                  <div className="flex flex-col gap-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Upload Signature Image (Optional)
+                    </label>
+                    {formData.signature ? (
+                      <div className="flex flex-col gap-3">
+                        <img src={formData.signature} alt="E-Signature" className="max-h-24 w-auto self-start rounded border border-gray-300 dark:border-gray-700 p-2 bg-white" />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, signature: ""})}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-400 self-start uppercase tracking-wider transition-colors"
+                        >
+                          Remove Signature
+                        </button>
+                      </div>
+                    ) : (
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormData({...formData, signature: reader.result as string});
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className={`w-full text-xs file:mr-4 file:py-2.5 file:px-4 file:rounded file:border-0 file:text-xs file:font-bold file:bg-cyan-500/10 file:text-cyan-500 hover:file:bg-cyan-500/20 cursor-pointer ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}
+                      />
+                    )}
+                  </div>
+                </div>
+
                 {/* Confirm Action Button */}
                 <div className={`flex items-center justify-end gap-4 mt-2 border-t pt-6 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
                   <button
@@ -1396,6 +1441,19 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                     </div>
                   </div>
                 </div>
+
+                {/* 5. Authorization E-Signature */}
+                {viewingUser.signature && (
+                  <div className={`p-5 rounded-xl border shadow-md flex flex-col gap-4 md:col-span-2 ${theme === 'DARK' ? 'bg-[#131524] border-gray-700/80' : 'bg-white border-gray-200'}`}>
+                    <h4 className={`text-xs font-bold uppercase tracking-widest text-cyan-500 flex items-center gap-2 border-b pb-2.5 ${theme === 'DARK' ? 'border-gray-700/60' : 'border-gray-200'}`}>
+                      <FileText className="w-4 h-4 text-cyan-500" />
+                      Clinical Authorization E-Signature
+                    </h4>
+                    <div className="flex justify-center bg-white p-3 rounded border border-gray-200 dark:border-gray-600">
+                      <img src={viewingUser.signature} alt="E-Signature" className="max-h-24 w-auto object-contain" />
+                    </div>
+                  </div>
+                )}
 
               </div>
 
