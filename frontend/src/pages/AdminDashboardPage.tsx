@@ -4,11 +4,12 @@ import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare } from "lucide-react";
+import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES'>('OVERVIEW');
   // Theme Toggle State with localStorage persistence
   const [theme, setTheme] = useState<'DARK' | 'LIGHT'>(() => {
     return (localStorage.getItem("hepatoai_admin_theme") as 'DARK' | 'LIGHT') || 'DARK';
@@ -408,6 +409,18 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           >
             <Activity className={`w-4 h-4 flex-shrink-0 ${activeTab === 'DOCTOR_ANALYTICS' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
             {!isSidebarCollapsed && "Doctor Analytics"}
+          </button>
+          <button 
+            onClick={() => setActiveTab('MESSAGES')}
+            title="Support Inbox"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer mt-2 ${
+              activeTab === 'MESSAGES' 
+                ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
+                : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <MessageSquare className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MESSAGES' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            {!isSidebarCollapsed && "Support Inbox"}
           </button>
         </div>
 
@@ -1816,6 +1829,11 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
 
             </div>
           </div>
+        )}
+
+        {/* TAB 6: MESSAGES TAB */}
+        {activeTab === 'MESSAGES' && (
+           <AdminMessages theme={theme} />
         )}
 
         {/* FOOTER */}
