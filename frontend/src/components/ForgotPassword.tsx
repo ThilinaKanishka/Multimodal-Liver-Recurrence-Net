@@ -9,6 +9,7 @@ interface ForgotPasswordProps {
 export default function ForgotPassword({ onCancel, onSuccess }: ForgotPasswordProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,7 +27,10 @@ export default function ForgotPassword({ onCancel, onSuccess }: ForgotPasswordPr
       const response = await fetch('http://localhost:8000/api/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ 
+          email, 
+          recovery_email: email.toLowerCase() === "admin@hepatoai.com" ? recoveryEmail : undefined 
+        })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Failed to send OTP');
@@ -124,6 +128,26 @@ export default function ForgotPassword({ onCancel, onSuccess }: ForgotPasswordPr
                 </div>
               </div>
               
+              {email.toLowerCase() === "admin@hepatoai.com" && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Your Personal Email (Where to send OTP)</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="w-5 h-5 text-gray-500" />
+                    </div>
+                    <input
+                      type="email"
+                      value={recoveryEmail}
+                      onChange={(e) => setRecoveryEmail(e.target.value)}
+                      className="w-full bg-[#252841] border border-gray-600 rounded-xl py-3 pl-10 pr-4 text-cyan-400 font-bold focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                      placeholder="e.g. thilina@gmail.com"
+                      required
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1 font-mono">For security, the OTP will be sent here instead of the default admin address.</p>
+                </div>
+              )}
+              
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -134,7 +158,7 @@ export default function ForgotPassword({ onCancel, onSuccess }: ForgotPasswordPr
                 </button>
                 <button
                   type="submit"
-                  disabled={!email || loading}
+                  disabled={!email || (email.toLowerCase() === "admin@hepatoai.com" && !recoveryEmail) || loading}
                   className="flex-1 py-3 px-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send OTP'}

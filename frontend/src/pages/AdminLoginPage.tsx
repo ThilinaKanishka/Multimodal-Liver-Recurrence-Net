@@ -1,26 +1,39 @@
 import React, { useState } from "react";
-import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu, ArrowLeft, ShieldCheck, Terminal } from "lucide-react";
+import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu, ArrowLeft, ShieldCheck, Terminal, Mail } from "lucide-react";
+import ForgotPassword from "../components/ForgotPassword";
 
 export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void }> = ({ onLogin, onBack }) => {
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Secure Admin Login verification simulation
-    setTimeout(() => {
-      if (credentials.username === "admin" && credentials.password === "wrong") {
-        setError("Invalid administrator credentials or revoked security key.");
+    // Real backend authentication
+    fetch("http://localhost:8000/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: credentials.username, password: credentials.password })
+    })
+      .then((res) => res.json())
+      .then((data) => {
         setLoading(false);
-        return;
-      }
-      setLoading(false);
-      onLogin();
-    }, 1200);
+        if (data.detail) {
+          const errorMsg = Array.isArray(data.detail) ? "Invalid input format." : data.detail;
+          setError(errorMsg || "Invalid administrator credentials or revoked security key.");
+        } else {
+          // Real backend login successful
+          onLogin();
+        }
+      })
+      .catch((err) => {
+        setLoading(false);
+        setError("Network error connecting to authentication server.");
+      });
   };
 
   return (
@@ -94,26 +107,33 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
             
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex justify-between">
-                Admin Username / Staff ID
+                Admin Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="w-4 h-4 text-slate-600" />
+                  <Mail className="w-4 h-4 text-slate-600" />
                 </div>
                 <input
-                  type="text"
+                  type="email"
                   required
                   value={credentials.username}
                   onChange={(e) => setCredentials({...credentials, username: e.target.value})}
                   className="w-full bg-[#131826] border border-[#1e293b] rounded-md py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/30 transition-all font-mono"
-                  placeholder="e.g. ST-ADMIN"
+                  placeholder="admin@HepatoAI.com"
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex justify-between">
-                Passphrase / Security Key
+                <span>Passphrase / Security Key</span>
+                <button 
+                  type="button" 
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-cyan-500 hover:text-cyan-400 transition-colors cursor-pointer"
+                >
+                  Forgot Passphrase?
+                </button>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -158,6 +178,16 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
 
         </div>
       </div>
+      
+      {showForgotPassword && (
+        <ForgotPassword 
+          onCancel={() => setShowForgotPassword(false)} 
+          onSuccess={() => {
+            setShowForgotPassword(false);
+            setError("Password successfully updated. Please login with your new credentials.");
+          }} 
+        />
+      )}
     </div>
   );
 };

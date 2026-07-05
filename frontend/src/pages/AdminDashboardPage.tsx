@@ -3,13 +3,20 @@ import axios from "axios";
 import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import ForgotPassword from "../components/ForgotPassword";
 import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown } from "lucide-react";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS'>('OVERVIEW');
-  // Theme Toggle State
-  const [theme, setTheme] = useState<'DARK' | 'LIGHT'>('DARK');
+  // Theme Toggle State with localStorage persistence
+  const [theme, setTheme] = useState<'DARK' | 'LIGHT'>(() => {
+    return (localStorage.getItem("hepatoai_admin_theme") as 'DARK' | 'LIGHT') || 'DARK';
+  });
+
+  useEffect(() => {
+    localStorage.setItem("hepatoai_admin_theme", theme);
+  }, [theme]);
   
   // Sidebar Collapse State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -61,6 +68,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   const [showModal, setShowModal] = useState(false);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [viewingUser, setViewingUser] = useState<any | null>(null);
@@ -666,9 +674,9 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-cyan-950/50 flex items-center justify-center text-cyan-500 font-bold overflow-hidden flex-shrink-0">
                           {doc.avatar_url ? (
-                            <img src={doc.avatar_url} alt={doc.name} className="w-full h-full object-cover" />
+                            <img src={doc.avatar_url} alt={doc?.name || "User"} className="w-full h-full object-cover" />
                           ) : (
-                            doc.name.charAt(0).toUpperCase()
+                            (doc?.name || "?").charAt(0).toUpperCase()
                           )}
                         </div>
                         <div className="min-w-0">
@@ -1827,6 +1835,14 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
         </footer>
 
       </div>
+      {/* Render Forgot Password Modal */}
+      {showForgotPassword && (
+        <ForgotPassword 
+          onCancel={() => setShowForgotPassword(false)} 
+          onSuccess={() => setShowForgotPassword(false)} 
+        />
+      )}
+
       {/* Admin Account Settings Modal */}
       {showAccountSettings && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -1853,40 +1869,24 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
               
               <div className="space-y-4">
                 <div className={`p-4 rounded-xl border ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-slate-50 border-gray-200'}`}>
-                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-2">Change Password</label>
+                  <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
+                    <Shield className="w-4 h-4 text-rose-500" /> Admin Access Keys
+                  </h3>
                   <div className="flex gap-2">
-                    <input 
-                      type="password" 
-                      placeholder="New Password" 
-                      value={adminPasswordInput}
-                      onChange={(e) => setAdminPasswordInput(e.target.value)}
-                      className={`flex-1 px-3 py-2 rounded border text-sm focus:outline-none focus:border-cyan-500 transition-colors ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-white' : 'bg-white border-gray-300 text-slate-800'}`} 
-                    />
                     <button 
                       onClick={() => {
-                        if (adminPasswordInput.length >= 6) {
-                          setAdminPasswordMsg("Admin root password updated successfully in session.");
-                          setAdminPasswordInput("");
-                          setTimeout(() => setAdminPasswordMsg(""), 3000);
-                        } else {
-                          setAdminPasswordMsg("Error: Password must be at least 6 characters.");
-                          setTimeout(() => setAdminPasswordMsg(""), 3000);
-                        }
+                        setShowAccountSettings(false);
+                        setShowForgotPassword(true);
                       }}
-                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 transition-colors text-white rounded text-xs font-bold uppercase cursor-pointer"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 transition-colors text-white rounded font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"
                     >
-                      Update
+                      <Lock className="w-4 h-4" /> Change Administrative Password (OTP)
                     </button>
                   </div>
-                  {adminPasswordMsg ? (
-                    <p className={`text-[10px] mt-2 font-mono flex items-center gap-1 ${adminPasswordMsg.includes("Error") ? "text-rose-500" : "text-emerald-500"}`}>
-                      {adminPasswordMsg.includes("Error") ? <X className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />} {adminPasswordMsg}
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-gray-500 mt-2 font-mono flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Secure administrative override enabled.
-                    </p>
-                  )}
+                  <p className="text-[10px] text-gray-500 mt-3 font-mono flex items-start gap-1">
+                    <ShieldAlert className="w-3 h-3 flex-shrink-0 mt-0.5" /> 
+                    Requires secure OTP verification sent to your personal email address.
+                  </p>
                 </div>
                 
                 <div className={`p-4 rounded-xl border ${theme === 'DARK' ? 'bg-[#131524] border-gray-800' : 'bg-slate-50 border-gray-200'} flex items-center justify-between`}>

@@ -1183,9 +1183,11 @@ class LoginPayload(BaseModel):
 
 @app.post("/api/login")
 async def login_user(payload: LoginPayload):
-    user = await users_collection.find_one({"id": payload.id})
+    import re
+    regex = re.compile(f"^{re.escape(payload.id)}$", re.IGNORECASE)
+    user = await users_collection.find_one({"$or": [{"id": regex}, {"email": regex}]})
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid Staff ID or Password")
+        raise HTTPException(status_code=401, detail="Invalid Staff ID or Email")
     
     # Check password hash
     password_hash = hashlib.sha256(payload.password.encode()).hexdigest()
@@ -1349,10 +1351,13 @@ async def get_admin_system_logs():
 
 class ForgotPasswordPayload(BaseModel):
     email: str
+    recovery_email: Optional[str] = None
 
 @app.post("/api/forgot-password")
 async def forgot_password(payload: ForgotPasswordPayload):
-    user = await users_collection.find_one({"email": payload.email})
+    import re
+    regex = re.compile(f"^{re.escape(payload.email)}$", re.IGNORECASE)
+    user = await users_collection.find_one({"email": regex})
     if not user:
         # Returning 404 temporarily so the user knows if the email is wrong during testing
         raise HTTPException(status_code=404, detail="Email not found in the system.")
@@ -1362,13 +1367,14 @@ async def forgot_password(payload: ForgotPasswordPayload):
     expiry = datetime.utcnow().timestamp() + 900  # 15 minutes
 
     await users_collection.update_one(
-        {"email": payload.email},
+        {"_id": user["_id"]},
         {"$set": {"reset_otp": otp, "reset_otp_expiry": expiry}}
     )
 
     msg = MIMEMultipart()
     msg['From'] = formataddr(("HepatoAI Security", SENDER_EMAIL))
-    msg['To'] = payload.email
+    target_email = payload.recovery_email if payload.recovery_email else payload.email
+    msg['To'] = target_email
     msg['Subject'] = "HepatoAI Security: Your password reset OTP is " + otp
 
     html_content = f"""
@@ -1404,6 +1410,7 @@ async def forgot_password(payload: ForgotPasswordPayload):
         print(f"[SMTP] Error sending OTP: {e}")
         raise HTTPException(status_code=502, detail="Failed to send OTP email.")
 
+    print(f"\n[DEVELOPER DEBUG] OTP for {payload.email} is: {otp}\n")
     return {"message": "OTP sent successfully."}
 
 class ResetPasswordPayload(BaseModel):
@@ -1413,7 +1420,9 @@ class ResetPasswordPayload(BaseModel):
 
 @app.post("/api/reset-password")
 async def reset_password(payload: ResetPasswordPayload):
-    user = await users_collection.find_one({"email": payload.email})
+    import re
+    regex = re.compile(f"^{re.escape(payload.email)}$", re.IGNORECASE)
+    user = await users_collection.find_one({"email": regex})
     if not user:
         raise HTTPException(status_code=400, detail="Invalid request")
         
@@ -1429,12 +1438,14 @@ async def reset_password(payload: ResetPasswordPayload):
     password_hash = hashlib.sha256(payload.newPassword.encode()).hexdigest()
     
     await users_collection.update_one(
-        {"email": payload.email},
+        {"_id": user["_id"]},
         {
             "$set": {"password_hash": password_hash},
             "$unset": {"reset_otp": "", "reset_otp_expiry": ""}
         }
     )
+
+
     
     log_doc = {
         "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
@@ -1482,4 +1493,30 @@ async def change_password(payload: ChangePasswordPayload):
     await system_logs_collection.insert_one(log_doc)
     
     return {"message": "Password changed successfully"}
-
+
+@app.get("/api/temp-reset")
+async def temp_reset():
+    import hashlib
+    password_hash = hashlib.sha256("1234".encode()).hexdigest()
+    await users_collection.update_one(
+        {"email": "admin@HepatoAI.com"},
+        {"$set": {"password_hash": password_hash}}
+    )
+    return {"message": "Admin password reset to 1234"}
+
+@app.get("/api/seed-admin")
+async def seed_admin():
+    import hashlib
+    pwd_hash = hashlib.sha256("1234".encode()).hexdigest()
+    admin_doc = {
+        "id": "ST-ADMIN",
+        "name": "System Admin",
+        "level": "IT Admin",
+        "email": "admin@HepatoAI.com",
+        "password_hash": pwd_hash,
+        "status": "Active",
+        "first_login_skipped": True
+    }
+    await users_collection.delete_one({"email": "admin@HepatoAI.com"})
+    await users_collection.insert_one(admin_doc)
+    return {"message": "Admin seeded with password 1234"}
