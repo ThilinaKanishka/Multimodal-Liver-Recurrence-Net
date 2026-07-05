@@ -31,7 +31,7 @@ import shap
 from scipy.ndimage import rotate
 import pydicom
 import PyPDF2
-from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection
+from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection, messages_collection
 try:
     import fitz
 except ImportError:
@@ -1519,4 +1519,72 @@ async def seed_admin():
     }
     await users_collection.delete_one({"email": "admin@HepatoAI.com"})
     await users_collection.insert_one(admin_doc)
-    return {"message": "Admin seeded with password 1234"}
+class SendMessagePayload(BaseModel):
+    sender_id: str
+    receiver_id: str
+    content: str
+
+@app.post("/api/messages/send")
+async def send_message(payload: SendMessagePayload):
+    msg = {
+        "id": f"MSG-{uuid.uuid4().hex[:8].upper()}",
+        "sender_id": payload.sender_id,
+        "receiver_id": payload.receiver_id,
+        "content": payload.content,
+        "timestamp": datetime.utcnow().isoformat(),
+        "is_read": False
+    }
+    await messages_collection.insert_one(msg)
+    return {"message": "Sent", "msg": {k: v for k, v in msg.items() if k != "_id"}}
+
+@app.get("/api/messages/conversation/{user1_id}/{user2_id}")
+async def get_conversation(user1_id: str, user2_id: str):
+    # Mark messages sent BY user2 TO user1 as read, since user1 is fetching the conversation
+    await messages_collection.update_many(
+        {"sender_id": user2_id, "receiver_id": user1_id, "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    
+    cursor = messages_collection.find({
+        "$or": [
+            {"sender_id": user1_id, "receiver_id": user2_id},
+            {"sender_id": user2_id, "receiver_id": user1_id}
+        ]
+    }).sort("timestamp", 1)
+    
+    messages = await cursor.to_list(length=500)
+    return {"messages": [{k: v for k, v in msg.items() if k != "_id"} for msg in messages]}
+
+@app.get("/api/messages/conversations/{user_id}")
+async def get_conversations(user_id: str):
+    # Find all users that the given user has chatted with
+    cursor = messages_collection.find({
+        "$or": [{"sender_id": user_id}, {"receiver_id": user_id}]
+    }).sort("timestamp", -1)
+    
+    messages = await cursor.to_list(length=1000)
+    
+    conversations = {}
+    for msg in messages:
+        other_user = msg["receiver_id"] if msg["sender_id"] == user_id else msg["sender_id"]
+        if other_user not in conversations:
+            conversations[other_user] = {
+                "user_id": other_user,
+                "last_message": msg["content"],
+                "last_timestamp": msg["timestamp"],
+                "unread_count": 0
+            }
+        
+        # Count unread messages sent TO the requested user FROM this other user
+        if msg["receiver_id"] == user_id and not msg.get("is_read"):
+            conversations[other_user]["unread_count"] += 1
+            
+    # Enrich with user details (names)
+    for other_user_id in conversations.keys():
+        u = await users_collection.find_one({"id": other_user_id})
+        conversations[other_user_id]["name"] = u.get("name", "Unknown") if u else "Unknown User"
+        conversations[other_user_id]["level"] = u.get("level", "") if u else ""
+        
+    return {"conversations": list(conversations.values())}
+# Force reload
+

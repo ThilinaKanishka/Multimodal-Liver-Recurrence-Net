@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { Sidebar } from "./components/Sidebar";
+import { DoctorMessages } from "./components/DoctorMessages";
 import MprClinicalWorkstation from "./components/MprClinicalWorkstation";
 import SecuritySettingsTab from "./components/SecuritySettingsTab";
 
@@ -436,11 +437,12 @@ function App() {
 
   useEffect(() => {
     sessionStorage.setItem("hepatoai_active_page", activePage);
-    if (activePage === "login") {
+    if (activePage === "login" && currentUser) {
+      setActivePage("activity");
+    } else if (activePage === "login") {
       setCurrentUser(null);
-      localStorage.removeItem("hepatoai_current_user");
     }
-  }, [activePage]);
+  }, [activePage, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -461,6 +463,7 @@ function App() {
       case "database": return <DatabasePage />;
       case "search": return <SearchPage />;
       case "settings": return <SettingsPage />;
+      case "support": return <DoctorMessages user={currentUser} />;
       default: return null;
     }
   };
@@ -481,6 +484,21 @@ function App() {
 
   if (activePage === "admin") {
     return <AdminDashboardPage onBack={() => setActivePage("login")} />;
+  }
+
+  // Protect all other routes: if no currentUser, force login
+  if (!currentUser && activePage !== "login" && activePage !== "admin_login" && activePage !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#070b14] text-white flex-col gap-4">
+        <p>Your session has expired. Please log in again.</p>
+        <button 
+          onClick={() => setActivePage("login")}
+          className="bg-blue-600 px-6 py-2 rounded font-bold"
+        >
+          Go to Login
+        </button>
+      </div>
+    );
   }
 
   return (

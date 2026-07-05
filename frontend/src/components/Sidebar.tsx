@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split, ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { getGravatarUrl } from "../utils/gravatar";
 
 interface SidebarProps {
@@ -118,6 +118,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
           <Settings className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Settings</span>}
         </div>
+        <div className={getIconClass("support")} onClick={() => setActivePage("support")} title="IT Support">
+          <MessageSquare className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">IT Support</span>}
+        </div>
         <div 
           className={`w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-2 shadow-[0_0_10px_rgba(244,63,94,0.1)]`}
           onClick={() => {
@@ -127,12 +131,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: user.id })
               })
-              .then(() => setActivePage("login"))
+              .then(() => {
+                localStorage.removeItem("hepatoai_current_user");
+                setActivePage("login");
+              })
               .catch((err) => {
                 console.error(err);
+                localStorage.removeItem("hepatoai_current_user");
                 setActivePage("login");
               });
             } else {
+              localStorage.removeItem("hepatoai_current_user");
               setActivePage("login");
             }
           }} 
