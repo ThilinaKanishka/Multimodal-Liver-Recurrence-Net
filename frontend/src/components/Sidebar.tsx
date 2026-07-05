@@ -126,9 +126,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: user.id })
-              }).catch(console.error);
+              })
+              .then(() => setActivePage("login"))
+              .catch((err) => {
+                console.error(err);
+                setActivePage("login");
+              });
+            } else {
+              setActivePage("login");
             }
-            setActivePage("login");
           }} 
           title="Log Out / Exit Portal"
         >
