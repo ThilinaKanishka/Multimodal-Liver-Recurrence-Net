@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X } from 'lucide-react';
+import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail } from 'lucide-react';
 
 export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -10,7 +10,9 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sendViaEmail, setSendViaEmail] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'TICKET' | 'EMAIL'>('TICKET');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatMode, setNewChatMode] = useState<'CHAT' | 'EMAIL'>('CHAT');
   const [activeDoctors, setActiveDoctors] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +37,7 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   const fetchMessages = async () => {
     if (!activeChat) return;
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/messages/conversation/${adminId}/${activeChat}`);
+      const res = await axios.get(`http://127.0.0.1:8000/api/messages/conversation/${adminId}/${activeChat}/${sidebarTab}`);
       setMessages(res.data.messages);
       setLoading(false);
     } catch (err) {
@@ -51,14 +53,14 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
       if (activeChat) fetchMessages();
     }, 3000);
     return () => clearInterval(interval);
-  }, [activeChat]);
+  }, [activeChat, sidebarTab]);
 
   useEffect(() => {
     if (activeChat) {
       setLoading(true);
       fetchMessages();
     }
-  }, [activeChat]);
+  }, [activeChat, sidebarTab]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,10 +90,13 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
         sender_id: adminId,
         receiver_id: activeChat,
         content: newMessage,
-        send_via_email: sendViaEmail
+        send_via_email: sidebarTab === 'EMAIL' ? true : sendViaEmail,
+        thread_type: sidebarTab
       };
       setNewMessage("");
-      setSendViaEmail(false);
+      if (sidebarTab !== 'EMAIL') {
+        setSendViaEmail(false);
+      }
       // Optimistic update
       setMessages(prev => [...prev, { ...msgData, _id: Date.now().toString(), timestamp: new Date().toISOString(), is_read: false }]);
       
@@ -104,10 +109,13 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   };
 
   const activeUser = conversations.find(c => c.user_id === activeChat);
-  const filteredConversations = conversations.filter(c => 
-    c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.user_id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          c.user_id.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (sidebarTab === 'TICKET') return matchesSearch && c.is_ticket;
+    return matchesSearch && !c.is_ticket;
+  });
 
   return (
     <div className="flex-1 flex flex-col min-h-[600px] h-[calc(100vh-180px)] overflow-hidden animate-in fade-in duration-500">
@@ -126,8 +134,22 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
       <div className={`flex-1 border rounded-lg shadow-xl flex overflow-hidden relative ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#131524]' : 'bg-white border-gray-200'}`}>
         {/* Sidebar: Conversation List */}
         <div className={`w-80 border-r flex flex-col z-10 ${theme === 'DARK' ? 'bg-[#131524] border-[#1a1c2c]' : 'bg-slate-50 border-gray-200'}`}>
-          <div className={`p-4 border-b flex items-center gap-2 ${theme === 'DARK' ? 'border-[#1a1c2c]' : 'border-gray-200'}`}>
-            <div className="relative group flex-1">
+          <div className={`p-4 border-b flex flex-col gap-3 ${theme === 'DARK' ? 'border-[#1a1c2c]' : 'border-gray-200'}`}>
+            <div className="flex gap-2 w-full">
+              <button 
+                onClick={() => { setNewChatMode('CHAT'); setShowNewChatModal(true); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-bold uppercase tracking-wider rounded border transition-colors shadow-sm ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#2a364a] text-slate-300 hover:text-white hover:border-indigo-500 hover:bg-[#1a1c2c]/80' : 'bg-white border-gray-300 text-slate-600 hover:text-indigo-700 hover:border-indigo-300 hover:bg-slate-50'}`}
+              >
+                <Plus className="w-3.5 h-3.5" /> New Chat
+              </button>
+              <button 
+                onClick={() => { setNewChatMode('EMAIL'); setShowNewChatModal(true); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-bold uppercase tracking-wider rounded border transition-colors shadow-sm ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#2a364a] text-slate-300 hover:text-white hover:border-indigo-500 hover:bg-[#1a1c2c]/80' : 'bg-white border-gray-300 text-slate-600 hover:text-indigo-700 hover:border-indigo-300 hover:bg-slate-50'}`}
+              >
+                <Mail className="w-3.5 h-3.5" /> New Email
+              </button>
+            </div>
+            <div className="relative group w-full">
               <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${theme === 'DARK' ? 'text-slate-500 group-focus-within:text-indigo-400' : 'text-slate-400 group-focus-within:text-indigo-600'}`} />
               <input 
                 type="text" 
@@ -141,21 +163,34 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                 }`} 
               />
             </div>
+          </div>
+          <div className={`flex text-[10px] font-bold font-mono border-b ${theme === 'DARK' ? 'border-[#1a1c2c]' : 'border-gray-200'}`}>
             <button 
-              onClick={() => setShowNewChatModal(true)}
-              title="New Message to Doctor"
-              className={`p-2.5 border rounded flex-shrink-0 transition-colors shadow-sm ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#2a364a] text-slate-300 hover:text-white hover:border-indigo-500' : 'bg-white border-gray-300 text-slate-600 hover:text-indigo-600 hover:border-indigo-300'}`}
+              onClick={() => { setSidebarTab('TICKET'); setActiveChat(null); }}
+              className={`flex-1 py-2 text-center transition-colors uppercase tracking-widest ${sidebarTab === 'TICKET' ? (theme === 'DARK' ? 'bg-indigo-500/20 text-indigo-400 border-b-2 border-indigo-500' : 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600') : (theme === 'DARK' ? 'text-slate-500 hover:text-slate-300 hover:bg-[#1a1c2c]/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}`}
             >
-              <Plus className="w-4 h-4" />
+              Support Tickets
+            </button>
+            <button 
+              onClick={() => { setSidebarTab('EMAIL'); setActiveChat(null); }}
+              className={`flex-1 py-2 text-center transition-colors uppercase tracking-widest flex items-center justify-center gap-1.5 ${sidebarTab === 'EMAIL' ? (theme === 'DARK' ? 'bg-indigo-500/20 text-indigo-400 border-b-2 border-indigo-500' : 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600') : (theme === 'DARK' ? 'text-slate-500 hover:text-slate-300 hover:bg-[#1a1c2c]/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}`}
+            >
+              Direct Emails
             </button>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 opacity-70">
                 <div className={`w-16 h-16 rounded mb-3 flex items-center justify-center ${theme === 'DARK' ? 'bg-[#1a1c2c]' : 'bg-slate-100'}`}>
-                  <Search className={`w-6 h-6 ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-400'}`} />
+                  {sidebarTab === 'TICKET' ? (
+                    <Ticket className={`w-6 h-6 ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-400'}`} />
+                  ) : (
+                    <Mail className={`w-6 h-6 ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-400'}`} />
+                  )}
                 </div>
-                <p className={`text-sm font-medium ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>No active tickets</p>
+                <p className={`text-sm font-medium ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {sidebarTab === 'TICKET' ? 'No active tickets' : 'No direct emails'}
+                </p>
               </div>
             ) : (
               filteredConversations.map((conv, i) => {
@@ -228,10 +263,20 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
             <div className={`border-b p-4 flex items-center justify-between z-10 shadow-sm ${theme === 'DARK' ? 'bg-[#131524] border-[#1a1c2c]' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center gap-4">
                 <div className={`w-11 h-11 rounded border flex items-center justify-center shadow-sm ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#2a364a]' : 'bg-slate-100 border-slate-200'}`}>
-                  <Ticket className={`w-5 h-5 ${theme === 'DARK' ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  {sidebarTab === 'TICKET' ? (
+                    <Ticket className={`w-5 h-5 ${theme === 'DARK' ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  ) : (
+                    <Mail className={`w-5 h-5 ${theme === 'DARK' ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  )}
                 </div>
                 <div>
-                  <h3 className={`text-base font-bold tracking-wide ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>Ticket #{getTicketId(activeChat)}: {activeUser?.name || 'Staff Member'}</h3>
+                  {sidebarTab === 'TICKET' ? (
+                    <h3 className={`text-base font-bold tracking-wide ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>Ticket #{getTicketId(activeChat)}: {activeUser?.name || 'Staff Member'}</h3>
+                  ) : (
+                    <h3 className={`text-base font-bold tracking-wide flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>
+                      Email Thread: {activeUser?.name || 'Staff Member'}
+                    </h3>
+                  )}
                   <p className={`text-xs font-medium flex items-center gap-1.5 mt-0.5 ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
                     ID: {activeChat} <span className="opacity-50">|</span> {activeUser?.level || 'Clinical Staff'}
                     {activeUser?.is_logged_in && (
@@ -343,6 +388,11 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                         )}
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{textContent}</p>
                         <div className={`text-[10px] mt-1.5 flex items-center gap-1.5 ${isMine ? (theme === 'DARK' ? 'text-slate-400' : 'text-indigo-200') + ' justify-end' : (theme === 'DARK' ? 'text-slate-400' : 'text-slate-400')}`}>
+                          {msg.sent_via_email && (
+                            <span className={`flex items-center gap-1 mr-2 px-1.5 py-0.5 rounded ${isMine ? (theme === 'DARK' ? 'bg-[#2a364a] text-slate-300' : 'bg-indigo-500 text-indigo-100') : (theme === 'DARK' ? 'bg-[#2a364a] text-slate-300' : 'bg-slate-200 text-slate-600')}`} title="Dispatched via Email">
+                              <Mail className="w-2.5 h-2.5" /> Sent via Email
+                            </span>
+                          )}
                           {time}
                           {isMine && (
                             <span className="ml-0.5">
@@ -374,7 +424,7 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Add response to ticket..."
+                      placeholder={sidebarTab === 'EMAIL' ? "Write direct email message..." : "Add response to ticket..."}
                       className={`w-full border rounded px-5 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner ${
                         theme === 'DARK' 
                           ? 'bg-[#0f111a] border-[#2a364a] text-slate-200 placeholder-slate-600'
@@ -396,18 +446,20 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                 </div>
                 
                 {/* Send via Email Checkbox */}
-                <div className="flex items-center gap-2 pl-14">
-                  <input 
-                    type="checkbox" 
-                    id="sendEmail" 
-                    checked={sendViaEmail}
-                    onChange={(e) => setSendViaEmail(e.target.checked)}
-                    className={`w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 ${theme === 'DARK' ? 'bg-[#0f111a] border-[#2a364a]' : ''}`}
-                  />
-                  <label htmlFor="sendEmail" className={`text-xs font-medium cursor-pointer ${theme === 'DARK' ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600 hover:text-slate-800'}`}>
-                    Also send a copy via Email
-                  </label>
-                </div>
+                {sidebarTab !== 'EMAIL' && (
+                  <div className="flex items-center gap-2 pl-14">
+                    <input 
+                      type="checkbox" 
+                      id="sendEmail" 
+                      checked={sendViaEmail}
+                      onChange={(e) => setSendViaEmail(e.target.checked)}
+                      className={`w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 ${theme === 'DARK' ? 'bg-[#0f111a] border-[#2a364a]' : ''}`}
+                    />
+                    <label htmlFor="sendEmail" className={`text-xs font-medium cursor-pointer ${theme === 'DARK' ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600 hover:text-slate-800'}`}>
+                      Also send a copy via Email
+                    </label>
+                  </div>
+                )}
               </form>
             </div>
           </div>
@@ -428,7 +480,11 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
           <div className={`w-full max-w-lg border rounded-lg shadow-2xl flex flex-col max-h-[80vh] ${theme === 'DARK' ? 'bg-[#131524] border-[#2a364a]' : 'bg-white border-gray-200'}`}>
             <div className={`p-4 border-b flex justify-between items-center ${theme === 'DARK' ? 'bg-[#0f111a] border-[#2a364a]' : 'bg-gray-50 border-gray-200'}`}>
               <h3 className={`font-bold text-lg flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>
-                <MessageSquare className="w-5 h-5 text-indigo-500" /> Start New Chat
+                {newChatMode === 'EMAIL' ? (
+                  <><Mail className="w-5 h-5 text-indigo-500" /> Compose Direct Email</>
+                ) : (
+                  <><MessageSquare className="w-5 h-5 text-indigo-500" /> Start New Chat</>
+                )}
               </h3>
               <button onClick={() => setShowNewChatModal(false)} className={`p-1.5 rounded transition-colors ${theme === 'DARK' ? 'text-slate-400 hover:bg-[#1a1c2c] hover:text-white' : 'text-slate-500 hover:bg-gray-200 hover:text-slate-800'}`}>
                 <X className="w-5 h-5" />
@@ -444,6 +500,13 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                       key={doc.id}
                       onClick={() => {
                         setActiveChat(doc.id);
+                        if (newChatMode === 'EMAIL') {
+                          setSendViaEmail(true);
+                          setSidebarTab('EMAIL');
+                        } else {
+                          setSendViaEmail(false);
+                          setSidebarTab('TICKET'); // Or keep it as is
+                        }
                         setShowNewChatModal(false);
                       }}
                       className={`p-3.5 border rounded cursor-pointer transition-colors flex items-center justify-between shadow-sm ${

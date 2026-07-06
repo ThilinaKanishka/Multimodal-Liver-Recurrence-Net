@@ -1524,6 +1524,7 @@ class SendMessagePayload(BaseModel):
     receiver_id: str
     content: str
     send_via_email: Optional[bool] = False
+    thread_type: Optional[str] = "TICKET"
 
 @app.post("/api/messages/send")
 async def send_message(payload: SendMessagePayload):
@@ -1533,7 +1534,9 @@ async def send_message(payload: SendMessagePayload):
         "receiver_id": payload.receiver_id,
         "content": payload.content,
         "timestamp": datetime.utcnow().isoformat(),
-        "is_read": False
+        "is_read": False,
+        "sent_via_email": payload.send_via_email,
+        "thread_type": payload.thread_type
     }
     await messages_collection.insert_one(msg)
     
@@ -1543,21 +1546,81 @@ async def send_message(payload: SendMessagePayload):
             email_msg = MIMEMultipart()
             email_msg['From'] = formataddr(("HepatoAI IT Helpdesk", SENDER_EMAIL))
             email_msg['To'] = receiver.get("email")
-            email_msg['Subject'] = "HepatoAI - New Support Ticket Reply"
+            if payload.thread_type == "EMAIL":
+                email_msg['Subject'] = "HepatoAI IT Admin - Direct Message"
+                html_content = f"""
+                <html>
+                <body style="margin: 0; padding: 0; background-color: #f4f7fb; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f7fb; padding: 40px 20px;">
+                        <tr>
+                            <td align="center">
+                                <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                                    
+                                    <!-- Header -->
+                                    <tr>
+                                        <td style="background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%); padding: 30px; text-align: center;">
+                                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: 1px;">
+                                                <span style="color: #818cf8;">Hepato</span>AI
+                                            </h1>
+                                            <p style="margin: 8px 0 0 0; color: #c7d2fe; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 2.5px;">
+                                                IT Command Center
+                                            </p>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Body -->
+                                    <tr>
+                                        <td style="padding: 35px 30px;">
+                                            <p style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px; font-weight: 600;">
+                                                Dear Dr. {receiver.get('name', 'Doctor')},
+                                            </p>
+                                            
+                                            <p style="margin: 0 0 25px 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
+                                                You have received a direct communication from the HepatoAI IT Support Team:
+                                            </p>
+
+                                            <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; padding: 20px; border-radius: 0 8px 8px 0; color: #334155; font-size: 15px; line-height: 1.7; white-space: pre-wrap; margin-bottom: 30px;">{payload.content}</div>
+
+                                            <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">
+                                                To reply to this message, please log in to your physician portal and access the Support Inbox.
+                                            </p>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style="background-color: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                            <p style="margin: 0 0 8px 0; color: #475569; font-size: 13px; font-weight: 600;">
+                                                HepatoAI IT Helpdesk &bull; Level 2 Support
+                                            </p>
+                                            <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                                                This is an automated administrative notification. Please do not reply directly to this email.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                """
+            else:
+                email_msg['Subject'] = "HepatoAI - New Support Ticket Reply"
+                html_content = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                    <div style="background-color: #ffffff; padding: 20px; border-radius: 8px;">
+                        <h2 style="color: #333;">Support Ticket Update</h2>
+                        <p>Dear {receiver.get('name', 'Doctor')},</p>
+                        <p>You have received a new reply regarding your support ticket from IT Admin:</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4f46e5; margin: 15px 0; white-space: pre-wrap;">{payload.content}</div>
+                        <p>Please log in to the HepatoAI portal to respond.</p>
+                    </div>
+                </body>
+                </html>
+                """
             
-            html_content = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 8px;">
-                    <h2 style="color: #333;">Support Ticket Update</h2>
-                    <p>Dear {receiver.get('name', 'Doctor')},</p>
-                    <p>You have received a new reply regarding your support ticket from IT Admin:</p>
-                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4f46e5; margin: 15px 0; white-space: pre-wrap;">{payload.content}</div>
-                    <p>Please log in to the HepatoAI portal to respond.</p>
-                </div>
-            </body>
-            </html>
-            """
             email_msg.attach(MIMEText(html_content, 'html'))
             try:
                 with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
@@ -1605,20 +1668,48 @@ async def send_message(payload: SendMessagePayload):
 
     return {"message": "Sent", "msg": {k: v for k, v in msg.items() if k != "_id"}}
 
-@app.get("/api/messages/conversation/{user1_id}/{user2_id}")
-async def get_conversation(user1_id: str, user2_id: str):
+@app.get("/api/messages/conversation/{user1_id}/{user2_id}/{thread_type}")
+async def get_conversation(user1_id: str, user2_id: str, thread_type: str):
     # Mark messages sent BY user2 TO user1 as read, since user1 is fetching the conversation
-    await messages_collection.update_many(
-        {"sender_id": user2_id, "receiver_id": user1_id, "is_read": False},
-        {"$set": {"is_read": True}}
-    )
-    
-    cursor = messages_collection.find({
-        "$or": [
-            {"sender_id": user1_id, "receiver_id": user2_id},
-            {"sender_id": user2_id, "receiver_id": user1_id}
-        ]
-    }).sort("timestamp", 1)
+    if thread_type == "ALL":
+        await messages_collection.update_many(
+            {"sender_id": user2_id, "receiver_id": user1_id, "is_read": False},
+            {"$set": {"is_read": True}}
+        )
+        
+        cursor = messages_collection.find({
+            "$or": [
+                {"sender_id": user1_id, "receiver_id": user2_id},
+                {"sender_id": user2_id, "receiver_id": user1_id}
+            ]
+        }).sort("timestamp", 1)
+    else:
+        if thread_type == "TICKET":
+            thread_query = {"$or": [{"thread_type": "TICKET"}, {"thread_type": {"$exists": False}}]}
+        else:
+            thread_query = {"thread_type": thread_type}
+            
+        await messages_collection.update_many(
+            {
+                "sender_id": user2_id, 
+                "receiver_id": user1_id, 
+                "is_read": False, 
+                **thread_query
+            },
+            {"$set": {"is_read": True}}
+        )
+        
+        cursor = messages_collection.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"sender_id": user1_id, "receiver_id": user2_id},
+                        {"sender_id": user2_id, "receiver_id": user1_id}
+                    ]
+                },
+                thread_query
+            ]
+        }).sort("timestamp", 1)
     
     messages = await cursor.to_list(length=500)
     return {"messages": [{k: v for k, v in msg.items() if k != "_id"} for msg in messages]}
@@ -1635,24 +1726,34 @@ async def get_conversations(user_id: str):
     conversations = {}
     for msg in messages:
         other_user = msg["receiver_id"] if msg["sender_id"] == user_id else msg["sender_id"]
-        if other_user not in conversations:
-            conversations[other_user] = {
+        t_type = msg.get("thread_type", "TICKET")
+        
+        # Determine implicit thread type for legacy messages
+        if "[TICKET_META]" in msg["content"]:
+            t_type = "TICKET"
+            
+        conv_key = f"{other_user}_{t_type}"
+        
+        if conv_key not in conversations:
+            conversations[conv_key] = {
                 "user_id": other_user,
+                "thread_type": t_type,
                 "last_message": msg["content"],
                 "last_timestamp": msg["timestamp"],
-                "unread_count": 0
+                "unread_count": 0,
+                "is_ticket": (t_type == "TICKET")
             }
         
         # Count unread messages sent TO the requested user FROM this other user
         if msg["receiver_id"] == user_id and not msg.get("is_read"):
-            conversations[other_user]["unread_count"] += 1
+            conversations[conv_key]["unread_count"] += 1
             
     # Enrich with user details (names)
-    for other_user_id in conversations.keys():
-        u = await users_collection.find_one({"id": other_user_id})
-        conversations[other_user_id]["name"] = u.get("name", "Unknown") if u else "Unknown User"
-        conversations[other_user_id]["level"] = u.get("level", "") if u else ""
-        conversations[other_user_id]["is_logged_in"] = u.get("is_logged_in", False) if u else False
+    for conv_key, conv_data in conversations.items():
+        u = await users_collection.find_one({"id": conv_data["user_id"]})
+        conv_data["name"] = u.get("name", "Unknown") if u else "Unknown User"
+        conv_data["level"] = u.get("level", "") if u else ""
+        conv_data["is_logged_in"] = u.get("is_logged_in", False) if u else False
         
     return {"conversations": list(conversations.values())}
 

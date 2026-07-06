@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, User, MessageSquare, AlertCircle, Paperclip, Check, CheckCheck, Info, Ticket, X, Trash2, Maximize2 } from 'lucide-react';
+import { Send, User, MessageSquare, AlertCircle, Paperclip, Check, CheckCheck, Info, Ticket, X, Trash2, Maximize2, Mail } from 'lucide-react';
 
 const issueCategories = {
   "Technical Issue": ["Workspace Access", "Comparison Tool Error", "UI Glitch", "System Crash", "Other"],
@@ -54,7 +54,7 @@ export const DoctorMessages = ({ user }: { user: any }) => {
         setLoading(false);
         return;
       }
-      const res = await axios.get(`http://127.0.0.1:8000/api/messages/conversation/${currentUserId}/${adminId}`);
+      const res = await axios.get(`http://127.0.0.1:8000/api/messages/conversation/${currentUserId}/${adminId}/ALL`);
       setMessages(res.data.messages);
       setLoading(false);
     } catch (err) {
@@ -280,6 +280,11 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                     )}
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{textContent}</p>
                     <div className={`text-[10px] mt-2.5 flex items-center gap-2 ${isMine ? 'text-slate-400 justify-end' : 'text-slate-400'}`}>
+                      {msg.sent_via_email && (
+                        <span className={`flex items-center gap-1 mr-1 px-1.5 py-0.5 rounded ${isMine ? 'bg-[#0f111a] text-slate-300 border border-[#2a364a]' : 'bg-slate-800 text-slate-300'}`} title="Dispatched via Email">
+                          <Mail className="w-2.5 h-2.5" /> Sent via Email
+                        </span>
+                      )}
                       {time}
                       
                       <button onClick={() => setSelectedMessage(msg)} className={`flex items-center gap-1 hover:text-white transition-colors ${isMine ? 'text-slate-300' : 'text-slate-400'} ml-3`}>
