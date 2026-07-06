@@ -24,13 +24,39 @@ const analyzeTone = (text: string) => {
 };
 
 const getSuggestion = (text: string) => {
-  if (!text.trim()) return null;
+  if (!text) return null;
   const lower = text.toLowerCase();
-  if (lower.endsWith('thank ')) return 'you for your patience.';
-  if (lower.endsWith('please ')) return 'let me know if you need anything else.';
-  if (lower.endsWith('we will ')) return 'look into this immediately.';
-  if (lower.endsWith('i am ')) return 'working on a fix right now.';
-  if (lower.endsWith('can you ')) return 'provide more details?';
+  
+  const phraseMatches: Record<string, string> = {
+    'thank': 'you for reaching out.',
+    'thanks': 'for letting us know.',
+    'please': 'provide more details.',
+    'can you': 'check if the issue persists?',
+    'i will': 'look into this immediately.',
+    'we are': 'working on a fix right now.',
+    'let me': 'know if you need anything else.',
+    'sorry': 'for the inconvenience.',
+    'issue': 'has been resolved.',
+    'it is': 'working now.',
+  };
+  
+  for (const [key, completion] of Object.entries(phraseMatches)) {
+    if (lower.endsWith(key + ' ')) return completion;
+    if (lower.endsWith(key)) return ' ' + completion;
+  }
+
+  const words = lower.split(' ');
+  const lastWord = words[words.length - 1];
+  
+  if (lastWord.length > 2) {
+    const wordDictionary = ['immediately', 'professional', 'resolved', 'appreciate', 'apologize', 'inconvenience', 'assistance', 'information', 'password', 'account', 'connection', 'database', 'system'];
+    for (const word of wordDictionary) {
+      if (word.startsWith(lastWord) && word !== lastWord) {
+        return word.slice(lastWord.length);
+      }
+    }
+  }
+
   return null;
 };
 

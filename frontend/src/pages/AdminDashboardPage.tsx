@@ -9,7 +9,14 @@ import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES'>(() => {
+    return (sessionStorage.getItem("hepatoai_admin_active_tab") as any) || 'OVERVIEW';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("hepatoai_admin_active_tab", activeTab);
+  }, [activeTab]);
+
   // Theme Toggle State with localStorage persistence
   const [theme, setTheme] = useState<'DARK' | 'LIGHT'>(() => {
     return (localStorage.getItem("hepatoai_admin_theme") as 'DARK' | 'LIGHT') || 'DARK';
@@ -34,6 +41,15 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   const [logs, setLogs] = useState<any[]>([]);
   const [adminPasswordInput, setAdminPasswordInput] = useState("");
   const [adminPasswordMsg, setAdminPasswordMsg] = useState("");
+  
+  // Real-time Clock State
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const timeString = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateString = currentTime.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
   
   // Pagination State
   const [userCurrentPage, setUserCurrentPage] = useState(1);
@@ -508,6 +524,14 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           </div>
 
           <div className="flex items-center gap-4">
+            
+            {/* Clock Widget */}
+            <div className={`hidden md:flex flex-col items-end justify-center mr-2 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
+              <span className="text-xs font-bold font-mono tracking-wider">{timeString}</span>
+              <span className="text-[9px] uppercase tracking-widest">{dateString}</span>
+            </div>
+
+            <div className={`h-6 w-px mx-1 hidden md:block ${theme === 'DARK' ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
             
             {/* THEME TOGGLE BUTTON */}
             <button
