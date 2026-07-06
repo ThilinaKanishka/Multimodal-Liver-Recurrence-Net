@@ -1,6 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, User, MessageSquare, AlertCircle, Paperclip, Check, CheckCheck, Info, Ticket, X, Trash2, Maximize2, Mail } from 'lucide-react';
+import { Send, User, MessageSquare, AlertCircle, Paperclip, Check, CheckCheck, Info, Ticket, X, Trash2, Maximize2, Mail, Clock, FileText, Activity, Server, Minimize2 } from 'lucide-react';
+
+const analyzeTone = (text: string) => {
+  if (!text || text.length < 3) return null;
+  const lower = text.toLowerCase();
+  
+  const professionalWords = ['please', 'kindly', 'thank you', 'appreciate', 'sorry', 'apologize', 'regards', 'assist', 'help', 'sure', 'yes'];
+  const negativeWords = ['bad', 'terrible', 'worst', 'hate', 'fail', 'broken', 'not working', 'stupid', 'urgent', 'asap', 'immediately', 'issue', 'error'];
+  const positiveWords = ['good', 'great', 'awesome', 'fixed', 'resolved', 'working', 'perfect', 'thanks', 'excellent'];
+  
+  let profCount = 0; let negCount = 0; let posCount = 0;
+  
+  professionalWords.forEach(w => { if (lower.includes(w)) profCount++; });
+  negativeWords.forEach(w => { if (lower.includes(w)) negCount++; });
+  positiveWords.forEach(w => { if (lower.includes(w)) posCount++; });
+  
+  if (negCount > posCount && negCount > profCount) return { tone: 'Urgent / Negative', color: 'text-red-500 bg-red-500/10 border-red-500/20', icon: '🚨' };
+  if (posCount > negCount) return { tone: 'Positive / Resolved', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: '✅' };
+  if (profCount > 0) return { tone: 'Professional', color: 'text-blue-500 bg-blue-500/10 border-blue-500/20', icon: '👔' };
+  
+  return { tone: 'Neutral', color: 'text-slate-500 bg-slate-500/10 border-slate-500/20', icon: '💬' };
+};
+
+const getSuggestion = (text: string) => {
+  if (!text.trim()) return null;
+  const lower = text.toLowerCase();
+  if (lower.endsWith('thank ')) return 'you for your patience.';
+  if (lower.endsWith('please ')) return 'let me know if you need anything else.';
+  if (lower.endsWith('we will ')) return 'look into this immediately.';
+  if (lower.endsWith('i am ')) return 'working on a fix right now.';
+  if (lower.endsWith('can you ')) return 'provide more details?';
+  return null;
+};
 
 const issueCategories = {
   "Technical Issue": ["Workspace Access", "Comparison Tool Error", "UI Glitch", "System Crash", "Other"],
@@ -21,6 +53,8 @@ export const DoctorMessages = ({ user }: { user: any }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const adminId = "ST-ADMIN";
@@ -114,6 +148,33 @@ export const DoctorMessages = ({ user }: { user: any }) => {
       console.error(err);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleQuickReply = async () => {
+    if (!replyText.trim() || !selectedMessage) return;
+    const currentUserId = resolveUserId();
+    if (!currentUserId) return;
+
+    try {
+      setIsReplying(true);
+      const msgData = {
+        sender_id: currentUserId,
+        receiver_id: adminId,
+        content: replyText.trim(),
+        thread_type: selectedMessage.thread_type || "TICKET"
+      };
+      
+      setReplyText("");
+      setSelectedMessage(null);
+      setMessages(prev => [...prev, { ...msgData, _id: Date.now().toString(), timestamp: new Date().toISOString(), is_read: false }]);
+      
+      await axios.post('http://127.0.0.1:8000/api/messages/send', msgData);
+      fetchMessages();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsReplying(false);
     }
   };
 
@@ -415,12 +476,32 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                   </button>
                 </label>
                 <textarea
+                  spellCheck="true"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                     const suggestion = getSuggestion(newMessage);
+                     if (e.key === 'Tab' && suggestion) {
+                       e.preventDefault();
+                       setNewMessage(newMessage + suggestion);
+                     }
+                  }}
                   placeholder="Provide detailed information about the issue to help IT resolve it quickly..."
                   className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 shadow-inner resize-y min-h-[120px]"
                   required
                 />
+                <div className="flex items-center gap-3 mt-2">
+                  {analyzeTone(newMessage) && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${analyzeTone(newMessage)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                      {analyzeTone(newMessage)?.icon} Tone: {analyzeTone(newMessage)?.tone}
+                    </span>
+                  )}
+                  {getSuggestion(newMessage) && (
+                    <button type="button" onClick={() => setNewMessage(newMessage + getSuggestion(newMessage))} className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                      ✨ Suggestion: {getSuggestion(newMessage)} (Press Tab)
+                    </button>
+                  )}
+                </div>
               </div>
               
               <div className="flex justify-end pt-4 border-t border-[#2a364a]">
@@ -529,24 +610,71 @@ export const DoctorMessages = ({ user }: { user: any }) => {
               })()}
             </div>
             
-            <div className="p-4 border-t border-[#1e293b] bg-[#0f111a] flex justify-between items-center">
-              <div className="text-xs text-slate-500">
-                Ticket ID: {selectedMessage.id || "N/A"}
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setSelectedMessage(null)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold text-xs uppercase tracking-wider transition-colors border border-[#2a364a]">
-                  Close
-                </button>
-                {selectedMessage.sender_id === resolveUserId() && (
-                  <button 
-                    onClick={() => handleDelete(selectedMessage.id)}
-                    disabled={isDeleting}
-                    className="px-5 py-2 bg-red-900/40 hover:bg-red-600 text-white rounded font-bold text-xs uppercase tracking-wider transition-all border border-red-900/50 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {isDeleting ? "Deleting..." : "Delete Ticket"}
-                  </button>
+            <div className="p-4 border-t border-[#1e293b] bg-[#131524]">
+              <div className="flex flex-col gap-3">
+                {selectedMessage.sender_id !== resolveUserId() && (
+                  <div>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        spellCheck="true"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Type a quick reply..."
+                        className="flex-1 bg-[#0f111a] border border-[#2a364a] rounded px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 shadow-inner"
+                        onKeyDown={(e) => {
+                          const suggestion = getSuggestion(replyText);
+                          if (e.key === 'Tab' && suggestion) {
+                            e.preventDefault();
+                            setReplyText(replyText + suggestion);
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleQuickReply();
+                          }
+                        }}
+                      />
+                      <button 
+                        onClick={handleQuickReply}
+                        disabled={isReplying || !replyText.trim()}
+                        className="px-6 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded font-bold text-xs uppercase tracking-wider transition-all border border-blue-600 hover:border-blue-500 disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700 shadow-sm flex items-center justify-center min-w-[100px]"
+                      >
+                        {isReplying ? "Sending..." : "Reply"}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2">
+                      {analyzeTone(replyText) && (
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${analyzeTone(replyText)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                          {analyzeTone(replyText)?.icon} Tone: {analyzeTone(replyText)?.tone}
+                        </span>
+                      )}
+                      {getSuggestion(replyText) && (
+                        <button type="button" onClick={() => setReplyText(replyText + getSuggestion(replyText))} className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                          ✨ Suggestion: {getSuggestion(replyText)} (Press Tab)
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-xs text-slate-500">
+                    Ticket ID: {selectedMessage.id || "N/A"}
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setSelectedMessage(null)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold text-xs uppercase tracking-wider transition-colors border border-[#2a364a]">
+                      Close
+                    </button>
+                    {selectedMessage.sender_id === resolveUserId() && (
+                      <button 
+                        onClick={() => handleDelete(selectedMessage.id)}
+                        disabled={isDeleting}
+                        className="px-5 py-2 bg-red-900/40 hover:bg-red-600 text-white rounded font-bold text-xs uppercase tracking-wider transition-all border border-red-900/50 flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {isDeleting ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
