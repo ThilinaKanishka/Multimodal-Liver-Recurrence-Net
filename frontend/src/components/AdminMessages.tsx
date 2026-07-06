@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail } from 'lucide-react';
+import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail, Megaphone } from 'lucide-react';
 
 const analyzeTone = (text: string) => {
   if (!text || text.length < 3) return null;
@@ -24,13 +24,39 @@ const analyzeTone = (text: string) => {
 };
 
 const getSuggestion = (text: string) => {
-  if (!text.trim()) return null;
+  if (!text) return null;
   const lower = text.toLowerCase();
-  if (lower.endsWith('thank ')) return 'you for your patience.';
-  if (lower.endsWith('please ')) return 'let me know if you need anything else.';
-  if (lower.endsWith('we will ')) return 'look into this immediately.';
-  if (lower.endsWith('i am ')) return 'working on a fix right now.';
-  if (lower.endsWith('can you ')) return 'provide more details?';
+  
+  const phraseMatches: Record<string, string> = {
+    'thank': 'you for reaching out.',
+    'thanks': 'for letting us know.',
+    'please': 'provide more details.',
+    'can you': 'check if the issue persists?',
+    'i will': 'look into this immediately.',
+    'we are': 'working on a fix right now.',
+    'let me': 'know if you need anything else.',
+    'sorry': 'for the inconvenience.',
+    'issue': 'has been resolved.',
+    'it is': 'working now.',
+  };
+  
+  for (const [key, completion] of Object.entries(phraseMatches)) {
+    if (lower.endsWith(key + ' ')) return completion;
+    if (lower.endsWith(key)) return ' ' + completion;
+  }
+
+  const words = lower.split(' ');
+  const lastWord = words[words.length - 1];
+  
+  if (lastWord.length > 2) {
+    const wordDictionary = ['immediately', 'professional', 'resolved', 'appreciate', 'apologize', 'inconvenience', 'assistance', 'information', 'password', 'account', 'connection', 'database', 'system'];
+    for (const word of wordDictionary) {
+      if (word.startsWith(lastWord) && word !== lastWord) {
+        return word.slice(lastWord.length);
+      }
+    }
+  }
+
   return null;
 };
 
@@ -46,6 +72,10 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatMode, setNewChatMode] = useState<'CHAT' | 'EMAIL'>('CHAT');
   const [activeDoctors, setActiveDoctors] = useState<any[]>([]);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastType, setBroadcastType] = useState<'TICKET' | 'EMAIL'>('TICKET');
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const adminId = "ST-ADMIN";
@@ -140,6 +170,33 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
     }
   };
 
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastMessage.trim() || activeDoctors.length === 0) return;
+    
+    setBroadcastLoading(true);
+    try {
+      for (const doctor of activeDoctors) {
+        await axios.post('http://127.0.0.1:8000/api/messages/send', {
+          sender_id: adminId,
+          receiver_id: doctor.id,
+          content: broadcastMessage,
+          send_via_email: broadcastType === 'EMAIL',
+          thread_type: broadcastType
+        });
+      }
+      setShowBroadcastModal(false);
+      setBroadcastMessage("");
+      alert(`Broadcast successfully sent to ${activeDoctors.length} doctors!`);
+      fetchConversations();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send broadcast.");
+    } finally {
+      setBroadcastLoading(false);
+    }
+  };
+
   const activeUser = conversations.find(c => c.user_id === activeChat);
   const filteredConversations = conversations.filter(c => {
     const matchesSearch = c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -179,6 +236,13 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-bold uppercase tracking-wider rounded border transition-colors shadow-sm ${theme === 'DARK' ? 'bg-[#1a1c2c] border-[#2a364a] text-slate-300 hover:text-white hover:border-indigo-500 hover:bg-[#1a1c2c]/80' : 'bg-white border-gray-300 text-slate-600 hover:text-indigo-700 hover:border-indigo-300 hover:bg-slate-50'}`}
               >
                 <Mail className="w-3.5 h-3.5" /> New Email
+              </button>
+              <button 
+                onClick={() => { fetchActiveDoctors(); setShowBroadcastModal(true); }}
+                className={`flex items-center justify-center gap-1 py-2 px-3 text-xs font-bold uppercase tracking-wider rounded border transition-colors shadow-sm ${theme === 'DARK' ? 'bg-[#2a1a1c] border-[#4a2a2c] text-rose-400 hover:text-rose-300 hover:border-rose-500 hover:bg-[#3a1a1c]' : 'bg-rose-50 border-rose-200 text-rose-700 hover:text-rose-800 hover:border-rose-400 hover:bg-rose-100'}`}
+                title="Broadcast to All Doctors"
+              >
+                <Megaphone className="w-3.5 h-3.5" /> Broadcast
               </button>
             </div>
             <div className="relative group w-full">
@@ -588,6 +652,91 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Broadcast Modal */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-lg rounded-xl shadow-2xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 ${theme === 'DARK' ? 'bg-[#0a0c10] border-[#1e293b]' : 'bg-white border-gray-200'}`}>
+            
+            {/* Header */}
+            <div className={`p-5 flex items-center justify-between border-b ${theme === 'DARK' ? 'border-[#1e293b] bg-[#0d1117]' : 'border-gray-200 bg-gray-50'}`}>
+              <div>
+                <h3 className={`text-lg font-bold flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>
+                  <Megaphone className={`w-5 h-5 ${theme === 'DARK' ? 'text-rose-500' : 'text-rose-600'}`} /> 
+                  Broadcast Message
+                </h3>
+                <p className={`text-xs mt-1 font-medium ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Send a message to all {activeDoctors.length} active doctors simultaneously.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowBroadcastModal(false)}
+                className={`p-2 rounded-full transition-colors ${theme === 'DARK' ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <form onSubmit={handleBroadcast} className="p-5 flex flex-col gap-5">
+              
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>Broadcast Type</label>
+                <div className="flex gap-3">
+                  <label className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded cursor-pointer transition-all ${broadcastType === 'TICKET' ? (theme === 'DARK' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-indigo-600 bg-indigo-50 text-indigo-700') : (theme === 'DARK' ? 'border-[#1e293b] text-slate-400 hover:bg-slate-800' : 'border-gray-200 text-slate-500 hover:bg-gray-50')}`}>
+                    <input type="radio" name="b_type" checked={broadcastType === 'TICKET'} onChange={() => setBroadcastType('TICKET')} className="hidden" />
+                    <Ticket className="w-4 h-4" /> Support Ticket
+                  </label>
+                  <label className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded cursor-pointer transition-all ${broadcastType === 'EMAIL' ? (theme === 'DARK' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-indigo-600 bg-indigo-50 text-indigo-700') : (theme === 'DARK' ? 'border-[#1e293b] text-slate-400 hover:bg-slate-800' : 'border-gray-200 text-slate-500 hover:bg-gray-50')}`}>
+                    <input type="radio" name="b_type" checked={broadcastType === 'EMAIL'} onChange={() => setBroadcastType('EMAIL')} className="hidden" />
+                    <Mail className="w-4 h-4" /> Direct Email
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 relative">
+                <label className={`text-xs font-bold uppercase tracking-wider flex justify-between items-end ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Message Content
+                  {analyzeTone(broadcastMessage) && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${analyzeTone(broadcastMessage)?.color}`}>
+                      {analyzeTone(broadcastMessage)?.tone}
+                    </span>
+                  )}
+                </label>
+                <textarea
+                  spellCheck="true"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                     const suggestion = getSuggestion(broadcastMessage);
+                     if (e.key === 'Tab' && suggestion) {
+                       e.preventDefault();
+                       setBroadcastMessage(broadcastMessage + suggestion);
+                     }
+                  }}
+                  placeholder="Type your broadcast message here..."
+                  className={`w-full min-h-[150px] border rounded px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none shadow-inner ${theme === 'DARK' ? 'bg-[#0d1117] border-[#1e293b] text-slate-200 placeholder-slate-600' : 'bg-slate-50 border-gray-300 text-slate-800 placeholder-slate-400'}`}
+                  required
+                />
+                {getSuggestion(broadcastMessage) && (
+                  <button type="button" onClick={() => setBroadcastMessage(broadcastMessage + getSuggestion(broadcastMessage))} className="absolute bottom-3 left-3 text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-all flex items-center gap-1 shadow-sm">
+                    ✨ Suggestion: {getSuggestion(broadcastMessage)} (Press Tab)
+                  </button>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={!broadcastMessage.trim() || broadcastLoading || activeDoctors.length === 0}
+                  className={`px-6 py-3 rounded font-bold flex items-center gap-2 transition-all shadow-sm disabled:opacity-50 ${theme === 'DARK' ? 'bg-indigo-700 hover:bg-indigo-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                >
+                  {broadcastLoading ? "Broadcasting..." : "Send Broadcast"} <Megaphone className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
