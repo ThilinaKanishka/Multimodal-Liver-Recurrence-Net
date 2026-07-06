@@ -1523,6 +1523,7 @@ class SendMessagePayload(BaseModel):
     sender_id: str
     receiver_id: str
     content: str
+    send_via_email: Optional[bool] = False
 
 @app.post("/api/messages/send")
 async def send_message(payload: SendMessagePayload):
@@ -1535,6 +1536,73 @@ async def send_message(payload: SendMessagePayload):
         "is_read": False
     }
     await messages_collection.insert_one(msg)
+    
+    if payload.send_via_email:
+        receiver = await users_collection.find_one({"id": payload.receiver_id})
+        if receiver and receiver.get("email"):
+            email_msg = MIMEMultipart()
+            email_msg['From'] = formataddr(("HepatoAI IT Helpdesk", SENDER_EMAIL))
+            email_msg['To'] = receiver.get("email")
+            email_msg['Subject'] = "HepatoAI - New Support Ticket Reply"
+            
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 8px;">
+                    <h2 style="color: #333;">Support Ticket Update</h2>
+                    <p>Dear {receiver.get('name', 'Doctor')},</p>
+                    <p>You have received a new reply regarding your support ticket from IT Admin:</p>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4f46e5; margin: 15px 0; white-space: pre-wrap;">{payload.content}</div>
+                    <p>Please log in to the HepatoAI portal to respond.</p>
+                </div>
+            </body>
+            </html>
+            """
+            email_msg.attach(MIMEText(html_content, 'html'))
+            try:
+                with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    server.send_message(email_msg)
+            except Exception as e:
+                print(f"[SMTP] Error sending ticket email: {e}")
+                
+    elif payload.receiver_id == "ST-ADMIN":
+        # Always notify admin via email when a doctor sends a ticket
+        sender = await users_collection.find_one({"id": payload.sender_id})
+        sender_name = sender.get("name", "Doctor") if sender else "Doctor"
+        sender_id = sender.get("id", "Unknown") if sender else "Unknown"
+        sender_level = sender.get("level", "Clinician") if sender else "Clinician"
+        
+        admin_user = await users_collection.find_one({"id": "ST-ADMIN"})
+        admin_email = admin_user.get("email") if admin_user else "thilinakanishka20010313@gmail.com"
+        
+        email_msg = MIMEMultipart()
+        email_msg['From'] = formataddr(("HepatoAI System Alert", SENDER_EMAIL))
+        email_msg['To'] = admin_email
+        email_msg['Subject'] = f"HepatoAI - New IT Ticket from Dr. {sender_name}"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">New IT Support Request</h2>
+                <p><strong>From:</strong> Dr. {sender_name}</p>
+                <p><strong>Position:</strong> {sender_level}</p>
+                <p><strong>Doctor ID:</strong> {sender_id}</p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; white-space: pre-wrap; font-size: 14px; color: #444;">{payload.content}</div>
+                <p style="font-size: 12px; color: #777;">Please log in to the HepatoAI Admin Command Center to assist.</p>
+            </div>
+        </body>
+        </html>
+        """
+        email_msg.attach(MIMEText(html_content, 'html'))
+        try:
+            with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.send_message(email_msg)
+        except Exception as e:
+            print(f"[SMTP] Error sending admin ticket alert email: {e}")
+
     return {"message": "Sent", "msg": {k: v for k, v in msg.items() if k != "_id"}}
 
 @app.get("/api/messages/conversation/{user1_id}/{user2_id}")
@@ -1584,7 +1652,14 @@ async def get_conversations(user_id: str):
         u = await users_collection.find_one({"id": other_user_id})
         conversations[other_user_id]["name"] = u.get("name", "Unknown") if u else "Unknown User"
         conversations[other_user_id]["level"] = u.get("level", "") if u else ""
+        conversations[other_user_id]["is_logged_in"] = u.get("is_logged_in", False) if u else False
         
     return {"conversations": list(conversations.values())}
-# Force reload
 
+@app.delete("/api/messages/{msg_id}")
+async def delete_message(msg_id: str):
+    result = await messages_collection.delete_one({"id": msg_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return {"status": "SUCCESS"}
+# Force reload

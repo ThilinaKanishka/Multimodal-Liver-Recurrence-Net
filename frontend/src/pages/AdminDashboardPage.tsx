@@ -64,6 +64,24 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     active_users: 0
   });
 
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await axios.get('http://127.0.0.1:8000/api/messages/conversations/ST-ADMIN');
+        let count = 0;
+        res.data.conversations.forEach((c: any) => {
+          count += c.unread_count;
+        });
+        setUnreadSupportCount(count);
+      } catch (err) {}
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [loading, setLoading] = useState(false);
   // Modals state
   const [showModal, setShowModal] = useState(false);
@@ -419,8 +437,24 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <MessageSquare className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MESSAGES' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
-            {!isSidebarCollapsed && "Support Inbox"}
+            <div className="relative">
+              <MessageSquare className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MESSAGES' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+              {unreadSupportCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-rose-500 text-[7px] font-bold text-white shadow-sm ring-1 ring-white/10 animate-pulse">
+                  {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+                </span>
+              )}
+            </div>
+            {!isSidebarCollapsed && (
+              <span className="flex-1 flex items-center justify-between pr-1">
+                Support Inbox
+                {unreadSupportCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center justify-center">
+                    {unreadSupportCount} NEW
+                  </span>
+                )}
+              </span>
+            )}
           </button>
         </div>
 
