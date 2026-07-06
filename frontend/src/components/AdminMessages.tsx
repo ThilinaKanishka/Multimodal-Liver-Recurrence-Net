@@ -2,6 +2,38 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail } from 'lucide-react';
 
+const analyzeTone = (text: string) => {
+  if (!text || text.length < 3) return null;
+  const lower = text.toLowerCase();
+  
+  const professionalWords = ['please', 'kindly', 'thank you', 'appreciate', 'sorry', 'apologize', 'regards', 'assist', 'help', 'sure', 'yes'];
+  const negativeWords = ['bad', 'terrible', 'worst', 'hate', 'fail', 'broken', 'not working', 'stupid', 'urgent', 'asap', 'immediately', 'issue', 'error'];
+  const positiveWords = ['good', 'great', 'awesome', 'fixed', 'resolved', 'working', 'perfect', 'thanks', 'excellent'];
+  
+  let profCount = 0; let negCount = 0; let posCount = 0;
+  
+  professionalWords.forEach(w => { if (lower.includes(w)) profCount++; });
+  negativeWords.forEach(w => { if (lower.includes(w)) negCount++; });
+  positiveWords.forEach(w => { if (lower.includes(w)) posCount++; });
+  
+  if (negCount > posCount && negCount > profCount) return { tone: 'Urgent / Negative', color: 'text-red-500 bg-red-500/10 border-red-500/20', icon: '🚨' };
+  if (posCount > negCount) return { tone: 'Positive / Resolved', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20', icon: '✅' };
+  if (profCount > 0) return { tone: 'Professional', color: 'text-blue-500 bg-blue-500/10 border-blue-500/20', icon: '👔' };
+  
+  return { tone: 'Neutral', color: 'text-slate-500 bg-slate-500/10 border-slate-500/20', icon: '💬' };
+};
+
+const getSuggestion = (text: string) => {
+  if (!text.trim()) return null;
+  const lower = text.toLowerCase();
+  if (lower.endsWith('thank ')) return 'you for your patience.';
+  if (lower.endsWith('please ')) return 'let me know if you need anything else.';
+  if (lower.endsWith('we will ')) return 'look into this immediately.';
+  if (lower.endsWith('i am ')) return 'working on a fix right now.';
+  if (lower.endsWith('can you ')) return 'provide more details?';
+  return null;
+};
+
 export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -419,11 +451,19 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                   <button type="button" className={`p-3 rounded transition-colors flex-shrink-0 border border-transparent ${theme === 'DARK' ? 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1c2c] hover:border-[#2a364a]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 hover:border-gray-300'}`}>
                     <Paperclip className="w-5 h-5" />
                   </button>
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
                     <input
                       type="text"
+                      spellCheck="true"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                         const suggestion = getSuggestion(newMessage);
+                         if (e.key === 'Tab' && suggestion) {
+                           e.preventDefault();
+                           setNewMessage(newMessage + suggestion);
+                         }
+                      }}
                       placeholder={sidebarTab === 'EMAIL' ? "Write direct email message..." : "Add response to ticket..."}
                       className={`w-full border rounded px-5 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner ${
                         theme === 'DARK' 
@@ -443,6 +483,19 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                   >
                     Reply <Send className="w-4 h-4 ml-2" />
                   </button>
+                </div>
+                
+                <div className="flex items-center gap-3 pl-14">
+                  {analyzeTone(newMessage) && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${analyzeTone(newMessage)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                      {analyzeTone(newMessage)?.icon} Tone: {analyzeTone(newMessage)?.tone}
+                    </span>
+                  )}
+                  {getSuggestion(newMessage) && (
+                    <button type="button" onClick={() => setNewMessage(newMessage + getSuggestion(newMessage))} className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                      ✨ Suggestion: {getSuggestion(newMessage)} (Press Tab)
+                    </button>
+                  )}
                 </div>
                 
                 {/* Send via Email Checkbox */}
@@ -519,14 +572,16 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                         <p className={`font-bold text-sm ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{doc.name}</p>
                         <p className={`text-xs mt-0.5 ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-500'}`}>{doc.id} • {doc.dept}</p>
                       </div>
-                      {doc.is_logged_in ? (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-sm">
-                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Now
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-500 border border-slate-500/20 px-2 py-0.5 rounded shadow-sm">
-                           Offline
-                        </span>
+                      {newChatMode !== 'EMAIL' && (
+                        doc.is_logged_in ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded flex items-center gap-1.5 shadow-sm">
+                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Now
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-500 border border-slate-500/20 px-2 py-0.5 rounded shadow-sm">
+                             Offline
+                          </span>
+                        )
                       )}
                     </div>
                   ))}

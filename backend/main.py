@@ -1763,4 +1763,74 @@ async def delete_message(msg_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Message not found")
     return {"status": "SUCCESS"}
+
+import imaplib
+import email
+from email.header import decode_header
+import asyncio
+
+async def poll_imap_inbox():
+    print("[IMAP] Starting background IMAP polling task...")
+    while True:
+        try:
+            mail = imaplib.IMAP4_SSL("imap.gmail.com")
+            mail.login(SENDER_EMAIL, SENDER_PASSWORD)
+            mail.select("inbox")
+            
+            status, messages = mail.search(None, "UNSEEN")
+            if status == "OK" and messages[0]:
+                for num in messages[0].split():
+                    status, msg_data = mail.fetch(num, "(RFC822)")
+                    if status != "OK": continue
+                    
+                    for response_part in msg_data:
+                        if isinstance(response_part, tuple):
+                            msg = email.message_from_bytes(response_part[1])
+                            
+                            from_ = msg.get("From", "")
+                            sender_addr = from_.split("<")[-1].strip(">").strip().lower()
+                            
+                            doc = await users_collection.find_one({"email": {"$regex": f"^{sender_addr}$", "$options": "i"}})
+                            if doc:
+                                body = ""
+                                if msg.is_multipart():
+                                    for part in msg.walk():
+                                        if part.get_content_type() == "text/plain":
+                                            body = part.get_payload(decode=True).decode(errors='ignore')
+                                            break
+                                else:
+                                    body = msg.get_payload(decode=True).decode(errors='ignore')
+                                    
+                                lines = body.split('\n')
+                                clean_lines = []
+                                for line in lines:
+                                    line_strip = line.strip()
+                                    if line_strip.startswith(">") or ("On " in line_strip and "wrote:" in line_strip) or line_strip.startswith("--"):
+                                        break
+                                    clean_lines.append(line)
+                                clean_body = '\n'.join(clean_lines).strip()
+                                
+                                if clean_body:
+                                    db_msg = {
+                                        "id": f"msg_{uuid.uuid4().hex[:8]}",
+                                        "sender_id": doc["id"],
+                                        "receiver_id": "ST-ADMIN",
+                                        "content": clean_body,
+                                        "timestamp": datetime.utcnow().isoformat(),
+                                        "is_read": False,
+                                        "thread_type": "EMAIL"
+                                    }
+                                    await messages_collection.insert_one(db_msg)
+                                    print(f"[IMAP] Processed incoming email from {sender_addr}")
+            
+            mail.logout()
+        except Exception as e:
+            pass
+            
+        await asyncio.sleep(5)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(poll_imap_inbox())
+
 # Force reload
