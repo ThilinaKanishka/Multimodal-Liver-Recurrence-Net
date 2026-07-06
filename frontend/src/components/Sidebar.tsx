@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { getGravatarUrl } from "../utils/gravatar";
 
@@ -10,6 +11,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   useEffect(() => {
     if (user && user.email) {
@@ -18,6 +20,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
       setAvatarUrl(null);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !user.id) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/api/messages/conversations/${user.id}`);
+        let count = 0;
+        res.data.conversations.forEach((c: any) => {
+          count += c.unread_count;
+        });
+        setUnreadSupportCount(count);
+      } catch (err) {}
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 3000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return sessionStorage.getItem("hepatoai_sidebar_collapsed") === "true";
   });
@@ -119,8 +139,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Settings</span>}
         </div>
         <div className={getIconClass("support")} onClick={() => setActivePage("support")} title="IT Support">
-          <MessageSquare className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">IT Support</span>}
+          <div className="relative">
+            <MessageSquare className="w-5 h-5 flex-shrink-0" />
+            {unreadSupportCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white shadow-sm ring-1 ring-white/10 animate-pulse">
+                {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+              </span>
+            )}
+          </div>
+          {!isCollapsed && (
+            <span className="text-xs font-bold uppercase tracking-wider flex items-center justify-between flex-1 pr-1">
+              IT Support
+              {unreadSupportCount > 0 && (
+                <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center justify-center">
+                  {unreadSupportCount} NEW
+                </span>
+              )}
+            </span>
+          )}
         </div>
         <div 
           className={`w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-2 shadow-[0_0_10px_rgba(244,63,94,0.1)]`}
