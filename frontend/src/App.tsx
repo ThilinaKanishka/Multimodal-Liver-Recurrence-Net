@@ -13,9 +13,10 @@ import SecuritySettingsTab from "./components/SecuritySettingsTab";
 import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText } from "lucide-react";
 
 // Modern Placeholder Pages with medical workstation aesthetic
-const DashboardPage = () => {
+const DashboardPage = ({ user, onNavigateToHistory }: { user: any, onNavigateToHistory: () => void }) => {
   const [stats, setStats] = useState<any>({ 
     total_scans: 0, 
+    today_scans: 0,
     high_risk_detections: 0, 
     system_accuracy: "Loading...",
     risk_distribution: { high: 0, medium: 0, low: 0 },
@@ -23,8 +24,9 @@ const DashboardPage = () => {
   });
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:8000/api/v1/dashboard-stats").then(res => setStats(res.data)).catch(console.error);
-  }, []);
+    const url = user?.id ? `http://127.0.0.1:8000/api/v1/dashboard-stats?doctor_id=${user.id}` : `http://127.0.0.1:8000/api/v1/dashboard-stats`;
+    axios.get(url).then(res => setStats(res.data)).catch(console.error);
+  }, [user]);
 
   const totalRisks = stats.risk_distribution.high + stats.risk_distribution.medium + stats.risk_distribution.low;
   const highPct = totalRisks ? (stats.risk_distribution.high / totalRisks) * 100 : 0;
@@ -32,104 +34,148 @@ const DashboardPage = () => {
   const lowPct = totalRisks ? (stats.risk_distribution.low / totalRisks) * 100 : 0;
 
   return (
-    <div className="flex-1 p-8 bg-[#070b14] text-slate-300 font-sans flex flex-col h-screen overflow-hidden">
-      <div className="flex items-center gap-3 mb-8 border-b border-[#1e293b] pb-4">
-        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded"><LayoutDashboard className="w-6 h-6" /></div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 tracking-wide uppercase">System Dashboard</h1>
-          <p className="text-slate-400 text-sm">රෝහලේ සමස්ත AI පද්ධතියේ ක්‍රියාකාරිත්වය සහ Analytics (Real-Time from MongoDB)</p>
+    <div className="flex-1 p-8 bg-[#040810] text-slate-300 font-sans flex flex-col h-screen overflow-hidden relative">
+      {/* Background Ambient Glow */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-indigo-900/10 blur-[120px] rounded-full pointer-events-none"></div>
+
+      <div className="flex items-center justify-between mb-8 pb-4 relative z-10 border-b border-white/5">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-blue-500/10 border border-indigo-500/20 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.15)]"><LayoutDashboard className="w-7 h-7 text-indigo-400" /></div>
+          <div>
+            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 tracking-tight uppercase">My Clinical Dashboard</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">ඔබ විසින් අද දින පරීක්ෂා කළ රෝගීන් සහ විශ්ලේෂණ වාර්තා (Real-Time Insight)</p>
+          </div>
         </div>
+        
+        <button 
+          onClick={onNavigateToHistory}
+          className="bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.1)] hover:shadow-[0_0_20px_rgba(99,102,241,0.3)] flex items-center gap-2 group backdrop-blur-md"
+        >
+          <Database className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          View Complete Medical History
+        </button>
       </div>
       
       {/* Top Counters */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
-          <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">Total Scans Analyzed</h3>
-          <p className="text-4xl font-mono text-blue-400 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">{stats.total_scans}</p>
+      <div className="grid grid-cols-3 gap-6 mb-8 relative z-10">
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl flex flex-col justify-center items-center hover:bg-white/[0.04] transition-colors relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <h3 className="text-slate-400 font-bold uppercase tracking-widest text-[11px] mb-3 flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5 text-blue-500" /> Today's Patients Evaluated</h3>
+          <p className="text-5xl font-mono text-white font-black drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]">{stats.today_scans || 0}</p>
         </div>
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
-          <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">High Risk Detections</h3>
-          <p className="text-4xl font-mono text-rose-400 font-bold drop-shadow-[0_0_10px_rgba(244,63,94,0.5)]">{stats.high_risk_detections}</p>
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl flex flex-col justify-center items-center hover:bg-white/[0.04] transition-colors relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-b from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <h3 className="text-slate-400 font-bold uppercase tracking-widest text-[11px] mb-3 flex items-center gap-2"><ShieldAlert className="w-3.5 h-3.5 text-rose-500" /> High Risk Detections</h3>
+          <p className="text-5xl font-mono text-white font-black drop-shadow-[0_0_15px_rgba(244,63,94,0.6)]">{stats.high_risk_detections}</p>
         </div>
-        <div className="bg-[#131826] p-6 rounded-md border border-[#1e293b] shadow-lg flex flex-col justify-center items-center">
-          <h3 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-2">System Accuracy Status</h3>
-          <p className="text-4xl font-mono text-emerald-400 font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">{stats.system_accuracy}</p>
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl flex flex-col justify-center items-center hover:bg-white/[0.04] transition-colors relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <h3 className="text-slate-400 font-bold uppercase tracking-widest text-[11px] mb-3 flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-amber-500" /> Medium Risk Detections</h3>
+          <p className="text-5xl font-mono text-white font-black drop-shadow-[0_0_15px_rgba(245,158,11,0.6)]">{stats.risk_distribution.medium}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-3 gap-8 flex-1 min-h-0 relative z-10">
         {/* Left Col: Risk Distribution Chart */}
-        <div className="col-span-2 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-6 flex flex-col">
-          <div className="flex items-center gap-2 mb-6 border-b border-[#1e293b] pb-2">
+        <div className="col-span-1 bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl p-7 flex flex-col">
+          <div className="flex items-center gap-3 mb-8 pb-3 border-b border-white/5">
             <Activity className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Risk Distribution Overview</h2>
+            <h2 className="text-sm font-black text-slate-200 uppercase tracking-widest">Risk Distribution</h2>
           </div>
           
-          <div className="flex-1 flex flex-col justify-center gap-6 px-4">
-            <div>
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="flex-1 flex flex-col justify-center gap-8">
+            <div className="group">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-3">
                 <span className="text-rose-400">High Risk Detections</span>
                 <span className="text-slate-300 font-mono">{stats.risk_distribution.high} ({highPct.toFixed(1)}%)</span>
               </div>
-              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
-                <div className="bg-rose-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(244,63,94,0.6)]" style={{ width: `${highPct}%` }}></div>
+              <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                <div className="bg-gradient-to-r from-rose-600 to-rose-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(244,63,94,0.8)] relative overflow-hidden" style={{ width: `${highPct}%` }}>
+                   <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-12 animate-[shimmer_2s_infinite]"></div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="group">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-3">
                 <span className="text-amber-400">Medium Risk Detections</span>
                 <span className="text-slate-300 font-mono">{stats.risk_distribution.medium} ({medPct.toFixed(1)}%)</span>
               </div>
-              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
-                <div className="bg-amber-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(245,158,11,0.6)]" style={{ width: `${medPct}%` }}></div>
+              <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                <div className="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(245,158,11,0.8)] relative overflow-hidden" style={{ width: `${medPct}%` }}>
+                   <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-12 animate-[shimmer_2s_infinite]"></div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="group">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-3">
                 <span className="text-emerald-400">Low Risk Detections</span>
                 <span className="text-slate-300 font-mono">{stats.risk_distribution.low} ({lowPct.toFixed(1)}%)</span>
               </div>
-              <div className="w-full bg-[#0a0e17] h-4 rounded-full overflow-hidden border border-[#1e293b]">
-                <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.6)]" style={{ width: `${lowPct}%` }}></div>
+              <div className="w-full bg-black/40 h-3 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                <div className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(16,185,129,0.8)] relative overflow-hidden" style={{ width: `${lowPct}%` }}>
+                   <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-12 animate-[shimmer_2s_infinite]"></div>
+                </div>
               </div>
             </div>
-            <p className="text-center mt-4 text-[10px] text-slate-500 uppercase tracking-widest border-t border-[#1e293b] pt-4">Data automatically synchronized with Clinical Ledger</p>
           </div>
         </div>
 
-        {/* Right Col: Critical Alerts */}
-        <div className="col-span-1 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-6 flex flex-col overflow-hidden">
-          <div className="flex items-center gap-2 mb-4 border-b border-[#1e293b] pb-2 text-rose-400">
-            <ShieldAlert className="w-5 h-5 animate-pulse" />
-            <h2 className="text-sm font-bold uppercase tracking-widest">Critical Alerts</h2>
+        {/* Right Col: Recent Patient Records */}
+        <div className="col-span-2 bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl flex flex-col p-6 overflow-hidden">
+          <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-3 flex-shrink-0">
+             <span className="text-sm font-black text-slate-200 uppercase tracking-widest flex items-center gap-3">
+               <Users className="w-5 h-5 text-cyan-400" /> Recent Patient Records Evaluated
+             </span>
+             <span className="text-[10px] bg-cyan-900/30 text-cyan-400 px-3 py-1 rounded-md border border-cyan-500/30 uppercase font-mono shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+               {stats.recent_alerts.length} Encounters Found
+             </span>
           </div>
-          
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-            {stats.recent_alerts.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-slate-500 flex-col">
-                <CheckCircle className="w-10 h-10 mb-2 opacity-30 text-emerald-500" />
-                <p className="text-xs uppercase tracking-widest font-bold">No Active High Risk Cases</p>
-              </div>
-            ) : (
-              stats.recent_alerts.map((alert: any) => (
-                <div key={alert._id} className="bg-rose-950/20 border border-rose-900/50 p-3 rounded-md hover:bg-rose-900/30 transition-colors cursor-pointer">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Patient ID</span>
-                    <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-mono font-bold">HIGH RISK ({roundProb(alert.probability)}%)</span>
-                  </div>
-                  <p className="font-mono text-xs text-blue-400 truncate mb-2">{alert.pseudo_anonymous_id}</p>
-                  <p className="text-[9px] text-slate-500 uppercase">{new Date(alert.timestamp).toLocaleString()}</p>
-                </div>
-              ))
-            )}
+          <div className="flex-1 bg-black/20 rounded-xl overflow-hidden border border-white/5">
+            <div className="h-full overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-[#0a0e1a] z-10 shadow-md border-b border-white/10">
+                  <tr>
+                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date & Time</th>
+                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Patient ID</th>
+                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Risk Assessment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {stats.recent_alerts.length === 0 ? (
+                     <tr>
+                       <td colSpan={3} className="text-center py-16 text-xs font-mono text-slate-500 uppercase tracking-widest">
+                         <div className="flex flex-col items-center justify-center gap-3 opacity-60">
+                            <Activity className="w-8 h-8" />
+                            No recent patient encounters found today.
+                         </div>
+                       </td>
+                     </tr>
+                  ) : (
+                    stats.recent_alerts.map((alert: any) => (
+                      <tr key={alert._id} className="hover:bg-white/[0.03] transition-colors cursor-pointer group">
+                        <td className="p-4 text-xs font-mono text-slate-400 group-hover:text-slate-300 transition-colors">{new Date(alert.timestamp).toLocaleString()}</td>
+                        <td className="p-4 text-xs font-mono text-blue-400 font-bold group-hover:text-blue-300 transition-colors">{alert.pseudo_anonymous_id || 'UNKNOWN'}</td>
+                        <td className="p-4 text-center">
+                          <span className={`text-[10px] px-3 py-1 rounded-md font-black uppercase tracking-widest border shadow-sm ${alert.recurrence_risk === 'HIGH' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-rose-500/20' : alert.recurrence_risk === 'MEDIUM' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/20'}`}>
+                            {alert.recurrence_risk} ({roundProb(alert.probability)}%)
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 
 const roundProb = (p: number) => (p * 100).toFixed(1);
 
@@ -457,7 +503,7 @@ function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case "dashboard": return <DashboardPage />;
+      case "dashboard": return <DashboardPage user={currentUser} onNavigateToHistory={() => setActivePage("database")} />;
       case "users": return <UsersPage onPatientClick={handlePatientClick} />;
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("users")} /> : <UsersPage onPatientClick={handlePatientClick} />;
       case "database": return <DatabasePage />;

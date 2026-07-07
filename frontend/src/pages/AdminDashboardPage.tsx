@@ -1220,15 +1220,115 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
 
         {/* TAB 4: SYSTEM_CONFIG TAB */}
         {activeTab === 'SYSTEM_CONFIG' && (
-          <div className={`border rounded-lg shadow-md p-8 flex flex-col items-center justify-center min-h-[400px] text-center transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 text-slate-200' : 'bg-white border-gray-200 text-slate-800'}`}>
-            <Settings className="w-16 h-16 text-cyan-500 mb-4 animate-spin-slow" />
-            <h2 className={`text-xl font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Enterprise System Engine Configuration</h2>
-            <p className={`text-xs font-mono mt-2 max-w-lg leading-relaxed ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
-              Global AI confidence intervals, MongoDB connection strings, and multi-factor WhatsApp messaging gateway parameters are currently locked for administrative override.
-            </p>
-            <div className={`mt-6 px-4 py-2 border text-xs font-mono rounded flex items-center gap-2 ${theme === 'DARK' ? 'bg-[#131826] border-gray-700 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-              <Lock className="w-4 h-4 text-amber-500" />
-              Requires Super-Admin Cryptographic Smart Card Authorization
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            {/* System Parameters Panel */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-cyan-500" />
+                  <div>
+                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Core Model Parameters</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Adjust HepatoAI prediction thresholds</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Risk Confidence Threshold</label>
+                  <input type="range" min="0" max="100" defaultValue="75" className="w-full accent-cyan-500" />
+                  <div className={`flex justify-between text-[10px] font-mono ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <span>Aggressive (50%)</span>
+                    <span className="text-cyan-500 font-bold">Current: 75%</span>
+                    <span>Conservative (90%)</span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Max Batch Inference Size</label>
+                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>100 Records / Batch</option>
+                    <option>500 Records / Batch</option>
+                    <option>1000 Records / Batch</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="mt-auto pt-6">
+                 <button className={`w-full py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-cyan-500 hover:bg-cyan-600 text-white'}`}>
+                   Save Model Settings
+                 </button>
+              </div>
+            </div>
+
+            {/* Email Gateway Config */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-indigo-500" />
+                  <div>
+                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>SMTP Gateway Config</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Manage system email dispatch routes</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded border border-emerald-500/30 font-bold tracking-widest flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE</span>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>SMTP Server</label>
+                  <input type="text" defaultValue="smtp.gmail.com" disabled className={`w-full border rounded px-3 py-2 text-sm opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-400' : 'bg-slate-100 border-gray-300 text-slate-500'}`} />
+                </div>
+                <div>
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Admin Support Email</label>
+                  <input type="text" defaultValue="thilinakanishka20010313@gmail.com" className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-white border-gray-300 text-slate-800'}`} />
+                </div>
+                <div className="flex gap-4">
+                   <div className="flex-1">
+                     <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Port</label>
+                     <input type="text" defaultValue="465 (SSL/TLS)" disabled className={`w-full border rounded px-3 py-2 text-sm opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-400' : 'bg-slate-100 border-gray-300 text-slate-500'}`} />
+                   </div>
+                   <div className="flex-1 flex items-end">
+                     <button className={`w-full py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm ${theme === 'DARK' ? 'bg-[#131826] border border-[#2a364a] hover:bg-[#1a2235] text-slate-300' : 'bg-slate-100 border border-gray-300 hover:bg-slate-200 text-slate-700'}`}>
+                       Test Connection
+                     </button>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audit Log Rotation */}
+            <div className={`col-span-1 lg:col-span-2 border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+               <div className={`flex justify-between items-center mb-4 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-rose-500" />
+                  <div>
+                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Database Retention & Auto-Backup</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Manage HIPAA audit log rotation schedules</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="flex-1 w-full">
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-2 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Auto-Backup Frequency</label>
+                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>Daily at Midnight (00:00 UTC)</option>
+                    <option>Weekly on Sunday</option>
+                    <option>Monthly (1st of every month)</option>
+                  </select>
+                </div>
+                <div className="flex-1 w-full">
+                  <label className={`text-xs font-bold uppercase tracking-wider mb-2 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Audit Log Retention</label>
+                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>7 Years (HIPAA Compliant)</option>
+                    <option>5 Years (Standard)</option>
+                    <option>Indefinite (Requires Extra Storage)</option>
+                  </select>
+                </div>
+                <div className="flex items-end mt-2 sm:mt-6">
+                   <button className={`px-6 py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm border ${theme === 'DARK' ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-rose-500/30' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'}`}>
+                     Trigger Manual Backup
+                   </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
