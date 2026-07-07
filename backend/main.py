@@ -851,13 +851,24 @@ async def predict_recurrence(
 # ==========================================
 
 @app.get("/api/v1/dashboard-stats")
-async def get_dashboard_stats():
-    total_scans = await audit_logs_collection.count_documents({})
-    high_risk = await audit_logs_collection.count_documents({"recurrence_risk": "HIGH"})
-    medium_risk = await audit_logs_collection.count_documents({"recurrence_risk": "MEDIUM"})
-    low_risk = await audit_logs_collection.count_documents({"recurrence_risk": "LOW"})
+async def get_dashboard_stats(doctor_id: str = None):
+    filter_query = {}
+    if doctor_id:
+        filter_query["doctor_id"] = doctor_id
+        
+    total_scans = await audit_logs_collection.count_documents(filter_query)
+    high_risk = await audit_logs_collection.count_documents({**filter_query, "recurrence_risk": "HIGH"})
+    medium_risk = await audit_logs_collection.count_documents({**filter_query, "recurrence_risk": "MEDIUM"})
+    low_risk = await audit_logs_collection.count_documents({**filter_query, "recurrence_risk": "LOW"})
     
-    cursor = audit_logs_collection.find({"recurrence_risk": "HIGH"}).sort("timestamp", -1).limit(5)
+    # Calculate today's scans
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_scans = await audit_logs_collection.count_documents({
+        **filter_query,
+        "timestamp": {"$regex": f"^{today_str}"}
+    })
+    
+    cursor = audit_logs_collection.find(filter_query).sort("timestamp", -1).limit(20)
     recent_alerts = []
     async for doc in cursor:
         doc['_id'] = str(doc['_id'])
@@ -865,6 +876,7 @@ async def get_dashboard_stats():
     
     return {
         "total_scans": total_scans,
+        "today_scans": today_scans,
         "high_risk_detections": high_risk,
         "system_accuracy": "98.2%",
         "risk_distribution": {
