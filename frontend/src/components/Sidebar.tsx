@@ -7,9 +7,10 @@ interface SidebarProps {
   activePage: string;
   setActivePage: (page: string) => void;
   user?: any;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, onLogout }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
@@ -165,16 +166,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
                 body: JSON.stringify({ id: user.id })
               })
               .then(() => {
-                localStorage.removeItem("hepatoai_current_user");
+                sessionStorage.removeItem("hepatoai_current_user");
+                if (onLogout) onLogout();
                 setActivePage("login");
               })
               .catch((err) => {
                 console.error(err);
-                localStorage.removeItem("hepatoai_current_user");
+                sessionStorage.removeItem("hepatoai_current_user");
+                if (onLogout) onLogout();
                 setActivePage("login");
               });
             } else {
-              localStorage.removeItem("hepatoai_current_user");
+              sessionStorage.removeItem("hepatoai_current_user");
+              if (onLogout) onLogout();
               setActivePage("login");
             }
           }} 

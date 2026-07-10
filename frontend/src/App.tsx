@@ -423,23 +423,51 @@ function App() {
   });
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(() => {
-    const saved = localStorage.getItem("hepatoai_current_user");
+    const saved = sessionStorage.getItem("hepatoai_current_user");
     return saved ? JSON.parse(saved) : null;
   });
 
   useEffect(() => {
     sessionStorage.setItem("hepatoai_active_page", activePage);
-    if (activePage === "login" && currentUser) {
-      setActivePage("activity");
-    } else if (activePage === "login") {
-      setCurrentUser(null);
-    }
-  }, [activePage, currentUser]);
+  }, [activePage]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem("hepatoai_current_user", JSON.stringify(currentUser));
+      sessionStorage.setItem("hepatoai_current_user", JSON.stringify(currentUser));
+    } else {
+      sessionStorage.removeItem("hepatoai_current_user");
     }
+  }, [currentUser]);
+
+  // Session Auto-Timeout Mechanism (15 minutes)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    const resetTimeout = () => {
+      clearTimeout(timeoutId);
+      if (currentUser) {
+        timeoutId = setTimeout(() => {
+          console.warn("Session expired due to inactivity.");
+          setCurrentUser(null);
+          setActivePage("login");
+        }, 15 * 60 * 1000); // 15 mins
+      }
+    };
+
+    if (currentUser) {
+      window.addEventListener('mousemove', resetTimeout);
+      window.addEventListener('keydown', resetTimeout);
+      window.addEventListener('click', resetTimeout);
+      window.addEventListener('scroll', resetTimeout);
+      resetTimeout();
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('mousemove', resetTimeout);
+      window.removeEventListener('keydown', resetTimeout);
+      window.removeEventListener('click', resetTimeout);
+      window.removeEventListener('scroll', resetTimeout);
+    };
   }, [currentUser]);
 
   const handlePatientClick = (id: string) => {
@@ -495,7 +523,7 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden">
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} />
+        <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
         <div className="flex-1 overflow-auto bg-[#070b14] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
