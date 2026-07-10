@@ -3,8 +3,9 @@ import axios from "axios";
 import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import html2canvas from "html2canvas";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
@@ -147,6 +148,9 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [processedPayments, setProcessedPayments] = useState<Record<string, boolean>>({});
+  
+  const payrollReportRef = React.useRef<HTMLDivElement>(null);
+  const [isExportingPayroll, setIsExportingPayroll] = useState(false);
 
   useEffect(() => {
     if (formData.email && formData.email.includes('@')) {
@@ -221,6 +225,43 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       alert("Failed to process payment");
     } finally {
       setProcessingPayment(null);
+    }
+  };
+
+  const exportPayrollPDF = async () => {
+    if (!payrollReportRef.current) return;
+    setIsExportingPayroll(true);
+    
+    // Temporarily make the hidden report visible for canvas capture
+    payrollReportRef.current.style.display = 'block';
+    payrollReportRef.current.style.position = 'absolute';
+    payrollReportRef.current.style.left = '-9999px';
+    payrollReportRef.current.style.top = '0';
+    
+    try {
+      const canvas = await html2canvas(payrollReportRef.current, {
+        scale: 2, // High resolution
+        useCORS: true,
+        backgroundColor: '#ffffff' // Enterprise Light Theme
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`HepatoAI_Payroll_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      alert("Failed to export PDF.");
+    } finally {
+      if (payrollReportRef.current) {
+         payrollReportRef.current.style.display = 'none';
+      }
+      setIsExportingPayroll(false);
     }
   };
 
@@ -2183,6 +2224,18 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                    </h1>
                    <p className={`text-xs font-mono mt-1 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Verify doctor workloads and calculated remuneration for hospital billing.</p>
                 </div>
+                <button
+                  onClick={exportPayrollPDF}
+                  disabled={isExportingPayroll}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md hover:shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExportingPayroll ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {isExportingPayroll ? 'Exporting PDF...' : 'Download PDF Report'}
+                </button>
              </div>
              
              <div className={`border rounded-xl shadow-xl overflow-hidden transition-colors duration-300 flex-1 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -2258,6 +2311,79 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                     </tbody>
                   </table>
                 </div>
+             </div>
+
+             {/* Hidden Payroll Ledger PDF Template */}
+             <div ref={payrollReportRef} style={{ display: 'none', width: '900px', backgroundColor: '#ffffff', color: '#1e293b', padding: '60px', fontFamily: '"Inter", sans-serif' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #e2e8f0', paddingBottom: '30px', marginBottom: '40px' }}>
+                 <div>
+                   <h1 style={{ margin: 0, fontSize: '32px', color: '#0f172a', letterSpacing: '-0.5px' }}>HepatoAI Central Audit</h1>
+                   <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Hospital Remuneration Ledger</p>
+                 </div>
+                 <div style={{ textAlign: 'right' }}>
+                   <p style={{ margin: 0, color: '#334155', fontSize: '14px', fontFamily: 'monospace' }}>Report ID: PAY-{Math.random().toString(36).substring(2, 10).toUpperCase()}</p>
+                   <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>Generated: {new Date().toLocaleString()}</p>
+                   <p style={{ margin: '4px 0 0', color: '#0ea5e9', fontSize: '12px', fontWeight: 'bold' }}>Default Currency: {currency}</p>
+                 </div>
+               </div>
+
+               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+                 <thead>
+                   <tr style={{ backgroundColor: '#f8fafc' }}>
+                     <th style={{ padding: '16px 12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Physician</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Department</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Patients Examined</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Inferences</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'right', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Gross Remuneration</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {doctorStats.map((doc, idx) => {
+                     const rate = currency === 'LKR' ? 45000 : currency === 'EUR' ? 140 : 150;
+                     const symbol = currency === 'LKR' ? 'Rs. ' : currency === 'EUR' ? '€' : '$';
+                     const amountDue = doc.patients_seen * rate;
+                     
+                     return (
+                       <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f1f5f9' }}>
+                         <td style={{ padding: '16px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                           <p style={{ margin: 0, fontWeight: 'bold', color: '#0f172a' }}>Dr. {doc.name}</p>
+                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>{doc.id}</p>
+                         </td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#334155' }}>{doc.dept}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#0f172a' }}>{doc.patients_seen}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontFamily: 'monospace' }}>{doc.total_inferences}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#059669', fontSize: '16px' }}>
+                           {symbol}{amountDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+                 <tfoot>
+                   <tr>
+                     <td colSpan={4} style={{ padding: '24px 12px', textAlign: 'right', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Ledger Value</td>
+                     <td style={{ padding: '24px 12px', textAlign: 'right', fontWeight: 'bold', color: '#059669', fontSize: '24px' }}>
+                       {(() => {
+                          const rate = currency === 'LKR' ? 45000 : currency === 'EUR' ? 140 : 150;
+                          const symbol = currency === 'LKR' ? 'Rs. ' : currency === 'EUR' ? '€' : '$';
+                          const totalAmount = doctorStats.reduce((sum, doc) => sum + (doc.patients_seen * rate), 0);
+                          return `${symbol}${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                       })()}
+                     </td>
+                   </tr>
+                 </tfoot>
+               </table>
+
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '60px', borderTop: '1px solid #e2e8f0', paddingTop: '30px' }}>
+                  <div style={{ textAlign: 'center', width: '200px' }}>
+                    <div style={{ height: '40px', borderBottom: '1px solid #94a3b8', marginBottom: '10px' }}></div>
+                    <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>System Administrator</span>
+                  </div>
+                  <div style={{ textAlign: 'center', width: '200px' }}>
+                    <div style={{ height: '40px', borderBottom: '1px solid #94a3b8', marginBottom: '10px' }}></div>
+                    <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Hospital Financial Officer</span>
+                  </div>
+               </div>
              </div>
           </div>
         )}
