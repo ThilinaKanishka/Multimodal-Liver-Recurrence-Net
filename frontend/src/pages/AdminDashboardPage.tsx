@@ -4,7 +4,7 @@ import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
@@ -1220,116 +1220,221 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
 
         {/* TAB 4: SYSTEM_CONFIG TAB */}
         {activeTab === 'SYSTEM_CONFIG' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500">
-            {/* System Parameters Panel */}
-            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-cyan-500" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
+            
+            {/* AI Model Parameters */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-cyan-500/50' : 'bg-white border-gray-200 hover:border-cyan-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[40px] pointer-events-none group-hover:bg-cyan-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20"><Settings className="w-5 h-5 text-cyan-400" /></div>
                   <div>
-                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Core Model Parameters</h2>
-                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Adjust HepatoAI prediction thresholds</p>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Core AI Parameters</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Inference Confidence Thresholds</p>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-5 flex-1 relative z-10">
                 <div className="flex flex-col gap-2">
-                  <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Risk Confidence Threshold</label>
-                  <input type="range" min="0" max="100" defaultValue="75" className="w-full accent-cyan-500" />
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>High-Risk Confidence Gate</label>
+                  <input type="range" min="0" max="100" defaultValue="75" className="enterprise-slider" />
                   <div className={`flex justify-between text-[10px] font-mono ${theme === 'DARK' ? 'text-slate-500' : 'text-slate-400'}`}>
                     <span>Aggressive (50%)</span>
-                    <span className="text-cyan-500 font-bold">Current: 75%</span>
+                    <span className="text-cyan-500 font-bold bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">75%</span>
                     <span>Conservative (90%)</span>
                   </div>
                 </div>
                 
                 <div className="flex flex-col gap-2">
-                  <label className={`text-xs font-bold uppercase tracking-wider ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Max Batch Inference Size</label>
-                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
-                    <option>100 Records / Batch</option>
-                    <option>500 Records / Batch</option>
-                    <option>1000 Records / Batch</option>
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Max Inference Batch Size</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300 focus:border-cyan-500/50' : 'bg-slate-50 border-gray-300 text-slate-800 focus:border-cyan-400'}`}>
+                    <option>16 Volumes / Batch</option>
+                    <option>32 Volumes / Batch</option>
+                    <option>64 Volumes / Batch (VRAM Intensive)</option>
                   </select>
                 </div>
               </div>
-              
-              <div className="mt-auto pt-6">
-                 <button className={`w-full py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-cyan-500 hover:bg-cyan-600 text-white'}`}>
-                   Save Model Settings
+              <div className="mt-6 pt-4 border-t border-dashed border-gray-500/30">
+                 <button className={`w-full py-2.5 rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-900/50' : 'bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-200'}`}>
+                   Save AI Settings
                  </button>
               </div>
             </div>
 
-            {/* Email Gateway Config */}
-            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className={`flex justify-between items-center mb-6 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-indigo-500" />
+            {/* Hardware Allocations */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-purple-500/50' : 'bg-white border-gray-200 hover:border-purple-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[40px] pointer-events-none group-hover:bg-purple-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20"><Cpu className="w-5 h-5 text-purple-400" /></div>
                   <div>
-                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>SMTP Gateway Config</h2>
-                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Manage system email dispatch routes</p>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Hardware Allocation</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>GPU & TensorRT Optimization</p>
                   </div>
                 </div>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded border border-emerald-500/30 font-bold tracking-widest flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE</span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-bold tracking-widest flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_5px_#10b981]"></div> CUDA OK</span>
               </div>
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>SMTP Server</label>
-                  <input type="text" defaultValue="smtp.gmail.com" disabled className={`w-full border rounded px-3 py-2 text-sm opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-400' : 'bg-slate-100 border-gray-300 text-slate-500'}`} />
+              <div className="flex flex-col gap-5 flex-1 relative z-10">
+                <div className="flex flex-col gap-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Active Compute Unit</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>Auto-Detect (CUDA 0)</option>
+                    <option>NVIDIA RTX 4090 (Primary)</option>
+                    <option>NVIDIA RTX 3090 (Fallback)</option>
+                    <option>CPU Only (Slow)</option>
+                  </select>
                 </div>
-                <div>
-                  <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Admin Support Email</label>
-                  <input type="text" defaultValue="thilinakanishka20010313@gmail.com" className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-white border-gray-300 text-slate-800'}`} />
+                <div className="flex flex-col gap-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Precision Mode</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>FP16 (Tensor Cores - Fast)</option>
+                    <option>FP32 (High Accuracy)</option>
+                    <option>INT8 (Quantized - Ultra Fast)</option>
+                  </select>
                 </div>
-                <div className="flex gap-4">
-                   <div className="flex-1">
-                     <label className={`text-xs font-bold uppercase tracking-wider mb-1 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Port</label>
-                     <input type="text" defaultValue="465 (SSL/TLS)" disabled className={`w-full border rounded px-3 py-2 text-sm opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-400' : 'bg-slate-100 border-gray-300 text-slate-500'}`} />
-                   </div>
-                   <div className="flex-1 flex items-end">
-                     <button className={`w-full py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm ${theme === 'DARK' ? 'bg-[#131826] border border-[#2a364a] hover:bg-[#1a2235] text-slate-300' : 'bg-slate-100 border border-gray-300 hover:bg-slate-200 text-slate-700'}`}>
-                       Test Connection
-                     </button>
-                   </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-dashed border-gray-500/30">
+                 <button className={`w-full py-2.5 rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200'}`}>
+                   Restart Compute Engine
+                 </button>
+              </div>
+            </div>
+
+            {/* Cloud & Archival */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-blue-500/50' : 'bg-white border-gray-200 hover:border-blue-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] pointer-events-none group-hover:bg-blue-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20"><Cloud className="w-5 h-5 text-blue-400" /></div>
+                  <div>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>DICOM Archival</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>AWS S3 / Local Retention</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-5 flex-1 relative z-10">
+                <div className="flex flex-col gap-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Storage Strategy</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>Hybrid (Local + S3 Glacier)</option>
+                    <option>Local Only (NAS Storage)</option>
+                    <option>Cloud Only (AWS S3 Std)</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Auto-Delete Local Cache</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>After 30 Days</option>
+                    <option>After 90 Days</option>
+                    <option>Never (Manual Purge)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-dashed border-gray-500/30">
+                 <button className={`w-full py-2.5 rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'}`}>
+                   Sync Archive Now
+                 </button>
+              </div>
+            </div>
+
+            {/* Network & HL7 Interfaces */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-emerald-500/50' : 'bg-white border-gray-200 hover:border-emerald-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"><Network className="w-5 h-5 text-emerald-400" /></div>
+                  <div>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>EHR / HL7 Gateway</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Hospital API Integration</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 flex-1 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>EHR Endpoint URL</label>
+                  <input type="text" defaultValue="https://epic.hospital.internal/api/v1/hl7" className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-emerald-400/80' : 'bg-white border-gray-300 text-slate-800'}`} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>API Auth Token</label>
+                  <input type="password" defaultValue="*************************" className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-500' : 'bg-white border-gray-300 text-slate-800'}`} />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                   <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-600'}`}>Auto-Push Reports</span>
+                   <label className="relative inline-flex items-center cursor-pointer">
+                     <input type="checkbox" defaultChecked className="sr-only peer" />
+                     <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                   </label>
                 </div>
               </div>
             </div>
 
-            {/* Audit Log Rotation */}
-            <div className={`col-span-1 lg:col-span-2 border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
-               <div className={`flex justify-between items-center mb-4 border-b pb-3 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="flex items-center gap-2">
-                  <Database className="w-5 h-5 text-rose-500" />
+            {/* Security Policies */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-amber-500/50' : 'bg-white border-gray-200 hover:border-amber-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[40px] pointer-events-none group-hover:bg-amber-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20"><Shield className="w-5 h-5 text-amber-400" /></div>
                   <div>
-                    <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Database Retention & Auto-Backup</h2>
-                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Manage HIPAA audit log rotation schedules</p>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Security Engine</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Sessions & Biometrics</p>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="flex-1 w-full">
-                  <label className={`text-xs font-bold uppercase tracking-wider mb-2 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Auto-Backup Frequency</label>
-                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
-                    <option>Daily at Midnight (00:00 UTC)</option>
-                    <option>Weekly on Sunday</option>
-                    <option>Monthly (1st of every month)</option>
+              <div className="flex flex-col gap-5 flex-1 relative z-10">
+                <div className="flex flex-col gap-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Session Idle Timeout</label>
+                  <select className={`w-full border rounded px-3 py-2.5 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
+                    <option>15 Minutes (HIPAA Strict)</option>
+                    <option>30 Minutes (Standard)</option>
+                    <option>60 Minutes (Low Risk)</option>
                   </select>
                 </div>
-                <div className="flex-1 w-full">
-                  <label className={`text-xs font-bold uppercase tracking-wider mb-2 block ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Audit Log Retention</label>
-                  <select className={`w-full border rounded px-3 py-2 text-sm focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#0f111a] border-[#1a1c2c] text-slate-300' : 'bg-slate-50 border-gray-300 text-slate-800'}`}>
-                    <option>7 Years (HIPAA Compliant)</option>
-                    <option>5 Years (Standard)</option>
-                    <option>Indefinite (Requires Extra Storage)</option>
-                  </select>
+                <div className="flex items-center justify-between">
+                   <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-600'}`}>Require Biometric Face ID</span>
+                   <label className="relative inline-flex items-center cursor-pointer">
+                     <input type="checkbox" defaultChecked className="sr-only peer" />
+                     <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
+                   </label>
                 </div>
-                <div className="flex items-end mt-2 sm:mt-6">
-                   <button className={`px-6 py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-sm border ${theme === 'DARK' ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-rose-500/30' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'}`}>
-                     Trigger Manual Backup
-                   </button>
+                 <div className="flex items-center justify-between">
+                   <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-600'}`}>Force 2FA For All Staff</span>
+                   <label className="relative inline-flex items-center cursor-pointer">
+                     <input type="checkbox" defaultChecked className="sr-only peer" />
+                     <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
+                   </label>
                 </div>
               </div>
             </div>
+
+            {/* Email Gateway Config */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-indigo-500/50' : 'bg-white border-gray-200 hover:border-indigo-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[40px] pointer-events-none group-hover:bg-indigo-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20"><Mail className="w-5 h-5 text-indigo-400" /></div>
+                  <div>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>SMTP Gateway</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Email Alerts & OTP Config</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 flex-1 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>SMTP Server</label>
+                  <input type="text" defaultValue="smtp.gmail.com" disabled className={`w-full border rounded px-3 py-2 text-xs font-mono opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-500' : 'bg-slate-100 border-gray-300 text-slate-500'}`} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Admin Support Email</label>
+                  <input type="text" defaultValue="thilinakanishka20010313@gmail.com" className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300 focus:border-indigo-500/50' : 'bg-white border-gray-300 text-slate-800 focus:border-indigo-400'}`} />
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-dashed border-gray-500/30">
+                 <button className={`w-full py-2.5 rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${theme === 'DARK' ? 'bg-[#131826] hover:bg-[#1a2235] text-indigo-400 border border-indigo-500/30' : 'bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-indigo-200'}`}>
+                   Test SMTP Connection
+                 </button>
+              </div>
+            </div>
+
           </div>
         )}
 

@@ -609,7 +609,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                  <span>X-Axis (Sagittal)</span>
                  <span className="text-cyan-400">{coord.x} / {Width}</span>
                </div>
-               <input type="range" min="0" max={Width - 1} value={coord.x} onChange={(e) => setCoord(prev => ({...prev, x: Number(e.target.value)}))} className="w-full accent-cyan-500 cursor-pointer h-1 bg-[#1e293b] appearance-none rounded" />
+               <input type="range" min="0" max={Width - 1} value={coord.x} onChange={(e) => setCoord(prev => ({...prev, x: Number(e.target.value)}))} className="enterprise-slider" />
             </div>
 
             <div>
@@ -617,7 +617,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                  <span>Y-Axis (Coronal)</span>
                  <span className="text-cyan-400">{coord.y} / {Height}</span>
                </div>
-               <input type="range" min="0" max={Height - 1} value={coord.y} onChange={(e) => setCoord(prev => ({...prev, y: Number(e.target.value)}))} className="w-full accent-cyan-500 cursor-pointer h-1 bg-[#1e293b] appearance-none rounded" />
+               <input type="range" min="0" max={Height - 1} value={coord.y} onChange={(e) => setCoord(prev => ({...prev, y: Number(e.target.value)}))} className="enterprise-slider" />
             </div>
 
             <div>
@@ -625,7 +625,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                  <span>Z-Axis (Axial)</span>
                  <span className="text-cyan-400">{coord.z} / {Depth}</span>
                </div>
-               <input type="range" min="0" max={Depth - 1} value={coord.z} onChange={(e) => setCoord(prev => ({...prev, z: Number(e.target.value)}))} className="w-full accent-cyan-500 cursor-pointer h-1 bg-[#1e293b] appearance-none rounded" />
+               <input type="range" min="0" max={Depth - 1} value={coord.z} onChange={(e) => setCoord(prev => ({...prev, z: Number(e.target.value)}))} className="enterprise-slider" />
             </div>
 
             <div className="mt-2 border-t border-[#1e293b] pt-4">
@@ -633,7 +633,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                  <span>Heatmap Opacity</span>
                  <span className="text-amber-500">{Math.round(globalOpacity * 100)}%</span>
                </div>
-               <input type="range" min="0" max="1" step="0.01" value={globalOpacity} onChange={(e) => setGlobalOpacity(Number(e.target.value))} className="w-full accent-amber-500 cursor-pointer h-1 bg-[#1e293b] appearance-none rounded" />
+               <input type="range" min="0" max="1" step="0.01" value={globalOpacity} onChange={(e) => setGlobalOpacity(Number(e.target.value))} className="enterprise-slider opacity-slider" />
             </div>
             
             <div className="mt-2 flex gap-2">

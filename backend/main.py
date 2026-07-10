@@ -933,6 +933,35 @@ async def get_patient_details(pseudo_id: str):
         "history": history
     }
 
+@app.get("/api/v1/doctor/{doctor_id}/workload")
+async def get_doctor_workload(doctor_id: str):
+    pipeline = [
+        {"$match": {"doctor_id": doctor_id}},
+        {"$project": {
+            "date": {"$substr": ["$timestamp", 0, 10]},
+            "pseudo_anonymous_id": 1
+        }},
+        {"$group": {
+            "_id": "$date",
+            "total_patients": {"$addToSet": "$pseudo_anonymous_id"},
+            "total_inferences": {"$sum": 1}
+        }},
+        {"$project": {
+            "date": "$_id",
+            "unique_patients_seen": {"$size": "$total_patients"},
+            "total_inferences": 1,
+            "_id": 0
+        }},
+        {"$sort": {"date": -1}},
+        {"$limit": 60}
+    ]
+    cursor = audit_logs_collection.aggregate(pipeline)
+    workload = []
+    async for doc in cursor:
+        workload.append(doc)
+    
+    return workload
+
 # ==========================================
 # API Endpoints: IT Admin Mission Control
 # ==========================================

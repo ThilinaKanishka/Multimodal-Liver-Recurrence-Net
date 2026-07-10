@@ -68,4 +68,33 @@
     70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
   }
+
+  /* Enterprise Custom Slider Styling */
+  .enterprise-slider {
+    @apply appearance-none w-full h-1.5 bg-[#0a0e1a] border border-[#1e293b] rounded-full outline-none shadow-inner;
+  }
+  
+  .enterprise-slider::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 rounded-full bg-[#00b8d4] border-2 border-[#1e293b] cursor-pointer transition-all duration-300;
+    box-shadow: 0 0 10px rgba(0, 184, 212, 0.6), inset 0 0 4px rgba(255, 255, 255, 0.4);
+  }
+
+  .enterprise-slider::-webkit-slider-thumb:hover {
+    @apply scale-125 bg-cyan-300;
+    box-shadow: 0 0 15px rgba(0, 184, 212, 0.8), inset 0 0 6px rgba(255, 255, 255, 0.6);
+  }
+
+  .enterprise-slider::-webkit-slider-thumb:active {
+    @apply scale-110;
+  }
+
+  .enterprise-slider.opacity-slider::-webkit-slider-thumb {
+    @apply bg-amber-500;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), inset 0 0 4px rgba(255, 255, 255, 0.4);
+  }
+
+  .enterprise-slider.opacity-slider::-webkit-slider-thumb:hover {
+    @apply bg-amber-400;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.8), inset 0 0 6px rgba(255, 255, 255, 0.6);
+  }
 }
