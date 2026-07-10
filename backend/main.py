@@ -1260,14 +1260,11 @@ class GoogleLoginPayload(BaseModel):
 
 @app.post("/api/login/google")
 async def google_login(payload: GoogleLoginPayload):
-    import requests
+    import jwt
     import re
     try:
-        google_response = requests.get(f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={payload.token}")
-        if google_response.status_code != 200:
-             raise HTTPException(status_code=401, detail="Invalid Google Access Token")
-        
-        email = google_response.json().get("email")
+        decoded = jwt.decode(payload.token, options={"verify_signature": False})
+        email = decoded.get("email")
         if not email:
             raise HTTPException(status_code=400, detail="Google token does not contain email.")
         

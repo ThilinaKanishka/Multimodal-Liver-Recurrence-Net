@@ -88,7 +88,7 @@ export const DoctorMessages = ({ user }: { user: any }) => {
   const resolveUserId = () => {
     let uid = user?.id || user?._id || user?.staffId;
     if (!uid) {
-      const saved = localStorage.getItem("hepatoai_current_user");
+      const saved = sessionStorage.getItem("hepatoai_current_user");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
