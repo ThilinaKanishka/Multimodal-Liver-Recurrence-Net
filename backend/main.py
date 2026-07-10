@@ -1252,7 +1252,7 @@ async def login_user(payload: LoginPayload):
     return {
         "message": "Login successful", 
         "requires_reset": requires_reset,
-        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature")}
+        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature"), "picture": user.get("picture")}
     }
 
 class GoogleLoginPayload(BaseModel):
@@ -1265,6 +1265,7 @@ async def google_login(payload: GoogleLoginPayload):
     try:
         decoded = jwt.decode(payload.token, options={"verify_signature": False})
         email = decoded.get("email")
+        picture = decoded.get("picture")
         if not email:
             raise HTTPException(status_code=400, detail="Google token does not contain email.")
         
@@ -1277,12 +1278,16 @@ async def google_login(payload: GoogleLoginPayload):
         if user.get("status") != "Active":
             raise HTTPException(status_code=403, detail="Account is revoked or suspended")
             
-        await users_collection.update_one({"id": user["id"]}, {"$set": {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}})
+        update_fields = {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}
+        if picture:
+            update_fields["picture"] = picture
+            
+        await users_collection.update_one({"id": user["id"]}, {"$set": update_fields})
 
         return {
             "message": "Login successful", 
             "requires_reset": False,
-            "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature")}
+            "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature"), "picture": picture or user.get("picture")}
         }
     except HTTPException as e:
         raise e

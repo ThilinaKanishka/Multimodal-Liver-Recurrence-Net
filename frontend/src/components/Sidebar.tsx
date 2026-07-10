@@ -15,7 +15,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   useEffect(() => {
-    if (user && user.email) {
+    if (user && user.picture) {
+      setAvatarUrl(user.picture);
+    } else if (user && user.email) {
       getGravatarUrl(user.email, 100).then(setAvatarUrl);
     } else {
       setAvatarUrl(null);

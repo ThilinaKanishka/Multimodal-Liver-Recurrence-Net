@@ -239,14 +239,6 @@ export const LoginPage: React.FC<{ onLogin?: (user?: any) => void, onAdminLogin?
                 />
               </div>
 
-              <button
-                type="button"
-                className="w-full mt-2 bg-slate-800/50 border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold text-sm py-3 rounded-xl transition-all flex justify-center items-center gap-3"
-              >
-                <Fingerprint className="w-5 h-5 text-cyan-400" />
-                Biometric Login (MFA)
-              </button>
-
             </form>
           </div>
 
