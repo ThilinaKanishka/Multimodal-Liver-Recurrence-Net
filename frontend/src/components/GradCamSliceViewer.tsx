@@ -223,8 +223,7 @@ const GradCamSliceViewer: React.FC<GradCamSliceViewerProps> = ({ base64Matrix, d
             max={Depth - 1}
             value={currentSlice}
             onChange={(e) => setCurrentSlice(Number(e.target.value))}
-            className="w-full h-1 bg-[#374151] rounded-lg appearance-none cursor-pointer outline-none"
-            style={{ accentColor: '#38bdf8' }}
+            className="enterprise-slider"
           />
         </div>
         
@@ -242,8 +241,7 @@ const GradCamSliceViewer: React.FC<GradCamSliceViewerProps> = ({ base64Matrix, d
             step="0.01"
             value={globalOpacity}
             onChange={(e) => setGlobalOpacity(Number(e.target.value))}
-            className="w-full h-1 bg-[#374151] rounded-lg appearance-none cursor-pointer outline-none"
-            style={{ accentColor: '#f59e0b' }}
+            className="enterprise-slider opacity-slider"
           />
         </div>
       </div>

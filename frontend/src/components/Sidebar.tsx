@@ -119,18 +119,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
           <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Dashboard</span>}
         </div>
-        <div className={getIconClass("users")} onClick={() => setActivePage("users")} title="Patient Directory">
-          <Users className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Directory</span>}
-        </div>
-        <div className={getIconClass("database")} onClick={() => setActivePage("database")} title="EHR / Clinical Ledger">
-          <Database className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">EHR Ledger</span>}
-        </div>
-        <div className={getIconClass("search")} onClick={() => setActivePage("search")} title="Global Search">
+        <div className={getIconClass("search")} onClick={() => setActivePage("search")} title="Patient Ledger & History">
           <Search className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Search</span>}
+          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Patient History</span>}
         </div>
+        <div className={getIconClass("billing")} onClick={() => setActivePage("billing")} title="Workload & Billing Logs">
+          <Database className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workload Logs</span>}
+        </div>
+
       </div>
       
       <div className="mt-auto px-3 w-full flex flex-col gap-2">

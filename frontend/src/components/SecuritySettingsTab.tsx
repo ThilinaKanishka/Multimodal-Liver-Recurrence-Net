@@ -56,13 +56,9 @@ export default function SecuritySettingsTab({ userId }: SecuritySettingsTabProps
   };
 
   return (
-    <div className="bg-[#252841] border border-gray-700/60 rounded-2xl p-8 shadow-lg max-w-2xl mx-auto">
-      <div className="mb-6 border-b border-gray-700/50 pb-6">
-        <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Lock className="w-5 h-5 text-cyan-500" />
-          Security Settings
-        </h3>
-        <p className="text-gray-400 mt-2 text-sm">
+    <div className="w-full">
+      <div className="mb-6 border-b border-white/5 pb-6">
+        <p className="text-slate-400 mt-2 text-sm">
           Update your enterprise login credentials. We recommend using a strong password with a mix of letters, numbers, and symbols.
         </p>
       </div>
@@ -90,7 +86,7 @@ export default function SecuritySettingsTab({ userId }: SecuritySettingsTabProps
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-[#1a1c2c] border border-gray-600 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all backdrop-blur-md"
               placeholder="Enter current password"
               required
             />
@@ -104,7 +100,7 @@ export default function SecuritySettingsTab({ userId }: SecuritySettingsTabProps
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-[#1a1c2c] border border-gray-600 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all backdrop-blur-md"
               placeholder="Minimum 8 characters"
               required
             />
@@ -118,10 +114,10 @@ export default function SecuritySettingsTab({ userId }: SecuritySettingsTabProps
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`w-full bg-[#1a1c2c] border rounded-lg py-2.5 px-4 text-white focus:outline-none transition-all ${
+              className={`w-full bg-white/5 border rounded-lg py-2.5 px-4 text-white focus:outline-none transition-all backdrop-blur-md ${
                 confirmPassword && newPassword !== confirmPassword 
                   ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                  : 'border-gray-600 focus:border-cyan-500 focus:ring-cyan-500'
+                  : 'border-white/10 focus:border-amber-500 focus:ring-amber-500'
               }`}
               placeholder="Re-enter new password"
               required
@@ -133,10 +129,10 @@ export default function SecuritySettingsTab({ userId }: SecuritySettingsTabProps
           <button
             type="submit"
             disabled={!isFormValid || loading}
-            className={`flex items-center justify-center gap-2 py-2.5 px-6 rounded-lg font-medium transition-all ${
+            className={`flex items-center justify-center gap-2 py-2.5 px-6 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${
               isFormValid
-                ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-900/30'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-900/30'
+                : 'bg-white/5 text-gray-500 border border-white/10 cursor-not-allowed'
             }`}
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save Changes'}
