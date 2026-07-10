@@ -171,7 +171,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
       setStats(statsRes.data);
       
       const usersWithAvatars = await Promise.all(usersRes.data.map(async (u: any) => {
-         u.avatar_url = await getGravatarUrl(u.email, 100, u.name);
+         u.avatar_url = u.picture ? u.picture : await getGravatarUrl(u.email, 100, u.name);
          return u;
       }));
       setUsers(usersWithAvatars);
