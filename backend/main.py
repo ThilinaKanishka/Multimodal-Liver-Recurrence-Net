@@ -1255,6 +1255,40 @@ async def login_user(payload: LoginPayload):
         "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature")}
     }
 
+class GoogleLoginPayload(BaseModel):
+    token: str
+
+@app.post("/api/login/google")
+async def google_login(payload: GoogleLoginPayload):
+    import jwt
+    import re
+    try:
+        decoded = jwt.decode(payload.token, options={"verify_signature": False})
+        email = decoded.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Google token does not contain email.")
+        
+        regex = re.compile(f"^{re.escape(email)}$", re.IGNORECASE)
+        user = await users_collection.find_one({"email": regex})
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Email not registered. Only IT Admin can provision accounts.")
+            
+        if user.get("status") != "Active":
+            raise HTTPException(status_code=403, detail="Account is revoked or suspended")
+            
+        await users_collection.update_one({"id": user["id"]}, {"$set": {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}})
+
+        return {
+            "message": "Login successful", 
+            "requires_reset": False,
+            "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature")}
+        }
+    except jwt.DecodeError:
+        raise HTTPException(status_code=401, detail="Invalid Google Token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class LogoutPayload(BaseModel):
     id: str
 

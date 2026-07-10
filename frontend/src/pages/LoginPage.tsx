@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Hexagon, Lock, ShieldAlert, KeyRound, Cpu, Activity, Fingerprint, ChevronRight } from "lucide-react";
 import axios from "axios";
+import { GoogleLogin } from "@react-oauth/google";
 import ForcedPasswordReset from "../components/ForcedPasswordReset";
 import ForgotPassword from "../components/ForgotPassword";
 
@@ -34,6 +35,24 @@ export const LoginPage: React.FC<{ onLogin?: (user?: any) => void, onAdminLogin?
     } catch (err: any) {
       setLoading(false);
       const errorMessage = err.response?.data?.detail || "Invalid login credentials";
+      setError(errorMessage);
+    }
+  };
+
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/login/google", {
+        token: credentialResponse.credential
+      });
+      setLoading(false);
+      if (response.data.message === "Login successful" && onLogin) {
+        onLogin(response.data.user);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      const errorMessage = err.response?.data?.detail || "Google login failed. Are you registered?";
       setError(errorMessage);
     }
   };
@@ -209,9 +228,21 @@ export const LoginPage: React.FC<{ onLogin?: (user?: any) => void, onAdminLogin?
                 <div className="relative bg-slate-900 px-4 text-xs text-slate-500 font-medium">or continue with</div>
               </div>
 
+              <div className="flex justify-center w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleLogin}
+                  onError={() => setError("Google Login Failed")}
+                  useOneTap
+                  theme="filled_black"
+                  shape="rectangular"
+                  size="large"
+                  locale="en"
+                />
+              </div>
+
               <button
                 type="button"
-                className="w-full bg-slate-800/50 border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold text-sm py-3 rounded-xl transition-all flex justify-center items-center gap-3"
+                className="w-full mt-2 bg-slate-800/50 border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold text-sm py-3 rounded-xl transition-all flex justify-center items-center gap-3"
               >
                 <Fingerprint className="w-5 h-5 text-cyan-400" />
                 Biometric Login (MFA)
