@@ -3,13 +3,14 @@ import axios from "axios";
 import { getGravatarUrl } from "../utils/gravatar";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import html2canvas from "html2canvas";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES'>(() => {
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES' | 'FINANCIAL_AUDIT'>(() => {
     return (sessionStorage.getItem("hepatoai_admin_active_tab") as any) || 'OVERVIEW';
   });
 
@@ -25,6 +26,15 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   useEffect(() => {
     localStorage.setItem("hepatoai_admin_theme", theme);
   }, [theme]);
+  
+  // Currency State with localStorage persistence
+  const [currency, setCurrency] = useState<'USD' | 'LKR' | 'EUR'>(() => {
+    return (localStorage.getItem("hepatoai_admin_currency") as 'USD' | 'LKR' | 'EUR') || 'USD';
+  });
+
+  useEffect(() => {
+    localStorage.setItem("hepatoai_admin_currency", currency);
+  }, [currency]);
   
   // Sidebar Collapse State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -136,6 +146,11 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [processedPayments, setProcessedPayments] = useState<Record<string, boolean>>({});
+  
+  const payrollReportRef = React.useRef<HTMLDivElement>(null);
+  const [isExportingPayroll, setIsExportingPayroll] = useState(false);
 
   useEffect(() => {
     if (formData.email && formData.email.includes('@')) {
@@ -188,6 +203,66 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
     a.href = url;
     a.download = `doctor_analytics_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  const handleProcessPayroll = async (doc: any, amount: number) => {
+    try {
+      setProcessingPayment(doc.id);
+      await axios.post("http://127.0.0.1:8000/api/v1/admin/process-payroll", {
+        doctor_id: doc.id,
+        doctor_name: doc.name,
+        email: doc.email,
+        patients_seen: doc.patients_seen,
+        amount: amount,
+        currency: currency
+      });
+      setProcessedPayments(prev => ({ ...prev, [doc.id]: true }));
+      setToastMessage(`Payment processed for Dr. ${doc.name}`);
+      setTimeout(() => setToastMessage(null), 3000);
+      fetchAdminData(false); // Refresh logs
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process payment");
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
+
+  const exportPayrollPDF = async () => {
+    if (!payrollReportRef.current) return;
+    setIsExportingPayroll(true);
+    
+    // Temporarily make the hidden report visible for canvas capture
+    payrollReportRef.current.style.display = 'block';
+    payrollReportRef.current.style.position = 'absolute';
+    payrollReportRef.current.style.left = '-9999px';
+    payrollReportRef.current.style.top = '0';
+    
+    try {
+      const canvas = await html2canvas(payrollReportRef.current, {
+        scale: 2, // High resolution
+        useCORS: true,
+        backgroundColor: '#ffffff' // Enterprise Light Theme
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`HepatoAI_Payroll_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      alert("Failed to export PDF.");
+    } finally {
+      if (payrollReportRef.current) {
+         payrollReportRef.current.style.display = 'none';
+      }
+      setIsExportingPayroll(false);
+    }
   };
 
   useEffect(() => {
@@ -471,6 +546,18 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                 )}
               </span>
             )}
+          </button>
+          <button 
+            onClick={() => setActiveTab('FINANCIAL_AUDIT')}
+            title="Financial Audit & Payroll"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer mt-2 ${
+              activeTab === 'FINANCIAL_AUDIT' 
+                ? 'bg-gradient-to-r from-emerald-600/20 to-teal-600/10 border-l-4 border-emerald-500 text-emerald-500 shadow-sm' 
+                : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Database className={`w-4 h-4 flex-shrink-0 ${activeTab === 'FINANCIAL_AUDIT' ? 'text-emerald-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            {!isSidebarCollapsed && "Financial Audit"}
           </button>
         </div>
 
@@ -1435,6 +1522,34 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
               </div>
             </div>
 
+            {/* Financial System */}
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-pink-500/50' : 'bg-white border-gray-200 hover:border-pink-400'}`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 blur-[40px] pointer-events-none group-hover:bg-pink-500/10 transition-colors"></div>
+              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-pink-500/10 rounded-lg border border-pink-500/20"><Database className="w-5 h-5 text-pink-400" /></div>
+                  <div>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Financial System</h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Payroll & Billing Config</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 flex-1 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Default Payroll Currency</label>
+                  <select 
+                    value={currency} 
+                    onChange={(e) => setCurrency(e.target.value as any)}
+                    className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300 focus:border-pink-500/50' : 'bg-slate-50 border-gray-300 text-slate-800 focus:border-pink-400'}`}
+                  >
+                    <option value="USD">USD ($) - US Dollars</option>
+                    <option value="LKR">LKR (Rs) - Sri Lankan Rupees</option>
+                    <option value="EUR">EUR (€) - Euros</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -2097,6 +2212,180 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
         {/* TAB 6: MESSAGES TAB */}
         {activeTab === 'MESSAGES' && (
            <AdminMessages theme={theme} />
+        )}
+
+        {/* TAB 7: FINANCIAL AUDIT TAB */}
+        {activeTab === 'FINANCIAL_AUDIT' && (
+          <div className="flex-1 flex flex-col min-h-0 bg-transparent animate-fade-in px-4">
+             <div className="flex items-center justify-between mb-8">
+                <div>
+                   <h1 className={`text-2xl font-black uppercase tracking-widest flex items-center gap-3 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
+                     Financial Audit & Payroll
+                   </h1>
+                   <p className={`text-xs font-mono mt-1 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Verify doctor workloads and calculated remuneration for hospital billing.</p>
+                </div>
+                <button
+                  onClick={exportPayrollPDF}
+                  disabled={isExportingPayroll}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md hover:shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExportingPayroll ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {isExportingPayroll ? 'Exporting PDF...' : 'Download PDF Report'}
+                </button>
+             </div>
+             
+             <div className={`border rounded-xl shadow-xl overflow-hidden transition-colors duration-300 flex-1 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className={`p-5 flex items-center justify-between border-b ${theme === 'DARK' ? 'border-gray-700 bg-[#1a1c2c]/50' : 'border-gray-200 bg-slate-50'}`}>
+                   <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Physician Payroll Ledger</h2>
+                   <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest bg-cyan-500/10 border border-cyan-500/30 px-3 py-1.5 rounded shadow-sm">
+                     Rate: {currency === 'LKR' ? 'Rs. 45,000' : currency === 'EUR' ? '€140' : '$150'} / Unique Patient
+                   </span>
+                </div>
+                
+                <div className="overflow-x-auto p-4">
+                  <table className="w-full text-left border-collapse rounded-xl overflow-hidden shadow-sm">
+                    <thead className={`${theme === 'DARK' ? 'bg-[#1a1c2c]' : 'bg-slate-100'}`}>
+                      <tr>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>Physician</th>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} text-center`}>Department</th>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} text-center`}>Unique Patients Seen</th>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} text-center`}>Total Inferences</th>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} text-right`}>Estimated Remuneration</th>
+                        <th className={`py-4 px-5 text-[10px] font-black uppercase tracking-widest border-b ${theme === 'DARK' ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'} text-center`}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {doctorStats.map((doc, idx) => {
+                        const rate = currency === 'LKR' ? 45000 : currency === 'EUR' ? 140 : 150;
+                        const symbol = currency === 'LKR' ? 'Rs. ' : currency === 'EUR' ? '€' : '$';
+                        const amountDue = doc.patients_seen * rate;
+                        const isProcessed = processedPayments[doc.id] || amountDue === 0;
+                        const isProcessing = processingPayment === doc.id;
+                        
+                        return (
+                          <tr key={idx} className={`hover:bg-cyan-500/5 transition-colors ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-100'} border-b last:border-0`}>
+                            <td className="py-4 px-5">
+                               <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-cyan-900/50 flex items-center justify-center text-cyan-500 font-bold overflow-hidden border border-cyan-500/30">
+                                     {doc.avatar_url ? <img src={doc.avatar_url} alt="Dr." className="w-full h-full object-cover" /> : doc.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className={`font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>Dr. {doc.name}</p>
+                                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-500' : 'text-gray-400'}`}>{doc.id}</p>
+                                  </div>
+                               </div>
+                            </td>
+                            <td className={`py-4 px-5 text-center font-semibold ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>{doc.dept}</td>
+                            <td className={`py-4 px-5 text-center font-black text-lg ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{doc.patients_seen}</td>
+                            <td className={`py-4 px-5 text-center font-mono text-xs ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>{doc.total_inferences} Scans</td>
+                            <td className="py-4 px-5 text-right font-mono font-black text-emerald-500 text-lg">
+                               {symbol}{amountDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-4 px-5 text-center">
+                              {isProcessed ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold tracking-widest uppercase">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Settled
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleProcessPayroll(doc, amountDue)}
+                                  disabled={isProcessing}
+                                  className="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold tracking-widest uppercase transition-colors disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Processing...' : 'Process Payment'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {doctorStats.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-gray-500 font-sans text-sm">No physician workload data available for payroll calculation.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+             </div>
+
+             {/* Hidden Payroll Ledger PDF Template */}
+             <div ref={payrollReportRef} style={{ display: 'none', width: '900px', backgroundColor: '#ffffff', color: '#1e293b', padding: '60px', fontFamily: '"Inter", sans-serif' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #e2e8f0', paddingBottom: '30px', marginBottom: '40px' }}>
+                 <div>
+                   <h1 style={{ margin: 0, fontSize: '32px', color: '#0f172a', letterSpacing: '-0.5px' }}>HepatoAI Central Audit</h1>
+                   <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Hospital Remuneration Ledger</p>
+                 </div>
+                 <div style={{ textAlign: 'right' }}>
+                   <p style={{ margin: 0, color: '#334155', fontSize: '14px', fontFamily: 'monospace' }}>Report ID: PAY-{Math.random().toString(36).substring(2, 10).toUpperCase()}</p>
+                   <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '12px' }}>Generated: {new Date().toLocaleString()}</p>
+                   <p style={{ margin: '4px 0 0', color: '#0ea5e9', fontSize: '12px', fontWeight: 'bold' }}>Default Currency: {currency}</p>
+                 </div>
+               </div>
+
+               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
+                 <thead>
+                   <tr style={{ backgroundColor: '#f8fafc' }}>
+                     <th style={{ padding: '16px 12px', textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Physician</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Department</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Patients Examined</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Inferences</th>
+                     <th style={{ padding: '16px 12px', textAlign: 'right', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>Gross Remuneration</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {doctorStats.map((doc, idx) => {
+                     const rate = currency === 'LKR' ? 45000 : currency === 'EUR' ? 140 : 150;
+                     const symbol = currency === 'LKR' ? 'Rs. ' : currency === 'EUR' ? '€' : '$';
+                     const amountDue = doc.patients_seen * rate;
+                     
+                     return (
+                       <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f1f5f9' }}>
+                         <td style={{ padding: '16px 12px', borderBottom: '1px solid #e2e8f0' }}>
+                           <p style={{ margin: 0, fontWeight: 'bold', color: '#0f172a' }}>Dr. {doc.name}</p>
+                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>{doc.id}</p>
+                         </td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#334155' }}>{doc.dept}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#0f172a' }}>{doc.patients_seen}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontFamily: 'monospace' }}>{doc.total_inferences}</td>
+                         <td style={{ padding: '16px 12px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#059669', fontSize: '16px' }}>
+                           {symbol}{amountDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+                 <tfoot>
+                   <tr>
+                     <td colSpan={4} style={{ padding: '24px 12px', textAlign: 'right', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Ledger Value</td>
+                     <td style={{ padding: '24px 12px', textAlign: 'right', fontWeight: 'bold', color: '#059669', fontSize: '24px' }}>
+                       {(() => {
+                          const rate = currency === 'LKR' ? 45000 : currency === 'EUR' ? 140 : 150;
+                          const symbol = currency === 'LKR' ? 'Rs. ' : currency === 'EUR' ? '€' : '$';
+                          const totalAmount = doctorStats.reduce((sum, doc) => sum + (doc.patients_seen * rate), 0);
+                          return `${symbol}${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                       })()}
+                     </td>
+                   </tr>
+                 </tfoot>
+               </table>
+
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '60px', borderTop: '1px solid #e2e8f0', paddingTop: '30px' }}>
+                  <div style={{ textAlign: 'center', width: '200px' }}>
+                    <div style={{ height: '40px', borderBottom: '1px solid #94a3b8', marginBottom: '10px' }}></div>
+                    <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>System Administrator</span>
+                  </div>
+                  <div style={{ textAlign: 'center', width: '200px' }}>
+                    <div style={{ height: '40px', borderBottom: '1px solid #94a3b8', marginBottom: '10px' }}></div>
+                    <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Hospital Financial Officer</span>
+                  </div>
+               </div>
+             </div>
+          </div>
         )}
 
         {/* FOOTER */}

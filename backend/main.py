@@ -1033,6 +1033,13 @@ class NewUserPayload(BaseModel):
     password: Optional[str] = None
     signature: Optional[str] = None
 
+class PaymentPayload(BaseModel):
+    doctor_id: str
+    doctor_name: str
+    email: str
+    patients_seen: int
+    amount: float
+
 # ==============================================================================
 # IMPORTANT: GMAIL SMTP CONFIGURATION & APP PASSWORDS
 # ==============================================================================
@@ -1874,4 +1881,101 @@ async def poll_imap_inbox():
 async def startup_event():
     asyncio.create_task(poll_imap_inbox())
 
-# Force reload
+class PaymentPayload(BaseModel):
+    doctor_id: str
+    doctor_name: str
+    email: str
+    patients_seen: int
+    amount: float
+    currency: str = "USD"
+
+@app.post("/api/v1/admin/process-payroll")
+async def process_payroll_endpoint(payload: PaymentPayload):
+    log_doc = {
+        "id": f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "staffId": "ST-ADMIN",
+        "action": f"Processed payroll of ${payload.amount:.2f} for Dr. {payload.doctor_name} ({payload.doctor_id})",
+        "ip": "192.168.10.45",
+        "severity": "Info",
+        "suspicious": False
+    }
+    await system_logs_collection.insert_one(log_doc)
+    
+    if not payload.email or not SENDER_EMAIL or not SENDER_PASSWORD:
+        return {"status": "success", "message": "Payroll logged but email not configured/provided."}
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = formataddr(("HepatoAI Finance & Payroll", SENDER_EMAIL))
+        msg['To'] = payload.email
+        msg['Subject'] = "HepatoAI - Payroll Processed & Remittance Advice"
+
+        symbol = "Rs. " if payload.currency == "LKR" else "€" if payload.currency == "EUR" else "$"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>HepatoAI – Payroll Processed</title>
+        </head>
+        <body style="margin:0;padding:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background-color:#0d1117;color:#e6edf3;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d1117;padding:40px 16px;">
+            <tr><td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#052e16 0%,#064e3b 100%);padding:32px 40px;border-bottom:1px solid #065f46;">
+                            <span style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#34d399;font-weight:700;">HOSPITAL FINANCIAL AUDIT</span>
+                            <h1 style="margin:8px 0 4px;font-size:24px;font-weight:700;color:#ecfdf5;letter-spacing:-0.3px;">
+                                Remittance Advice Verified
+                            </h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px 40px;">
+                            <p style="margin:0 0 24px;font-size:16px;line-height:1.7;color:#c9d1d9;">
+                                Dear <strong style="color:#f0f6fc;">Dr. {payload.doctor_name}</strong>,
+                            </p>
+                            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#8b949e;">
+                                This is an automated notification to inform you that your clinical inference workload has been verified and your payment has been processed.
+                            </p>
+                            <div style="background-color:#0d1117;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px;">
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="padding-bottom:12px;"><span style="color:#8b949e;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Physician ID</span></td>
+                                        <td align="right" style="padding-bottom:12px;"><span style="color:#f0f6fc;font-family:monospace;font-size:14px;">{payload.doctor_id}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding-bottom:12px;border-top:1px solid #21262d;padding-top:12px;"><span style="color:#8b949e;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Verified Unique Patients</span></td>
+                                        <td align="right" style="padding-bottom:12px;border-top:1px solid #21262d;padding-top:12px;"><span style="color:#34d399;font-weight:bold;font-size:14px;">{payload.patients_seen}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border-top:1px solid #21262d;padding-top:12px;"><span style="color:#8b949e;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Remuneration Disbursed</span></td>
+                                        <td align="right" style="border-top:1px solid #21262d;padding-top:12px;"><span style="color:#34d399;font-weight:bold;font-size:18px;">{symbol}{payload.amount:,.2f}</span></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <p style="margin:0;font-size:12px;color:#8b949e;text-align:center;">
+                                Funds should reflect in your registered bank account within 2-3 business days.<br>
+                                Securely processed by HepatoAI Payroll Engine.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td></tr>
+            </table>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html_content, 'html'))
+        
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
+            
+        return {"status": "success", "message": "Payroll processed and email dispatched."}
+    except Exception as e:
+        print(f"Failed to send payroll email: {e}")
+        return {"status": "error", "message": "Failed to send email."}
