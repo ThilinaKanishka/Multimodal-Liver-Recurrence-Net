@@ -527,7 +527,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                       : "border-dashed border-[#2a364a] hover:border-blue-500/50 bg-[#0a0e17]"
                   }`}>
                     {pipelineStep === "STEP1" && <div className="scanning-laser"></div>}
-                    <input type="file" accept=".dcm" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
+                    <input type="file" accept=".dcm,image/dicom,application/dicom,*/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
                         <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
@@ -544,7 +544,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                         </div>
                       )
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors relative z-10">
+                      <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors">
                         <Upload className="w-6 h-6 mx-auto mb-2 opacity-60 group-hover:opacity-100" />
                         <p className="text-[10px] uppercase tracking-wider font-semibold">Load DICOM Volume</p>
                       </div>
