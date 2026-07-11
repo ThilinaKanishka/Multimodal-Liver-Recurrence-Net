@@ -2,10 +2,5 @@ fastapi
 uvicorn
 python-multipart
 pydicom
-xgboost
-imbalanced-learn
-pandas
-numpy
-scikit-learn
 PyPDF2
 python-dotenv

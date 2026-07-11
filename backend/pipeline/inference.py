@@ -1,8 +1,14 @@
-import pandas as pd
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    
 from typing import Dict, Any
 from .radiomics_engine import RadiomicsEngine
 from .nlp_engine import MedicalNLPEngine
 from .fusion_model import MultiModalFusionModel
+
 
 class MultimodalInferencePipeline:
     def __init__(self, model_dir: str):
@@ -33,14 +39,17 @@ class MultimodalInferencePipeline:
             
         # 3. Multimodal Feature Concatenation
         master_dict = {**tabular_data, **img_features, **text_features}
-        master_df = pd.DataFrame([master_dict])
         
-        # Categorical Encoding (similar to training phase)
-        master_df = pd.get_dummies(master_df)
+        if PANDAS_AVAILABLE:
+            master_df = pd.DataFrame([master_dict])
+            master_df = pd.get_dummies(master_df)
+        else:
+            master_df = None
 
         # 4. Prediction Execution
-        if self.is_loaded:
+        if self.is_loaded and PANDAS_AVAILABLE:
             probability, is_high_risk = self.fusion_core.predict_risk(master_df)
+
         else:
             # Fallback heuristic if models aren't trained yet
             tumor_size = float(master_dict.get("tumor_size_cm", 5.0))

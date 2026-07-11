@@ -1,7 +1,7 @@
 {
   "functions": {
     "**/*.py": {
-      "excludeFiles": "{frontend/node_modules/**,whatsapp-otp-server/node_modules/**,**/*.pth,**/*.db,data/**,frontend/dist/**}"
+      "excludeFiles": "{frontend/**,whatsapp-otp-server/**,data/**,**/*.pth,**/*.db,**/*.pkl}"
     }
   }
 }
