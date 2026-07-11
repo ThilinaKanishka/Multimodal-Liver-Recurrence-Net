@@ -2,14 +2,11 @@ fastapi
 uvicorn
 python-multipart
 pydicom
-spacy
-scispacy
 xgboost
 imbalanced-learn
 pandas
 numpy
 scikit-learn
-torch
 PyPDF2
 SimpleITK
 python-dotenv
