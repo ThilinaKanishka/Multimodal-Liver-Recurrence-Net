@@ -8,5 +8,4 @@ pandas
 numpy
 scikit-learn
 PyPDF2
-SimpleITK
 python-dotenv
