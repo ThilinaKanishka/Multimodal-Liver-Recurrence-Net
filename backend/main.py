@@ -909,7 +909,7 @@ async def generate_cdss_report(request: CDSSReportRequest):
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6ItoEExqZCyh6ruZ-c0zoxPX34ZAAVvj9pjZRG6sBBG2Q"))
         model = genai.GenerativeModel('gemini-1.5-flash')
         
-        prompt = f"""You are an expert Clinical Decision Support System (CDSS) assisting oncologists. Your task is to analyze patient data alongside an AI model's prediction to generate a concise, highly professional clinical report.
+        prompt = f"""You are an expert Clinical Decision Support System (CDSS) assisting oncologists. Your task is to analyze patient data alongside an AI model's prediction to generate a comprehensive, highly detailed, enterprise-level clinical report.
 
 INPUT DATA:
 Patient Age: {request.patient_age}
@@ -918,16 +918,16 @@ Extracted Medical History: {request.medical_history}
 AI Predicted Liver Recurrence Risk: {request.ai_predicted_risk}
 
 INSTRUCTIONS:
-Adopt a highly professional, objective medical tone.
-Provide a 3-4 sentence clinical summary analyzing the risk based on the provided history and the AI prediction score.
-Suggest 3 actionable, evidence-based recommendations for the doctor (e.g., follow-up scans, specific lab tests).
-Include a short, mandatory disclaimer stating that this is an AI-assistive tool and the final clinical decision rests with the physician.
+1. Adopt a highly professional, objective medical tone suitable for an enterprise-level clinical diagnostic pipeline.
+2. Provide a comprehensive clinical summary (at least 6-8 sentences) analyzing the risk based on the provided history and the AI prediction score. Detail the potential pathophysiological correlations and prognostic implications.
+3. Suggest 5 actionable, highly specific, evidence-based recommendations for the doctor (e.g., specific advanced imaging modalities, molecular biomarker testing, multidisciplinary tumor board review, surveillance intervals).
+4. Include a mandatory disclaimer stating that this is an AI-assistive tool and the final clinical decision rests with the physician.
 
 OUTPUT FORMAT:
 Strictly return ONLY a valid JSON object with the following keys. Do not include any markdown formatting or any extra text outside the JSON structure.
 {{
 "clinical_summary": "...",
-"recommendations": ["...", "...", "..."],
+"recommendations": ["...", "...", "...", "...", "..."],
 "disclaimer": "..."
 }}"""
         
