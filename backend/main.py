@@ -897,19 +897,45 @@ async def predict_recurrence(
 
 import google.generativeai as genai
 
+from typing import Optional
+
 class CDSSReportRequest(BaseModel):
     patient_age: str
     patient_gender: str
     medical_history: str
     ai_predicted_risk: str
+    baseline_risk: Optional[str] = None
+    is_longitudinal: Optional[bool] = False
 
 @app.post("/api/v1/generate-cdss-report")
 async def generate_cdss_report(request: CDSSReportRequest):
     try:
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6ItoEExqZCyh6ruZ-c0zoxPX34ZAAVvj9pjZRG6sBBG2Q"))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-3.5-flash')
         
-        prompt = f"""You are an expert Clinical Decision Support System (CDSS) assisting oncologists. Your task is to analyze patient data alongside an AI model's prediction to generate a comprehensive, highly detailed, enterprise-level clinical report.
+        if request.is_longitudinal and request.baseline_risk:
+            prompt = f"""You are an expert Clinical Decision Support System (CDSS) assisting oncologists. Your task is to analyze longitudinal patient data alongside an AI model's comparative prediction to generate a comprehensive, highly detailed, enterprise-level clinical report focusing on disease progression or regression.
+
+INPUT DATA:
+Patient Age: {request.patient_age}
+Patient Gender: {request.patient_gender}
+Extracted Medical History: {request.medical_history}
+Baseline Liver Recurrence Risk: {request.baseline_risk}
+Follow-up Liver Recurrence Risk (Current): {request.ai_predicted_risk}
+
+INSTRUCTIONS:
+1. Adopt a highly professional, objective medical tone suitable for an enterprise-level clinical diagnostic pipeline.
+2. Provide a comprehensive clinical summary (at least 6-8 sentences) comparing the baseline and follow-up risks. Detail the potential pathophysiological implications of the change in risk trajectory.
+3. Suggest 5 actionable, highly specific, evidence-based recommendations tailored to the patient's specific longitudinal trend.
+4. Identify 3 specific prognostic drivers (patient/clinical factors) explaining the trajectory change, and classify their impact.
+5. Provide a short follow-up timeline recommendation and reference 2 standard medical guidelines (e.g., NCCN, AASLD, EASL).
+6. Include a mandatory disclaimer stating that this is an AI-assistive tool and the final clinical decision rests with the physician.
+
+OUTPUT FORMAT:
+Strictly return ONLY a valid JSON object with the following keys. Do not include any markdown formatting or any extra text outside the JSON structure.
+"""
+        else:
+            prompt = f"""You are an expert Clinical Decision Support System (CDSS) assisting oncologists. Your task is to analyze patient data alongside an AI model's prediction to generate a comprehensive, highly detailed, enterprise-level clinical report.
 
 INPUT DATA:
 Patient Age: {request.patient_age}
@@ -921,15 +947,26 @@ INSTRUCTIONS:
 1. Adopt a highly professional, objective medical tone suitable for an enterprise-level clinical diagnostic pipeline.
 2. Provide a comprehensive clinical summary (at least 6-8 sentences) analyzing the risk based on the provided history and the AI prediction score. Detail the potential pathophysiological correlations and prognostic implications.
 3. Suggest 5 actionable, highly specific, evidence-based recommendations for the doctor (e.g., specific advanced imaging modalities, molecular biomarker testing, multidisciplinary tumor board review, surveillance intervals).
-4. Include a mandatory disclaimer stating that this is an AI-assistive tool and the final clinical decision rests with the physician.
+4. Identify 3 specific prognostic drivers (patient/clinical factors) and classify their impact.
+5. Provide a short follow-up timeline recommendation and reference 2 standard medical guidelines (e.g., NCCN, AASLD, EASL).
+6. Include a mandatory disclaimer stating that this is an AI-assistive tool and the final clinical decision rests with the physician.
 
 OUTPUT FORMAT:
 Strictly return ONLY a valid JSON object with the following keys. Do not include any markdown formatting or any extra text outside the JSON structure.
-{{
+"""
+        
+        prompt += """{
 "clinical_summary": "...",
 "recommendations": ["...", "...", "...", "...", "..."],
+"prognostic_drivers": [
+  {"factor": "...", "impact": "HIGH_RISK"},
+  {"factor": "...", "impact": "PROTECTIVE"},
+  {"factor": "...", "impact": "NEUTRAL"}
+],
+"guidelines_referenced": ["...", "..."],
+"follow_up_timeline": "...",
 "disclaimer": "..."
-}}"""
+}"""
         
         response = model.generate_content(prompt)
         
