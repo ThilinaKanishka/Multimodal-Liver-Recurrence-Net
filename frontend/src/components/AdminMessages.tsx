@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail, Megaphone } from 'lucide-react';
+import { Send, User, MessageSquare, ShieldAlert, CircleUser, Search, Paperclip, Smile, Check, CheckCheck, Clock, ShieldCheck, Ticket, Plus, X, Mail, Megaphone, Cpu } from 'lucide-react';
 
 const analyzeTone = (text: string) => {
   if (!text || text.length < 3) return null;
@@ -560,6 +560,17 @@ export const AdminMessages = ({ theme }: { theme: 'DARK' | 'LIGHT' }) => {
                       ✨ Suggestion: {getSuggestion(newMessage)} (Press Tab)
                     </button>
                   )}
+                  
+                  {/* AI Smart Helpdesk Auto-Fix */}
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setNewMessage("I have reviewed the logs and identified the anomaly. Running diagnostic script: `sudo restart dicom_viewer_service`. Please confirm if the issue is resolved on your end.");
+                    }}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200 border ${theme === 'DARK' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100'}`}
+                  >
+                    <Cpu className="w-3 h-3" /> AI Smart Helpdesk: Suggest Resolution
+                  </button>
                 </div>
                 
                 {/* Send via Email Checkbox */}
