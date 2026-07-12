@@ -547,85 +547,141 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                   </h2>
                 </div>
                 <div className="p-3 flex flex-col gap-3 flex-1 justify-center max-h-[calc(100vh-240px)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a364a] scrollbar-track-transparent">
-                  <div className={`border rounded-sm p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer overflow-hidden ${
+                  <div className={`border rounded-lg p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer overflow-hidden ${
                     pipelineStep === "STEP1" || pipelineStep === "STEP3"
-                      ? "border-[#00b8d4] bg-[#131524] cyber-pulse"
-                      : "border-dashed border-[#2a364a] hover:border-blue-500/50 bg-[#0a0e17]"
+                      ? "border-[#00b8d4] bg-[#040810] shadow-[0_0_20px_rgba(0,184,212,0.3),inset_0_0_15px_rgba(0,184,212,0.15)]"
+                      : "border-dashed border-[#2a364a] hover:border-[#00b8d4]/50 bg-[#0a0e17]"
                   }`}>
-                    {pipelineStep === "STEP1" && <div className="scanning-laser"></div>}
+                    {/* Enterprise Scanning Laser Effect for DICOM */}
+                    {(pipelineStep === "STEP1" || pipelineStep === "STEP3") && (
+                      <>
+                         <div className="absolute top-0 bottom-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(0,184,212,0.3),transparent)] animate-pulse"></div>
+                         <div className="absolute top-0 left-0 w-full h-[3px] bg-[#00e5ff] shadow-[0_0_20px_#00e5ff] animate-[ping_2s_infinite]"></div>
+                         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00e5ff]/20 to-transparent animate-pulse pointer-events-none"></div>
+                      </>
+                    )}
                     <input type="file" accept=".dcm,image/dicom,application/dicom,*/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
-                        <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-blue-400"}`}>
-                          <Database className={`w-7 h-7 mx-auto mb-0.5 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : "opacity-90"}`} />
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                            <span className="text-xs font-mono font-bold truncate max-w-[180px] text-slate-100">{imageFile?.name || "DICOM Loaded"}</span>
+                        <div className={`flex flex-col items-center gap-2 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00e5ff]" : "text-blue-400"}`}>
+                          <div className="relative">
+                            {pipelineStep === "STEP1" && (
+                              <svg className="absolute -inset-4 w-[calc(100%+32px)] h-[calc(100%+32px)] text-[#00b8d4] animate-[spin_3s_linear_infinite] opacity-50" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" strokeDasharray="10 20" strokeLinecap="round" />
+                              </svg>
+                            )}
+                            <Database className={`w-8 h-8 mx-auto mb-1 transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_12px_#00e5ff] scale-110" : "opacity-90"}`} />
                           </div>
-                          <span className="text-[9px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded font-bold">3D VOLUME READY</span>
+                          <div className="flex items-center gap-1.5 bg-[#0a0e17]/80 px-2 py-1 rounded shadow-inner">
+                            <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${pipelineStep === "STEP1" ? "animate-ping text-[#00e5ff]" : "text-[#00b8d4]"}`} />
+                            <span className="text-[11px] font-mono font-bold truncate max-w-[180px] text-slate-100 tracking-wide">{imageFile?.name || "DICOM Loaded"}</span>
+                          </div>
+                          <span className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold tracking-widest border transition-all ${pipelineStep === "STEP1" ? "bg-[#00b8d4]/20 text-[#00e5ff] border-[#00b8d4] shadow-[0_0_10px_#00b8d4] animate-pulse" : "bg-blue-950/60 text-blue-300 border-blue-800/50"}`}>
+                            {pipelineStep === "STEP1" ? "EXTRACTING RADIOMICS..." : "3D VOLUME READY"}
+                          </span>
                         </div>
                       ) : (
-                        <div className="relative w-full flex justify-center">
-                          <img src={imagePreview} alt="Preview" className={`max-h-20 rounded object-cover shadow-md transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "ring-2 ring-[#00b8d4] shadow-[0_0_12px_#00b8d4]" : ""}`} />
+                        <div className="relative w-full flex justify-center z-10">
+                          <img src={imagePreview} alt="Preview" className={`max-h-24 rounded object-cover shadow-lg transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "ring-2 ring-[#00e5ff] shadow-[0_0_20px_#00e5ff] scale-105" : ""}`} />
                         </div>
                       )
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-blue-400 transition-colors">
-                        <Upload className="w-6 h-6 mx-auto mb-2 opacity-60 group-hover:opacity-100" />
-                        <p className="text-[10px] uppercase tracking-wider font-semibold">Load DICOM Volume</p>
+                      <div className="text-center text-slate-500 group-hover:text-[#00b8d4] transition-colors">
+                        <Upload className="w-8 h-8 mx-auto mb-2 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] uppercase tracking-widest font-bold">Load DICOM Volume</p>
                       </div>
                     )}
                   </div>
 
                   {/* Multimodal Fusion Link / Connector */}
-                  <div className="flex items-center justify-center -my-1 z-10 relative h-6">
-                    <div className={`h-full transition-all duration-500 ${
+                  <div className="flex items-center justify-center -my-1 z-10 relative h-10">
+                    <div className={`h-full transition-all duration-700 ${
                       pipelineStep === "STEP3" 
-                        ? "w-1 data-fusion-flow shadow-[0_0_10px_#00b8d4]" 
-                        : "w-0.5 bg-[#2a364a]"
+                        ? "w-[4px] bg-gradient-to-b from-[#00e5ff] via-[#10b981] to-[#00e5ff] shadow-[0_0_15px_#00e5ff] animate-pulse" 
+                        : "w-px bg-[#2a364a]"
                     }`} />
                     {pipelineStep === "STEP3" && (
-                      <div className="absolute bg-[#131524] border border-[#00b8d4] text-[#00b8d4] text-[9px] font-mono px-2 py-0.5 rounded shadow-[0_0_12px_rgba(0,184,212,0.5)] flex items-center gap-1 cyber-pulse">
-                        <Activity className="w-3 h-3" /> FUSION ACTIVE
-                      </div>
+                      <>
+                        {/* Particles moving to center */}
+                        <div className="absolute top-0 w-2.5 h-2.5 bg-[#00e5ff] rounded-full shadow-[0_0_10px_#00e5ff] animate-[ping_1s_infinite]"></div>
+                        <div className="absolute bottom-0 w-2.5 h-2.5 bg-[#10b981] rounded-full shadow-[0_0_10px_#10b981] animate-[ping_1s_infinite_0.5s]"></div>
+                        
+                        <div className="absolute bg-[#0a0e17] border border-[#00e5ff] text-[#00e5ff] text-[10px] font-mono px-3 py-1.5 rounded-full shadow-[0_0_25px_rgba(0,229,255,0.7)] flex items-center gap-2 z-20">
+                          <Activity className="w-4 h-4 animate-pulse" /> 
+                          <span className="font-bold tracking-widest">MULTIMODAL FUSION</span>
+                        </div>
+                      </>
                     )}
                   </div>
 
-                  <div className={`border rounded-sm p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-16 overflow-hidden ${
+                  <div className={`border rounded-lg p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-24 overflow-hidden ${
                     pipelineStep === "STEP2" || pipelineStep === "STEP3"
-                      ? "border-[#10b981] bg-[#131524] cyber-pulse-green"
-                      : "border-[#2a364a] bg-[#0a0e17] hover:border-emerald-500/50"
+                      ? "border-[#10b981] bg-[#04100b] shadow-[0_0_20px_rgba(16,185,129,0.3),inset_0_0_15px_rgba(16,185,129,0.15)]"
+                      : "border-dashed border-[#2a364a] hover:border-[#10b981]/50 bg-[#0a0e17]"
                   }`}>
-                    {pipelineStep === "STEP2" && <div className="scanning-laser-green"></div>}
+                    {/* Enterprise Scanning Laser Effect for PDF */}
+                    {(pipelineStep === "STEP2" || pipelineStep === "STEP3") && (
+                      <>
+                         <div className="absolute top-0 bottom-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(16,185,129,0.3),transparent)] animate-pulse"></div>
+                         <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#34d399] shadow-[0_0_20px_#34d399] animate-[ping_2s_infinite]"></div>
+                         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-[#34d399]/20 to-transparent animate-pulse pointer-events-none"></div>
+                      </>
+                    )}
                     <input type="file" accept=".pdf" onChange={handlePdfChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {pdfFile ? (
-                      <div className={`flex items-center gap-2 transition-colors duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#00b8d4]" : "text-emerald-400"}`}>
-                        <CheckCircle className={`w-4 h-4 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_8px_#00b8d4]" : ""}`} />
-                        <span className="text-xs font-mono truncate max-w-[200px]">{pdfFile.name}</span>
+                      <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#34d399]" : "text-emerald-400"}`}>
+                        <div className="relative">
+                          {pipelineStep === "STEP2" && (
+                            <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] text-[#10b981] animate-[spin_3s_linear_infinite_reverse] opacity-50 scale-x-[-1]" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="15 15" strokeLinecap="round" />
+                            </svg>
+                          )}
+                          <FileText className={`w-7 h-7 mx-auto mb-1 transition-all duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_12px_#34d399] scale-110" : "opacity-90"}`} />
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-[#0a0e17]/80 px-2 py-1 rounded shadow-inner">
+                          <CheckCircle className={`w-3.5 h-3.5 ${pipelineStep === "STEP2" ? "animate-ping text-[#34d399]" : "text-emerald-400"}`} />
+                          <span className="text-[11px] font-mono font-bold truncate max-w-[200px] text-slate-100">{pdfFile.name}</span>
+                        </div>
+                        {pipelineStep === "STEP2" && (
+                          <span className="text-[9px] font-mono px-2 py-0.5 mt-1 rounded font-bold tracking-widest border bg-[#10b981]/20 text-[#34d399] border-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse">
+                            NLP EXTRACTION...
+                          </span>
+                        )}
                       </div>
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-emerald-400 transition-colors flex items-center gap-2">
-                         <FileText className="w-4 h-4 opacity-60 group-hover:opacity-100" />
-                         <p className="text-[10px] uppercase tracking-wider font-semibold">Load Clinical PDF</p>
+                      <div className="text-center text-slate-500 group-hover:text-[#10b981] transition-colors flex flex-col items-center gap-2">
+                         <FileText className="w-8 h-8 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-transform" />
+                         <p className="text-[10px] uppercase tracking-widest font-bold">Load Clinical PDF</p>
                       </div>
                     )}
                   </div>
                   
                   {/* Technical Loading Status & Progress Bar */}
                   {loading && (
-                    <div className="bg-[#131524] border border-[#2a364a] rounded-sm p-3 flex flex-col gap-2 shadow-inner transition-all duration-300 mt-1">
-                      <div className="flex justify-between items-center text-[10px] font-mono">
-                        <span className="text-[#00b8d4] font-bold flex items-center gap-1.5 animate-pulse">
-                          <span className="inline-block w-1.5 h-1.5 bg-[#00b8d4] rounded-full"></span>
+                    <div className="bg-[#040810] border border-[#00b8d4]/50 rounded-lg p-4 flex flex-col gap-3 shadow-[0_0_20px_rgba(0,184,212,0.15)] transition-all duration-300 mt-2 relative overflow-hidden">
+                      {/* Background grid for high-tech feel */}
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#00b8d4_1px,transparent_1px),linear-gradient(to_bottom,#00b8d4_1px,transparent_1px)] bg-[size:1rem_1rem] opacity-10"></div>
+                      
+                      <div className="flex justify-between items-center text-[10px] font-mono relative z-10">
+                        <span className="text-[#00e5ff] font-bold flex items-center gap-2 drop-shadow-[0_0_5px_rgba(0,229,255,0.8)] tracking-wide">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00e5ff] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00b8d4]"></span>
+                          </span>
                           {loadingText}
                         </span>
-                        <span className="text-slate-400 font-bold">{progress}%</span>
+                        <span className="text-[#00e5ff] font-black tracking-widest drop-shadow-[0_0_5px_#00e5ff] text-xs">{progress}%</span>
                       </div>
-                      <div className="w-full bg-[#0a0e17] h-1.5 rounded-full overflow-hidden border border-[#1e293b]">
+                      
+                      <div className="w-full bg-[#0a0e17] h-3 rounded-full overflow-hidden border border-[#00b8d4]/40 relative z-10 shadow-inner">
+                        {/* Progress Bar Fill */}
                         <div 
-                          className="bg-[#00b8d4] h-full transition-all duration-500 ease-out shadow-[0_0_8px_#00b8d4]"
+                          className="bg-gradient-to-r from-[#00b8d4] via-[#00e5ff] to-[#00b8d4] h-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(0,229,255,0.8)] relative"
                           style={{ width: `${progress}%` }}
-                        />
+                        >
+                           {/* Inner shine */}
+                           <div className="absolute top-0 bottom-0 left-0 right-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)] animate-[pulse_1.5s_infinite]"></div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -704,13 +760,48 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                   <button
                     type="submit"
                     disabled={loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
-                    className={`w-full py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest shadow-lg transition-all ${
+                    className={`relative w-full h-[48px] rounded flex items-center justify-center font-bold text-xs uppercase tracking-widest transition-all duration-500 overflow-hidden group ${
                       loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
-                        ? "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
-                        : "bg-[#00b8d4] hover:bg-[#009ac2] text-[#0a0e17] font-black border border-[#00b8d4]/80 shadow-[0_0_15px_rgba(0,184,212,0.3)]"
+                        ? loading
+                          ? "bg-[#040810] border border-[#00b8d4] shadow-[0_0_25px_rgba(0,184,212,0.4),inset_0_0_15px_rgba(0,184,212,0.2)]"
+                          : "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
+                        : "bg-gradient-to-r from-[#00b8d4] via-[#00e5ff] to-[#00b8d4] bg-[length:200%_auto] hover:bg-[position:right_center] text-[#0a0e17] font-black border border-[#00b8d4] shadow-[0_0_20px_rgba(0,184,212,0.4)] hover:shadow-[0_0_30px_rgba(0,184,212,0.6)] hover:scale-[1.01]"
                     }`}
                   >
-                    {loading ? "Pipeline Active..." : (!imageFile && !pdfFile ? "Upload DICOM or PDF" : "Initialize Compare Pipeline")}
+                    {loading && (
+                      <>
+                        {/* Shimmering background effect using tailwind's pulse */}
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#00b8d4]/30 via-transparent to-transparent animate-pulse"></div>
+                        <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00e5ff]/80 to-transparent shadow-[0_0_15px_#00e5ff] animate-pulse"></div>
+                        <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-[#00b8d4]/50 to-transparent animate-pulse"></div>
+                        <div className="absolute inset-y-0 right-0 w-2 bg-gradient-to-l from-[#00b8d4]/50 to-transparent animate-pulse"></div>
+                      </>
+                    )}
+                    
+                    <div className={`relative z-10 flex items-center justify-center gap-3 h-full w-full transition-all duration-300 ${loading ? "text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.9)]" : ""}`}>
+                      {loading ? (
+                        <>
+                          <div className="relative flex items-center justify-center w-6 h-6">
+                            {/* Outer orbital ring */}
+                            <svg className="absolute w-full h-full text-[#00b8d4] animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animationDuration: '2s' }}>
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeDasharray="15 85" strokeLinecap="round" />
+                            </svg>
+                            {/* Inner orbital ring (reversed by flipping X axis) */}
+                            <svg className="absolute w-full h-full text-[#00e5ff] animate-spin scale-x-[-1]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animationDuration: '1.2s' }}>
+                              <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="20 40" strokeLinecap="round" />
+                            </svg>
+                            {/* Pulsing core */}
+                            <div className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full shadow-[0_0_12px_#00e5ff] animate-ping"></div>
+                          </div>
+                          <span className="animate-pulse tracking-[0.25em]">Pipeline Active...</span>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                           <Activity className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:animate-pulse transition-opacity" />
+                           <span className="tracking-[0.1em]">{!imageFile && !pdfFile ? "Upload DICOM or PDF" : "Initialize Compare Pipeline"}</span>
+                        </div>
+                      )}
+                    </div>
                   </button>
                 </div>
               </div>
