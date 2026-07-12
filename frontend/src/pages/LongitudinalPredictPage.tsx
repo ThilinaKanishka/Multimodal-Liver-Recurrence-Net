@@ -18,7 +18,11 @@ import {
   Hexagon,
   QrCode,
   RotateCcw,
-  Split
+  Split,
+  BookOpen,
+  Clock,
+  TrendingUp,
+  Info
 } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
@@ -185,11 +189,18 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
     setGeneratingCdss(true);
     setCdssReport(null);
     try {
+      const baselineRec = pastRecords.find(r => r._id === selectedBaselineId);
+      const baselineRiskStr = baselineRec 
+        ? `${(baselineRec.probability * 100).toFixed(1)}% (${baselineRec.recurrence_risk} RISK)`
+        : undefined;
+
       const payload = {
         patient_age: patientInfo.age,
         patient_gender: patientInfo.sex,
         medical_history: formData.clinical_text_report || "No explicit history provided.",
-        ai_predicted_risk: `${result.probability}% (${result.recurrence_risk} RISK)`
+        ai_predicted_risk: `${result.probability}% (${result.recurrence_risk} RISK)`,
+        is_longitudinal: true,
+        baseline_risk: baselineRiskStr
       };
       
       const res = await axios.post("http://127.0.0.1:8000/api/v1/generate-cdss-report", payload, {
@@ -943,24 +954,88 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 
                 {/* Gen AI CDSS Report Render */}
                 {cdssReport && (
-                  <div className="mt-4 p-4 border border-indigo-500/30 bg-indigo-950/20 rounded-md">
-                    <h3 className="text-indigo-400 font-bold mb-2 uppercase border-b border-indigo-500/20 pb-1 flex items-center gap-2">
-                      <Hexagon className="w-4 h-4" /> AI Clinical Summary
-                    </h3>
-                    <p className="text-slate-300 mb-4">{cdssReport.clinical_summary}</p>
+                  <div className="mt-5 border border-indigo-500/40 bg-[#0a0e17] rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="bg-gradient-to-r from-indigo-900/40 to-blue-900/20 px-5 py-3 border-b border-indigo-500/40 flex justify-between items-center">
+                      <h3 className="text-indigo-300 font-black uppercase tracking-widest text-xs flex items-center gap-2">
+                        <Hexagon className="w-4 h-4 text-indigo-400" /> Executive Clinical Summary
+                      </h3>
+                      <span className="text-[9px] font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">
+                        AI GENERATED
+                      </span>
+                    </div>
                     
-                    <h3 className="text-indigo-400 font-bold mb-2 uppercase border-b border-indigo-500/20 pb-1 flex items-center gap-2">
-                      <Activity className="w-4 h-4" /> Recommended Actions
-                    </h3>
-                    <ul className="list-disc pl-5 mb-4 text-slate-300 space-y-1">
-                      {cdssReport.recommendations?.map((rec: string, i: number) => (
-                        <li key={i}>{rec}</li>
-                      ))}
-                    </ul>
-                    
-                    <div className="text-[9px] text-slate-500 uppercase flex items-start gap-2 bg-[#0a0e17] p-2 rounded border border-[#1e293b]">
-                      <AlertTriangle className="w-3 h-3 flex-shrink-0 text-amber-500" />
-                      {cdssReport.disclaimer}
+                    <div className="p-5">
+                      <div className="text-slate-300 text-xs leading-relaxed mb-6 bg-[#131826] p-4 rounded-md border border-[#1e293b] shadow-inner">
+                        {cdssReport.clinical_summary}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Recommendations */}
+                        <div className="bg-[#131826] border border-[#1e293b] rounded-md p-4 shadow-sm">
+                          <h4 className="text-emerald-400 font-bold mb-3 uppercase tracking-wider text-[10px] flex items-center gap-2 border-b border-[#1e293b] pb-2">
+                            <Activity className="w-3.5 h-3.5" /> Recommended Actions
+                          </h4>
+                          <ul className="space-y-2 text-slate-300">
+                            {cdssReport.recommendations?.map((rec: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-[11px] leading-tight">
+                                <span className="text-emerald-500 mt-0.5">▸</span> {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div className="flex flex-col gap-4">
+                          {/* Prognostic Drivers */}
+                          <div className="bg-[#131826] border border-[#1e293b] rounded-md p-4 shadow-sm flex-1">
+                            <h4 className="text-amber-400 font-bold mb-3 uppercase tracking-wider text-[10px] flex items-center gap-2 border-b border-[#1e293b] pb-2">
+                              <TrendingUp className="w-3.5 h-3.5" /> Key Prognostic Drivers
+                            </h4>
+                            <div className="space-y-2">
+                              {cdssReport.prognostic_drivers?.map((driver: any, i: number) => (
+                                <div key={i} className="flex justify-between items-center text-[10px] bg-[#0a0e17] px-2 py-1.5 rounded border border-[#1e293b]">
+                                  <span className="text-slate-300 font-medium truncate pr-2">{driver.factor}</span>
+                                  <span className={`font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-widest text-[8px] flex-shrink-0 ${
+                                    driver.impact === 'HIGH_RISK' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
+                                    driver.impact === 'PROTECTIVE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                                  }`}>
+                                    {driver.impact.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Guidelines & Timeline */}
+                          <div className="grid grid-cols-2 gap-4">
+                             <div className="bg-[#131826] border border-[#1e293b] rounded-md p-3 shadow-sm">
+                                <h4 className="text-blue-400 font-bold mb-2 uppercase tracking-wider text-[9px] flex items-center gap-1.5">
+                                  <BookOpen className="w-3 h-3" /> Guidelines
+                                </h4>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {cdssReport.guidelines_referenced?.map((g: string, i: number) => (
+                                    <span key={i} className="text-[8px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                                      {g}
+                                    </span>
+                                  ))}
+                                </div>
+                             </div>
+                             <div className="bg-[#131826] border border-[#1e293b] rounded-md p-3 shadow-sm">
+                                <h4 className="text-purple-400 font-bold mb-2 uppercase tracking-wider text-[9px] flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3" /> Follow-up
+                                </h4>
+                                <p className="text-[10px] text-slate-300 font-medium leading-tight">
+                                  {cdssReport.follow_up_timeline}
+                                </p>
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-[9px] text-slate-500 uppercase flex items-start gap-2 bg-[#131826] p-3 rounded border border-rose-500/20 shadow-inner">
+                        <Info className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                        <span className="leading-tight text-rose-200/70">{cdssReport.disclaimer}</span>
+                      </div>
                     </div>
                   </div>
                 )}
