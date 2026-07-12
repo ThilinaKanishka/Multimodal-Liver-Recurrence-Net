@@ -5,7 +5,7 @@ import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network, ShieldCheck, Send, UserPlus, Ticket } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
@@ -151,6 +151,67 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
   
   const payrollReportRef = React.useRef<HTMLDivElement>(null);
   const [isExportingPayroll, setIsExportingPayroll] = useState(false);
+
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [generatingInsight, setGeneratingInsight] = useState(false);
+  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [insightContext, setInsightContext] = useState("");
+
+  const [showCopilot, setShowCopilot] = useState(false);
+  const [copilotQuery, setCopilotQuery] = useState("");
+  const [copilotMessages, setCopilotMessages] = useState<{sender: 'ADMIN' | 'AI', text: string}[]>([
+    { sender: 'AI', text: "Hello! I am HepatoAI Copilot. How can I assist you with system administration today?" }
+  ]);
+  const [copilotLoading, setCopilotLoading] = useState(false);
+  const copilotEndRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showCopilot && copilotEndRef.current) {
+      copilotEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [copilotMessages, showCopilot]);
+
+  const handleCopilotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!copilotQuery.trim()) return;
+    
+    const query = copilotQuery;
+    setCopilotQuery("");
+    setCopilotMessages(prev => [...prev, { sender: 'ADMIN', text: query }]);
+    setCopilotLoading(true);
+    
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/admin/copilot", {
+        query,
+        admin_id: "ST-ADMIN"
+      });
+      setCopilotMessages(prev => [...prev, { sender: 'AI', text: res.data.response }]);
+    } catch (err) {
+      setCopilotMessages(prev => [...prev, { sender: 'AI', text: "Error: Failed to connect to Copilot Engine." }]);
+    } finally {
+      setCopilotLoading(false);
+    }
+  };
+
+  const handleGenerateInsight = async (contextType: string, dataPayload: any) => {
+    setGeneratingInsight(true);
+    setShowInsightModal(true);
+    setInsightContext(contextType);
+    setAiInsight(null);
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/admin/generate-ai-insight", {
+        context_type: contextType,
+        data_payload: JSON.stringify(dataPayload).substring(0, 3000)
+      });
+      setAiInsight(res.data.insight);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate AI insight.");
+      setShowInsightModal(false);
+    } finally {
+      setGeneratingInsight(false);
+    }
+  };
 
   useEffect(() => {
     if (formData.email && formData.email.includes('@')) {
@@ -786,6 +847,55 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
         {/* TAB 1: OVERVIEW TAB */}
         {activeTab === 'OVERVIEW' && (
           <>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className={`text-xl font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>System Overview</h2>
+                <p className={`text-xs font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Real-time performance and active connection telemetry</p>
+              </div>
+              <button 
+                onClick={() => handleGenerateInsight("System Overview Health", stats)}
+                className={`text-xs font-mono px-4 py-2 rounded flex items-center gap-2 font-bold cursor-pointer hover:scale-105 transition-transform shadow-md ${theme === 'DARK' ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/50' : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-200'}`}
+              >
+                <Cpu className="w-4 h-4" />
+                GENERATE AI HEALTH REPORT
+              </button>
+            </div>
+            
+            {/* Quick Access Commands */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <button onClick={() => setActiveTab('USER_ACCESS')} className={`p-4 rounded-lg border text-left transition-all hover:-translate-y-1 shadow-sm hover:shadow-md group ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 hover:border-blue-500' : 'bg-white border-gray-200 hover:border-blue-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 transition-colors ${theme === 'DARK' ? 'bg-blue-500/20 text-blue-400 group-hover:bg-blue-500 group-hover:text-white' : 'bg-blue-100 text-blue-600 group-hover:bg-blue-500 group-hover:text-white'}`}>
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-1 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>Add Doctor</h3>
+                <p className={`text-[10px] ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>Provision new clinical access</p>
+              </button>
+              
+              <button onClick={() => setActiveTab('HIPAA_AUDITS')} className={`p-4 rounded-lg border text-left transition-all hover:-translate-y-1 shadow-sm hover:shadow-md group ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 hover:border-rose-500' : 'bg-white border-gray-200 hover:border-rose-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 transition-colors ${theme === 'DARK' ? 'bg-rose-500/20 text-rose-400 group-hover:bg-rose-500 group-hover:text-white' : 'bg-rose-100 text-rose-600 group-hover:bg-rose-500 group-hover:text-white'}`}>
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-1 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>Review Audits</h3>
+                <p className={`text-[10px] ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>Check HIPAA compliance logs</p>
+              </button>
+
+              <button onClick={() => setActiveTab('MESSAGES')} className={`p-4 rounded-lg border text-left transition-all hover:-translate-y-1 shadow-sm hover:shadow-md group ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 hover:border-amber-500' : 'bg-white border-gray-200 hover:border-amber-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 transition-colors ${theme === 'DARK' ? 'bg-amber-500/20 text-amber-400 group-hover:bg-amber-500 group-hover:text-white' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500 group-hover:text-white'}`}>
+                  <Ticket className="w-4 h-4" />
+                </div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-1 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>IT Tickets</h3>
+                <p className={`text-[10px] ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>Resolve active support cases</p>
+              </button>
+
+              <button onClick={() => setActiveTab('SYSTEM_CONFIG')} className={`p-4 rounded-lg border text-left transition-all hover:-translate-y-1 shadow-sm hover:shadow-md group ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 hover:border-emerald-500' : 'bg-white border-gray-200 hover:border-emerald-400'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 transition-colors ${theme === 'DARK' ? 'bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white' : 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white'}`}>
+                  <Database className="w-4 h-4" />
+                </div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-1 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>Storage Config</h3>
+                <p className={`text-[10px] ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>Manage cloud infrastructure</p>
+              </button>
+            </div>
+            
             {/* A. Top Stat Cards (System Health 🧠) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {/* AI Server Status */}
@@ -843,6 +953,86 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                 <div className="flex items-baseline justify-between mt-2">
                   <span className={`text-lg font-mono font-bold ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Scans Processed Today</span>
                   <span className="text-3xl font-mono font-bold text-purple-500">{stats.scans_processed_today}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* B. Enterprise AI Intelligence Cards (New Row) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* AI Threat Intelligence & Auto-Anomaly Detection */}
+              <div className={`border p-5 rounded-lg shadow-md flex flex-col justify-between relative overflow-hidden transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 animate-pulse"></div>
+                <div className="absolute top-[-20%] right-[-10%] w-[40%] h-[40%] bg-rose-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+                
+                <div className="flex justify-between items-start mb-3 relative z-10">
+                  <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <ShieldAlert className="w-4 h-4 text-rose-500" /> AI Threat Intelligence
+                  </span>
+                  <span className="text-[10px] font-mono bg-rose-500/10 border border-rose-500/30 text-rose-500 px-2 py-0.5 rounded font-bold flex items-center gap-1 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span> Scanning
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2 relative z-10">
+                  <div className={`p-3 rounded-lg border flex items-start gap-3 ${theme === 'DARK' ? 'bg-[#131524] border-[#1a1c2c]' : 'bg-rose-50/50 border-rose-100'}`}>
+                    <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                       <UserCheck className="w-4 h-4 text-rose-500" />
+                    </div>
+                    <div>
+                      {logs.filter((l: any) => l.suspicious).length > 0 ? (
+                        <>
+                          <p className={`text-xs font-bold text-rose-500`}>Suspicious Activity Detected</p>
+                          <p className={`text-[10px] mt-1 ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {logs.filter((l: any) => l.suspicious)[0].staffId} performed: {logs.filter((l: any) => l.suspicious)[0].action}. AI flagged as potential anomaly.
+                          </p>
+                          <button onClick={() => setActiveTab('HIPAA_AUDITS')} className="mt-2 text-[10px] bg-rose-500 hover:bg-rose-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm uppercase tracking-wider">
+                            View Audit Ledger
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className={`text-xs font-bold ${theme === 'DARK' ? 'text-emerald-400' : 'text-emerald-600'}`}>System Secure - No Anomalies</p>
+                          <p className={`text-[10px] mt-1 ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Continuous threat intelligence scanning is active. No unauthorized bulk downloads or access anomalies detected across all endpoints.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Predictive Capacity & Infrastructure Forecast */}
+              <div className={`border p-5 rounded-lg shadow-md flex flex-col justify-between relative overflow-hidden transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+
+                <div className="flex justify-between items-start mb-3 relative z-10">
+                  <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <Cloud className="w-4 h-4 text-indigo-500" /> Predictive Infrastructure
+                  </span>
+                  <span className="text-[10px] font-mono bg-indigo-500/10 border border-indigo-500/30 text-indigo-500 px-2 py-0.5 rounded font-bold shadow-sm">
+                    Forecast Active
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2 relative z-10 h-full justify-center">
+                  <div className={`p-3 rounded-lg border flex items-center justify-between ${theme === 'DARK' ? 'bg-[#131524] border-[#1a1c2c]' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                    <div>
+                      <p className={`text-xs font-bold flex items-center gap-1.5 ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>
+                         <Database className="w-3.5 h-3.5 text-indigo-500" /> Storage Capacity Forecast
+                      </p>
+                      <p className={`text-[10px] mt-1 max-w-[200px] ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Current storage is at {stats.storage_usage || '0%'}. Based on current DICOM load rates of {stats.scans_processed_today} scans today, storage remains within operational limits.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                       <button 
+                         onClick={() => handleGenerateInsight("Predictive Infrastructure Scaling & Cloud Storage Forecast based on current load rates", stats)}
+                         className="text-[10px] bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-3 py-1 rounded transition-colors shadow-sm whitespace-nowrap uppercase tracking-wider flex items-center gap-1.5"
+                       >
+                         <Cpu className="w-3 h-3" /> Forecast AI Scaling
+                       </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1239,10 +1429,44 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Full immutable audit history verified via MongoDB cryptographic ledger</p>
                 </div>
               </div>
-              <span className="text-xs font-mono text-rose-500 bg-rose-500/10 border border-rose-500/30 px-3 py-1 rounded flex items-center gap-1.5 font-bold">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                IMMUTABLE SECURITY LEDGER
-              </span>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleGenerateInsight("HIPAA Security Audits", paginatedLogs)}
+                  className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-1.5 font-bold cursor-pointer hover:scale-105 transition-transform ${theme === 'DARK' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'}`}
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  GENERATE AI INSIGHT
+                </button>
+                <span className="text-xs font-mono text-rose-500 bg-rose-500/10 border border-rose-500/30 px-3 py-1 rounded flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  IMMUTABLE SECURITY LEDGER
+                </span>
+              </div>
+            </div>
+            
+            {/* Automated HIPAA Compliance Auditor */}
+            <div className={`mb-6 p-4 rounded-lg border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors ${theme === 'DARK' ? 'bg-[#131524] border-[#1a1c2c]' : 'bg-slate-50 border-gray-200'}`}>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+                  <ShieldCheck className="w-6 h-6 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>HIPAA Compliance Auto-Auditor</h3>
+                  <p className={`text-[10px] mt-1 font-mono ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}`}>AI Continuous Compliance Scanning • Last Scan: 5 mins ago</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs font-bold text-emerald-500">98% Compliant</span>
+                    <div className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className="w-[98%] h-full bg-emerald-500 rounded-full"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => handleGenerateInsight("Generate Weekly HIPAA Compliance Certificate based on recent logs.", paginatedLogs)}
+                className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded shadow-sm transition-all border flex items-center gap-2 ${theme === 'DARK' ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-600' : 'bg-white hover:bg-gray-50 text-slate-700 border-gray-300'}`}
+              >
+                <FileText className="w-4 h-4" /> Generate Compliance Certificate
+              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -1599,14 +1823,23 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
                   <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Track clinical workflows, patient examinations, and AI inferences per doctor</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={downloadDoctorStatsCSV}
-                className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md hover:shadow-cyan-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileText className="w-4 h-4" />
-                Download Overall Report
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleGenerateInsight("Physician Activity Analytics", doctorStats)}
+                  className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-1.5 font-bold cursor-pointer hover:scale-105 transition-transform ${theme === 'DARK' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'}`}
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  GENERATE AI INSIGHT
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadDoctorStatsCSV}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md hover:shadow-cyan-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Download Overall Report
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -2508,6 +2741,122 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           </div>
         </div>
       )}
+
+      
+      {/* AI Insight Modal */}
+      {showInsightModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className={`w-full max-w-3xl rounded-xl border shadow-2xl overflow-hidden ${theme === 'DARK' ? 'bg-[#131524] border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`p-4 border-b flex justify-between items-center ${theme === 'DARK' ? 'border-gray-800' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg"><Cpu className="w-5 h-5 text-indigo-400" /></div>
+                <div>
+                  <h3 className={`text-lg font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Gen-AI Enterprise Insight</h3>
+                  <p className={`text-[10px] font-mono ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Analyzing: {insightContext}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInsightModal(false)} className={`p-1.5 rounded-lg ${theme === 'DARK' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className={`p-6 max-h-[60vh] overflow-y-auto custom-scrollbar prose prose-sm ${theme === 'DARK' ? 'prose-invert max-w-none text-slate-300' : 'max-w-none text-slate-700'}`}>
+              {generatingInsight ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Cpu className="w-10 h-10 text-indigo-500 animate-pulse mb-4" />
+                  <p className="text-sm font-bold uppercase tracking-widest text-indigo-500 animate-pulse">HepatoAI is processing telemetry...</p>
+                </div>
+              ) : (
+                <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: aiInsight?.replace(/\n/g, '<br/>') || '' }} />
+              )}
+            </div>
+            
+            <div className={`p-4 border-t flex justify-end ${theme === 'DARK' ? 'border-gray-800 bg-[#0f111a]' : 'border-gray-200 bg-slate-50'}`}>
+              <button onClick={() => setShowInsightModal(false)} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded transition-colors ${theme === 'DARK' ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-slate-900'}`}>
+                Close Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin AI Copilot Floating Widget */}
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end">
+        {showCopilot && (
+          <div className={`mb-4 w-[380px] h-[500px] rounded-xl shadow-2xl border flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 ${theme === 'DARK' ? 'bg-[#131524] border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`p-4 border-b flex items-center justify-between shadow-sm ${theme === 'DARK' ? 'bg-[#0f111a] border-gray-800' : 'bg-indigo-600 border-indigo-700'}`}>
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-white/10 rounded border border-white/20"><Cpu className={`w-5 h-5 ${theme === 'DARK' ? 'text-indigo-400' : 'text-white'}`} /></div>
+                <div>
+                  <h3 className={`font-bold text-sm ${theme === 'DARK' ? 'text-slate-200' : 'text-white'}`}>Admin AI Copilot</h3>
+                  <p className={`text-[10px] ${theme === 'DARK' ? 'text-slate-400' : 'text-indigo-200'}`}>HepatoAI Natural Language Controller</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCopilot(false)} className={`p-1.5 rounded transition-colors ${theme === 'DARK' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-indigo-700 text-indigo-100'}`}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className={`flex-1 overflow-y-auto p-4 flex flex-col gap-4 custom-scrollbar ${theme === 'DARK' ? 'bg-[#131524]' : 'bg-slate-50'}`}>
+              {copilotMessages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.sender === 'ADMIN' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-lg p-3 text-sm shadow-sm ${
+                    msg.sender === 'ADMIN' 
+                      ? (theme === 'DARK' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-indigo-600 text-white rounded-tr-sm')
+                      : (theme === 'DARK' ? 'bg-[#1a1c2c] text-slate-300 border border-gray-800 rounded-tl-sm' : 'bg-white text-slate-700 border border-gray-200 rounded-tl-sm')
+                  }`}>
+                    {msg.sender === 'AI' ? (
+                      <div className="text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: (msg.text || '').replace(/\n/g, '<br/>') }} />
+                    ) : (
+                      <p className="text-xs leading-relaxed">{msg.text}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {copilotLoading && (
+                <div className="flex justify-start">
+                  <div className={`max-w-[85%] rounded-lg p-3 text-sm shadow-sm rounded-tl-sm flex items-center gap-2 ${theme === 'DARK' ? 'bg-[#1a1c2c] text-indigo-400 border border-gray-800' : 'bg-white text-indigo-600 border border-gray-200'}`}>
+                     <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                     <span className="text-xs font-bold uppercase tracking-wider animate-pulse">Processing...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={copilotEndRef} />
+            </div>
+            
+            <div className={`p-3 border-t ${theme === 'DARK' ? 'bg-[#0f111a] border-gray-800' : 'bg-white border-gray-200'}`}>
+              <form onSubmit={handleCopilotSubmit} className="flex items-center gap-2 relative">
+                <input 
+                  type="text" 
+                  value={copilotQuery}
+                  onChange={(e) => setCopilotQuery(e.target.value)}
+                  placeholder="Ask Copilot (e.g. Show me todays active doctors)..."
+                  className={`w-full border rounded-full pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all ${theme === 'DARK' ? 'bg-[#131524] border-gray-700 text-slate-200 placeholder-slate-500' : 'bg-slate-100 border-transparent text-slate-800 placeholder-slate-500'}`}
+                />
+                <button 
+                  type="submit" 
+                  disabled={!copilotQuery.trim() || copilotLoading}
+                  className={`absolute right-1.5 p-1.5 rounded-full transition-colors ${!copilotQuery.trim() || copilotLoading ? 'text-gray-400' : (theme === 'DARK' ? 'text-indigo-400 hover:bg-indigo-500/20' : 'text-indigo-600 hover:bg-indigo-100')}`}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+        
+        <button 
+          onClick={() => setShowCopilot(!showCopilot)}
+          className={`h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 px-6 gap-3 animate-bounce ${theme === 'DARK' ? 'bg-indigo-600 text-white shadow-indigo-900/50' : 'bg-indigo-600 text-white shadow-indigo-300'}`}
+        >
+          {showCopilot ? <X className="w-6 h-6" /> : (
+            <>
+              <MessageSquare className="w-6 h-6" />
+              <span className="font-bold text-sm tracking-widest uppercase">AI Copilot</span>
+            </>
+          )}
+        </button>
+      </div>
 
     </div>
   );

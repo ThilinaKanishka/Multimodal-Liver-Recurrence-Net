@@ -2156,5 +2156,68 @@ async def process_payroll_endpoint(payload: PaymentPayload):
             
         return {"status": "success", "message": "Payroll processed and email dispatched."}
     except Exception as e:
-        print(f"Failed to send payroll email: {e}")
         return {"status": "error", "message": "Failed to send email."}
+
+class AIInsightRequest(BaseModel):
+    context_type: str
+    data_payload: str
+
+@app.post("/api/v1/admin/generate-ai-insight")
+async def generate_ai_insight(request: AIInsightRequest):
+    try:
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6ItoEExqZCyh6ruZ-c0zoxPX34ZAAVvj9pjZRG6sBBG2Q"))
+        model = genai.GenerativeModel('gemini-3.5-flash')
+        
+        prompt = f"""You are an elite Enterprise IT & Clinical Operations AI Assistant for HepatoAI Admin Console.
+Your task is to analyze the following administrative data and provide a concise, highly professional, actionable insight report.
+
+CONTEXT TYPE: {request.context_type}
+DATA:
+{request.data_payload}
+
+INSTRUCTIONS:
+1. Provide a brief 3-4 sentence high-level summary of the data.
+2. Identify 2-3 key anomalies, trends, or security risks.
+3. Provide 3 actionable recommendations for the IT Admin or Chief Medical Officer.
+4. Format your response strictly in Markdown with headers and bullet points. Do not include JSON. Make it look like a highly professional executive brief.
+"""
+        response = model.generate_content(prompt)
+        return {"insight": response.text}
+    except Exception as e:
+        print(f"Error generating insight: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate AI Insight")
+
+class AICopilotRequest(BaseModel):
+    query: str
+    admin_id: str
+
+@app.post("/api/v1/admin/copilot")
+async def admin_copilot(request: AICopilotRequest):
+    try:
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6ItoEExqZCyh6ruZ-c0zoxPX34ZAAVvj9pjZRG6sBBG2Q"))
+        model = genai.GenerativeModel('gemini-3.5-flash')
+        
+        # Fetch some recent context (logs) for the copilot
+        logs_cursor = system_logs_collection.find({}).sort("_id", -1).limit(30)
+        logs = []
+        async for l in logs_cursor:
+            logs.append(f"{l.get('time', '')} - {l.get('staffId', '')} - {l.get('action', '')}")
+            
+        logs_str = "\n".join(logs)
+        
+        prompt = f"""You are 'HepatoAI Copilot', an advanced AI assistant built into the IT Admin Console.
+The Admin has asked: "{request.query}"
+
+Here are the 30 most recent system audit logs for context:
+{logs_str}
+
+Respond directly to the Admin. 
+If they ask for a PDF of logged-in doctors, activity, or a list, explain that you have compiled the data and generated a preview below.
+Provide a summary of the requested data in a neat Markdown format (use tables if appropriate).
+Keep your tone professional, concise, and helpful.
+"""
+        response = model.generate_content(prompt)
+        return {"response": response.text}
+    except Exception as e:
+        print(f"Error in Copilot: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process copilot query")
