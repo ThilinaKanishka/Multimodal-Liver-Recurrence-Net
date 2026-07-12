@@ -125,7 +125,7 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void; onSwitchToWorkspace?: () => void, user?: any }> = ({ onViewHistory, onSwitchToWorkspace, user }) => {
+export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void; onSwitchToWorkspace?: () => void, user?: any, cdssEnabled?: boolean }> = ({ onViewHistory, onSwitchToWorkspace, user, cdssEnabled = true }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
     tumor_number: 1,
@@ -916,18 +916,20 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                   <FileText className="w-3.5 h-3.5 text-amber-400" /> Clinical Report Log
                 </h2>
-                <button
-                  type="button"
-                  onClick={handleGenerateCdss}
-                  disabled={generatingCdss}
-                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] px-3 py-1 rounded shadow uppercase tracking-widest font-bold flex items-center gap-1.5 transition-colors"
-                >
-                  {generatingCdss ? (
-                    <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> GENERATING AI REPORT...</>
-                  ) : (
-                    <><Stethoscope className="w-3.5 h-3.5" /> GENERATE GEN-AI CDSS REPORT</>
-                  )}
-                </button>
+                {cdssEnabled && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateCdss}
+                    disabled={generatingCdss}
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] px-3 py-1 rounded shadow uppercase tracking-widest font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    {generatingCdss ? (
+                      <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> GENERATING AI REPORT...</>
+                    ) : (
+                      <><Stethoscope className="w-3.5 h-3.5" /> GENERATE GEN-AI CDSS REPORT</>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="p-4 overflow-y-auto text-[11px] font-mono text-slate-400 leading-relaxed space-y-1">
                 {result.ai_insights.map((msg, i) => (

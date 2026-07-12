@@ -219,7 +219,7 @@ const roundProb = (p: number) => (p * 100).toFixed(1);
 
 
 
-const SettingsPage = () => (
+const SettingsPage = ({ cdssEnabled, onToggleCdss }: { cdssEnabled: boolean; onToggleCdss: (val: boolean) => void }) => (
   <div className="flex-1 p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden relative">
     {/* Ambient Glow */}
     <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -281,6 +281,15 @@ const SettingsPage = () => (
             <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg border border-white/5">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Cloud className="w-4 h-4 text-cyan-500" /> Interpretability Layer</span>
               <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Grad-CAM 3D</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg border border-white/5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-500" /> Gen-AI CDSS Reporting
+              </span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={cdssEnabled} onChange={(e) => onToggleCdss(e.target.checked)} className="sr-only peer" />
+                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+              </label>
             </div>
          </div>
       </div>
@@ -426,6 +435,16 @@ function App() {
     const saved = sessionStorage.getItem("hepatoai_current_user");
     return saved ? JSON.parse(saved) : null;
   });
+  
+  const [cdssEnabled, setCdssEnabled] = useState(() => {
+    const saved = localStorage.getItem("hepatoai_cdss_enabled");
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleToggleCdss = (val: boolean) => {
+    setCdssEnabled(val);
+    localStorage.setItem("hepatoai_cdss_enabled", val.toString());
+  };
 
   useEffect(() => {
     sessionStorage.setItem("hepatoai_active_page", activePage);
@@ -481,7 +500,7 @@ function App() {
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("dashboard")} /> : <DashboardPage user={currentUser} onViewPatientDirectory={() => setActivePage("search")} onViewBilling={() => setActivePage("billing")} />;
       case "search": return <PatientSearchPage onBack={() => setActivePage("dashboard")} />;
       case "billing": return <DoctorBillingPage user={currentUser} onBack={() => setActivePage("dashboard")} />;
-      case "settings": return <SettingsPage />;
+      case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} />;
       case "support": return <DoctorMessages user={currentUser} />;
       default: return null;
     }
@@ -527,10 +546,10 @@ function App() {
         <div className="flex-1 overflow-auto bg-[#070b14] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
-            <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
+            <PredictPage onViewHistory={handlePatientClick} user={currentUser} cdssEnabled={cdssEnabled} />
           </div>
           <div className={activePage === "longitudinal" ? "block h-full w-full" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} cdssEnabled={cdssEnabled} />
           </div>
           {renderPage()}
         </div>
