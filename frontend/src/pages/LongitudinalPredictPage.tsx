@@ -176,7 +176,33 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const [loadingText, setLoadingText] = useState<string>("");
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
   const [showBaselineModal, setShowBaselineModal] = useState<boolean>(false);
+  const [cdssReport, setCdssReport] = useState<any>(null);
+  const [generatingCdss, setGeneratingCdss] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  const handleGenerateCdss = async () => {
+    if (!result) return;
+    setGeneratingCdss(true);
+    setCdssReport(null);
+    try {
+      const payload = {
+        patient_age: patientInfo.age,
+        patient_gender: patientInfo.sex,
+        medical_history: formData.clinical_text_report || "No explicit history provided.",
+        ai_predicted_risk: `${result.probability}% (${result.recurrence_risk} RISK)`
+      };
+      
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/generate-cdss-report", payload, {
+        headers: { "Content-Type": "application/json" }
+      });
+      setCdssReport(res.data);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate CDSS Report.");
+    } finally {
+      setGeneratingCdss(false);
+    }
+  };
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
@@ -795,10 +821,22 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
           {/* Clinical Report Log (Full Width) */}
           {result && result.ai_insights && (
             <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden mt-2">
-              <div className="bg-[#1a2235] px-4 py-2 border-b border-[#1e293b]">
+              <div className="bg-[#1a2235] px-4 py-2 border-b border-[#1e293b] flex items-center justify-between">
                 <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                   <FileText className="w-3.5 h-3.5 text-amber-400" /> Clinical Report Log
                 </h2>
+                <button
+                  type="button"
+                  onClick={handleGenerateCdss}
+                  disabled={generatingCdss}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] px-3 py-1 rounded shadow uppercase tracking-widest font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  {generatingCdss ? (
+                    <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> GENERATING AI REPORT...</>
+                  ) : (
+                    <><Stethoscope className="w-3.5 h-3.5" /> GENERATE GEN-AI CDSS REPORT</>
+                  )}
+                </button>
               </div>
               <div className="p-4 overflow-y-auto text-[11px] font-mono text-slate-400 leading-relaxed space-y-1">
                 {result.ai_insights.map((msg, i) => (
@@ -807,6 +845,30 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 {result.clinical_text_report && (
                   <div className="mt-3 pt-3 border-t border-[#1e293b] text-slate-500">
                     {result.clinical_text_report}
+                  </div>
+                )}
+                
+                {/* Gen AI CDSS Report Render */}
+                {cdssReport && (
+                  <div className="mt-4 p-4 border border-indigo-500/30 bg-indigo-950/20 rounded-md">
+                    <h3 className="text-indigo-400 font-bold mb-2 uppercase border-b border-indigo-500/20 pb-1 flex items-center gap-2">
+                      <Hexagon className="w-4 h-4" /> AI Clinical Summary
+                    </h3>
+                    <p className="text-slate-300 mb-4">{cdssReport.clinical_summary}</p>
+                    
+                    <h3 className="text-indigo-400 font-bold mb-2 uppercase border-b border-indigo-500/20 pb-1 flex items-center gap-2">
+                      <Activity className="w-4 h-4" /> Recommended Actions
+                    </h3>
+                    <ul className="list-disc pl-5 mb-4 text-slate-300 space-y-1">
+                      {cdssReport.recommendations?.map((rec: string, i: number) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                    
+                    <div className="text-[9px] text-slate-500 uppercase flex items-start gap-2 bg-[#0a0e17] p-2 rounded border border-[#1e293b]">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0 text-amber-500" />
+                      {cdssReport.disclaimer}
+                    </div>
                   </div>
                 )}
               </div>

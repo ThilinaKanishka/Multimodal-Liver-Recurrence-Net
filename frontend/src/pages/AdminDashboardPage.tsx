@@ -623,36 +623,71 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             {/* THEME TOGGLE BUTTON */}
             <button
               onClick={() => setTheme(theme === 'DARK' ? 'LIGHT' : 'DARK')}
-              className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-mono shadow-sm transition-all cursor-pointer ${
+              className={`group relative flex items-center w-[100px] h-[32px] rounded-full transition-all duration-500 cursor-pointer overflow-hidden border ${
                 theme === 'DARK'
-                  ? 'bg-[#252841] border-gray-700 hover:bg-gray-700 text-amber-300'
-                  : 'bg-white border-gray-300 hover:bg-gray-100 text-amber-600'
+                  ? 'bg-[#0f111a] border-gray-700/80 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5),0_0_12px_rgba(245,158,11,0.05)]'
+                  : 'bg-slate-200/80 border-slate-300/80 shadow-[inset_0_2px_8px_rgba(0,0,0,0.05),0_0_12px_rgba(99,102,241,0.05)]'
               }`}
-              title="Toggle Theme (Dark / Light Mode)"
+              title="Toggle Enterprise Theme"
             >
-              {theme === 'DARK' ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
-                  <span className="hidden xl:inline">Light Mode</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden xl:inline">Dark Mode</span>
-                </>
-              )}
+              {/* Sliding Pill Indicator */}
+              <div 
+                className={`absolute top-[3px] w-[24px] h-[24px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex items-center justify-center shadow-md z-10 ${
+                  theme === 'DARK' 
+                    ? 'left-[3px] bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]' 
+                    : 'left-[calc(100%-27px)] bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_12px_rgba(99,102,241,0.4)]'
+                }`}
+              >
+                {theme === 'DARK' ? (
+                   <Sun className="w-3.5 h-3.5 text-white drop-shadow-md group-hover:rotate-90 transition-transform duration-700" />
+                ) : (
+                   <Moon className="w-3.5 h-3.5 text-white drop-shadow-md group-hover:-rotate-12 transition-transform duration-700" />
+                )}
+              </div>
+              
+              {/* Text Labels inside the track */}
+              <div className="flex w-full justify-between items-center px-2.5 z-0 pointer-events-none">
+                <span className={`text-[9px] font-bold uppercase tracking-widest transition-all duration-300 ${theme === 'DARK' ? 'opacity-0 translate-x-2' : 'opacity-100 translate-x-0 text-slate-500 mt-0.5'}`}>Dark</span>
+                <span className={`text-[9px] font-bold uppercase tracking-widest transition-all duration-300 ${theme === 'DARK' ? 'opacity-100 translate-x-0 text-slate-400 mt-0.5' : 'opacity-0 -translate-x-2'}`}>Light</span>
+              </div>
             </button>
 
             <button 
               onClick={() => fetchAdminData(true)}
-              className={`flex items-center gap-2 px-3 py-1.5 border rounded text-xs font-mono shadow-sm transition-all cursor-pointer hidden lg:flex ${
-                theme === 'DARK' 
-                  ? 'bg-[#252841] border-gray-700 hover:bg-gray-700 text-gray-300' 
-                  : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
+              className={`group relative hidden lg:flex items-center justify-center h-[32px] px-4 rounded-full transition-all duration-500 cursor-pointer overflow-hidden border ${
+                theme === 'DARK'
+                  ? 'bg-[#0f111a] border-gray-700/80 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5),0_0_12px_rgba(6,182,212,0.05)] hover:border-cyan-500/40 hover:bg-[#131726]'
+                  : 'bg-slate-200/80 border-slate-300/80 shadow-[inset_0_2px_8px_rgba(0,0,0,0.05),0_0_12px_rgba(6,182,212,0.05)] hover:border-cyan-500/40 hover:bg-white'
               }`}
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-cyan-500 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden xl:inline">{loading ? "Syncing..." : "Live Sync Active"}</span>
+              {/* Subtle hover background effect */}
+              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-0 ${
+                theme === 'DARK' ? 'bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0' : 'bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0'
+              }`}></div>
+              
+              <div className="relative z-10 flex items-center gap-2.5">
+                <div className="relative flex items-center justify-center w-4 h-4">
+                  {loading ? (
+                    <>
+                      <span className="absolute w-5 h-5 rounded-full border border-cyan-500 animate-ping opacity-60"></span>
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] animate-[spin_1s_linear_infinite]" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,1)] animate-pulse opacity-100 transition-opacity duration-300 group-hover:opacity-0"></div>
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] opacity-0 -rotate-90 scale-50 group-hover:opacity-100 group-hover:rotate-180 group-hover:scale-100 transition-all duration-500" />
+                    </>
+                  )}
+                </div>
+                
+                <span className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 transition-colors duration-300 ${
+                  theme === 'DARK' 
+                    ? 'text-slate-400 group-hover:text-cyan-300' 
+                    : 'text-slate-500 group-hover:text-cyan-600'
+                }`}>
+                  {loading ? "Syncing..." : "Live Sync Active"}
+                </span>
+              </div>
             </button>
 
             <div className={`h-6 w-px mx-1 ${theme === 'DARK' ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
