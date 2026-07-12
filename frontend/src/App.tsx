@@ -12,7 +12,7 @@ import SecuritySettingsTab from "./components/SecuritySettingsTab";
 import PatientSearchPage from "./pages/PatientSearchPage";
 import DoctorBillingPage from "./pages/DoctorBillingPage";
 
-import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard } from "lucide-react";
+import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye } from "lucide-react";
 
 // Modern Placeholder Pages with medical workstation aesthetic
 const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: any, onViewPatientDirectory?: () => void, onViewBilling?: () => void }) => {
@@ -219,7 +219,7 @@ const roundProb = (p: number) => (p * 100).toFixed(1);
 
 
 
-const SettingsPage = ({ cdssEnabled, onToggleCdss }: { cdssEnabled: boolean; onToggleCdss: (val: boolean) => void }) => (
+const SettingsPage = ({ cdssEnabled, onToggleCdss, activeTheme, onSetTheme }: { cdssEnabled: boolean; onToggleCdss: (val: boolean) => void; activeTheme: string; onSetTheme: (theme: string) => void }) => (
   <div className="flex-1 p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden relative">
     {/* Ambient Glow */}
     <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -295,6 +295,36 @@ const SettingsPage = ({ cdssEnabled, onToggleCdss }: { cdssEnabled: boolean; onT
       </div>
     </div>
     
+    <div className="mt-6 flex-shrink-0 bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl p-6 relative overflow-hidden group">
+       <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-[40px] group-hover:bg-rose-500/20 transition-colors"></div>
+       <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-3 relative z-10">
+         <Palette className="w-5 h-5 text-rose-400" />
+         <h2 className="text-sm font-black text-slate-100 uppercase tracking-widest">Workspace Aesthetics & Theming</h2>
+       </div>
+       <div className="grid grid-cols-4 gap-4 relative z-10">
+          {[
+            { id: 'theme-radiology-dark', name: 'Radiology Dark', icon: Moon, desc: 'Deep slate for dark rooms', color: 'indigo' },
+            { id: 'theme-clinical-light', name: 'Clinical Light', icon: Sun, desc: 'High contrast EMR style', color: 'amber' },
+            { id: 'theme-surgical-teal', name: 'Surgical Teal', icon: Monitor, desc: 'Calming OR environment', color: 'teal' },
+            { id: 'theme-amber-mono', name: 'Amber Mono', icon: Eye, desc: 'Low eye strain night shift', color: 'orange' }
+          ].map((theme) => (
+            <button 
+              key={theme.id}
+              onClick={() => onSetTheme(theme.id)}
+              className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-300 ${
+                activeTheme === theme.id 
+                  ? `bg-${theme.color}-500/20 border-${theme.color}-500/50 shadow-[0_0_15px_rgba(255,255,255,0.05)] scale-105` 
+                  : 'bg-black/20 border-white/5 hover:bg-white/5'
+              }`}
+            >
+              <theme.icon className={`w-6 h-6 mb-2 ${activeTheme === theme.id ? `text-${theme.color}-400` : 'text-slate-500'}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${activeTheme === theme.id ? 'text-white' : 'text-slate-400'}`}>{theme.name}</span>
+              <span className="text-[8px] text-slate-500 text-center leading-tight">{theme.desc}</span>
+            </button>
+          ))}
+       </div>
+    </div>
+
     <div className="mt-6 flex-1 overflow-y-auto custom-scrollbar relative z-10 bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl p-6">
       <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-3">
         <Shield className="w-5 h-5 text-amber-400" />
@@ -441,9 +471,18 @@ function App() {
     return saved !== null ? saved === 'true' : true;
   });
 
+  const [activeTheme, setActiveTheme] = useState(() => {
+    return localStorage.getItem("hepatoai_theme") || "theme-radiology-dark";
+  });
+
   const handleToggleCdss = (val: boolean) => {
     setCdssEnabled(val);
     localStorage.setItem("hepatoai_cdss_enabled", val.toString());
+  };
+
+  const handleSetTheme = (theme: string) => {
+    setActiveTheme(theme);
+    localStorage.setItem("hepatoai_theme", theme);
   };
 
   useEffect(() => {
@@ -500,7 +539,7 @@ function App() {
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("dashboard")} /> : <DashboardPage user={currentUser} onViewPatientDirectory={() => setActivePage("search")} onViewBilling={() => setActivePage("billing")} />;
       case "search": return <PatientSearchPage onBack={() => setActivePage("dashboard")} />;
       case "billing": return <DoctorBillingPage user={currentUser} onBack={() => setActivePage("dashboard")} />;
-      case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} />;
+      case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
       case "support": return <DoctorMessages user={currentUser} />;
       default: return null;
     }
@@ -540,8 +579,17 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden">
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+    <>
+      <style>{`
+        .theme-clinical-light { filter: invert(1) hue-rotate(180deg) brightness(1.05) contrast(0.95); }
+        .theme-clinical-light img, .theme-clinical-light canvas, .theme-clinical-light video { filter: invert(1) hue-rotate(180deg); }
+        
+        .theme-surgical-teal { filter: hue-rotate(-45deg) saturate(1.1); }
+        
+        .theme-amber-mono { filter: sepia(1) hue-rotate(-30deg) saturate(2) brightness(0.9); }
+      `}</style>
+      <div className={`flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden ${activeTheme}`}>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
         <div className="flex-1 overflow-auto bg-[#070b14] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
@@ -564,6 +612,7 @@ function App() {
         <div>© 2026 SLIIT Faculty of Computing - AI Labs. All rights reserved.</div>
       </div>
     </div>
+    </>
   );
 }
 
