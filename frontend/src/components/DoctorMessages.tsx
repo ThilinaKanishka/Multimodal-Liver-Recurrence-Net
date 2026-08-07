@@ -205,7 +205,7 @@ export const DoctorMessages = ({ user }: { user: any }) => {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-[#070b14] text-slate-300 font-sans flex flex-col h-screen overflow-hidden animate-in fade-in duration-500">
+    <div className="flex-1 p-4 md:p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden animate-in fade-in duration-500">
       <div className="flex items-center gap-4 mb-6 border-b border-[#1e293b] pb-5 flex-shrink-0">
         <div className="p-3 bg-[#131524] border border-[#1e293b] text-blue-400 rounded-lg shadow-sm">
           <Ticket className="w-7 h-7" />

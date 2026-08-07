@@ -343,7 +343,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
   }, [patientId]);
 
   if (!details) return (
-    <div className="flex-1 p-8 bg-[#070b14] text-slate-300 flex items-center justify-center">
+    <div className="flex-1 p-8 bg-[#030712] text-slate-300 flex items-center justify-center">
       <div className="animate-pulse flex flex-col items-center">
         <Activity className="w-10 h-10 text-blue-500 mb-4 animate-spin" />
         <p className="text-sm font-mono tracking-widest uppercase">Loading Patient Records...</p>
@@ -352,9 +352,9 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
   );
 
   return (
-    <div className="flex-1 p-8 bg-[#070b14] text-slate-300 font-sans flex flex-col h-screen overflow-hidden animate-in fade-in duration-500">
+    <div className="flex-1 p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden animate-in fade-in duration-500">
       <div className="flex items-center gap-4 mb-8 border-b border-[#1e293b] pb-4">
-        <button onClick={onBack} className="p-2 bg-[#131826] border border-[#1e293b] hover:bg-[#1e293b] text-slate-300 rounded transition-all shadow-lg hover:shadow-blue-500/20 group">
+        <button onClick={onBack} className="p-2 bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 hover:bg-[#1e293b]/50 text-slate-300 rounded transition-all shadow-lg hover:shadow-blue-500/20 group">
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
         </button>
         <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded"><Activity className="w-6 h-6" /></div>
@@ -366,7 +366,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
       
       <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
          <div className="col-span-1 flex flex-col gap-6">
-           <div className="bg-[#131826] border border-[#1e293b] rounded-md shadow-lg p-6">
+           <div className="bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md shadow-lg p-6">
               <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4 border-b border-[#1e293b] pb-2 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" /> Demographics
               </h2>
@@ -377,13 +377,13 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
               </div>
            </div>
          </div>
-         <div className="col-span-2 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg flex flex-col p-6 overflow-hidden">
+         <div className="col-span-2 bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md shadow-lg flex flex-col p-6 overflow-hidden">
             <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-4 border-b border-[#1e293b] pb-2 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-400" /> Diagnostic Inference History
             </h2>
             <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
                {details.history.map((record: any) => (
-                  <div key={record._id} className="bg-[#0a0e17] border border-[#1e293b] hover:border-[#2a364a] transition-colors p-5 rounded-md relative overflow-hidden group">
+                  <div key={record._id} className="bg-black/40 backdrop-blur-sm border border-[#1e293b] hover:border-[#2a364a] transition-colors p-5 rounded-md relative overflow-hidden group">
                      <div className="absolute top-0 left-0 w-1 h-full bg-slate-700 group-hover:bg-blue-500 transition-colors"></div>
                      <div className="flex justify-between items-center mb-4 border-b border-[#1e293b]/50 pb-3">
                         <span className="text-xs text-slate-400 font-mono flex items-center gap-2">
@@ -415,7 +415,7 @@ const PatientProfilePage = ({ patientId, onBack }: { patientId: string, onBack: 
                                .map(([k, v]: [string, any]) => (
                                <div key={k} className="flex justify-between items-center text-[10px]">
                                  <span className="text-slate-400 truncate w-24">{k.replace('_', ' ')}</span>
-                                 <div className="flex-1 mx-2 bg-[#0a0e17] h-1.5 rounded-full overflow-hidden">
+                                 <div className="flex-1 mx-2 bg-black/40 backdrop-blur-sm h-1.5 rounded-full overflow-hidden">
                                     <div className={`h-full ${v > 0 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(Math.abs(v)*20, 100)}%` }}></div>
                                  </div>
                                  <span className={`font-mono w-10 text-right ${v > 0 ? 'text-rose-400' : 'text-blue-400'}`}>{v > 0 ? '+' : ''}{v.toFixed(2)}</span>
@@ -566,7 +566,7 @@ function App() {
   // Protect all other routes: if no currentUser, force login
   if (!currentUser && activePage !== "login" && activePage !== "admin_login" && activePage !== "admin") {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#070b14] text-white flex-col gap-4">
+      <div className="flex items-center justify-center h-screen bg-[#030712] text-white flex-col gap-4">
         <p>Your session has expired. Please log in again.</p>
         <button 
           onClick={() => setActivePage("login")}
@@ -588,10 +588,10 @@ function App() {
         
         .theme-amber-mono { filter: sepia(1) hue-rotate(-30deg) saturate(2) brightness(0.9); }
       `}</style>
-      <div className={`flex flex-col h-screen bg-[#070b14] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden ${activeTheme}`}>
+      <div className={`flex flex-col h-screen bg-[#030712] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden ${activeTheme}`}>
         <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
-        <div className="flex-1 overflow-auto bg-[#070b14] relative">
+        <div className="flex-1 overflow-auto bg-[#030712] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
             <PredictPage onViewHistory={handlePatientClick} user={currentUser} cdssEnabled={cdssEnabled} />
@@ -604,7 +604,7 @@ function App() {
       </div>
       
       {/* Medical Footer (Bottom Status Bar) */}
-      <div className="h-6 w-full bg-[#0a0e17] border-t border-[#1e293b] flex items-center justify-between px-4 text-[10px] text-slate-500 flex-shrink-0 z-50">
+      <div className="h-6 w-full bg-black/40 backdrop-blur-sm border-t border-[#1e293b] flex items-center justify-between px-4 text-[10px] text-slate-500 flex-shrink-0 z-50">
         <div className="font-mono">Version 2.4.1 Build 8092</div>
         <div className="font-mono uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
            HIPAA Compliant & FDA Cleared for Investigational Use Only
