@@ -53,63 +53,67 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
 
   const getIconClass = (page: string) => {
     if (activePage === page) {
-      return `w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} bg-blue-600/20 text-blue-400 rounded-md flex items-center gap-3 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all`;
+      return `w-full h-10 ${isCollapsed ? 'justify-center' : 'px-4'} bg-gradient-to-r from-[#00e5ff]/20 to-transparent text-[#00e5ff] rounded-xl flex items-center gap-4 border-l-4 border-[#00e5ff] shadow-[inset_20px_0_20px_-20px_rgba(0,229,255,0.3)] cursor-pointer transition-all duration-300 font-black relative overflow-hidden`;
     }
-    return `w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-slate-500 hover:text-slate-200 hover:bg-[#1e293b] rounded-md flex items-center gap-3 cursor-pointer transition-all`;
+    return `w-full h-10 ${isCollapsed ? 'justify-center' : 'px-4'} text-slate-400 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-4 border-l-4 border-transparent cursor-pointer transition-all duration-300 font-bold`;
   };
 
   return (
-    <div className={`${isCollapsed ? 'w-[80px]' : 'w-[240px]'} transition-all duration-300 flex-shrink-0 bg-[#0f141f] border-r border-[#1e293b] flex flex-col items-center py-4 z-30 shadow-2xl sticky top-0 h-full pb-8 relative`}>
+    <div className={`${isCollapsed ? 'w-[80px]' : 'w-[240px]'} transition-all duration-500 flex-shrink-0 bg-[#0a0f18]/90 backdrop-blur-3xl border-r border-white/10 flex flex-col items-center py-4 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.4)] sticky top-0 h-full pb-6 relative overflow-y-auto overflow-x-hidden scrollbar-none group/sidebar`}>
+      {/* Ambient Edge Glow */}
+      <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#00e5ff]/30 to-transparent"></div>
+      <div className="absolute top-[-10%] left-[-20%] w-[150%] h-[30%] bg-[#00e5ff]/5 blur-[60px] pointer-events-none"></div>
       
       {/* Collapse Toggle Button */}
       <button 
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 bg-[#1e293b] border border-cyan-500/30 text-cyan-400 rounded-full p-1 hover:bg-[#2a364a] hover:text-cyan-300 transition-all shadow-[0_0_10px_rgba(6,182,212,0.2)] z-50 cursor-pointer"
+        className="absolute -right-3.5 top-8 bg-black/60 backdrop-blur-md border border-[#00e5ff]/30 text-[#00e5ff] rounded-full p-1.5 hover:bg-[#00e5ff]/10 hover:text-white transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] z-50 cursor-pointer"
       >
         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
 
-      <div className={`w-full flex flex-col mb-8 pb-5 border-b border-[#1e293b] ${isCollapsed ? 'px-2 items-center' : 'px-5'}`}>
+      <div className={`w-full flex flex-col mb-4 pb-4 border-b border-white/10 relative ${isCollapsed ? 'px-2 items-center' : 'px-6'}`}>
         <div className={`flex items-center gap-3 mb-4 ${isCollapsed ? 'justify-center' : ''}`}>
-          <div className="bg-cyan-500/20 p-1.5 rounded-lg border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.4)] flex-shrink-0">
-             <Hexagon className="w-6 h-6 text-cyan-400" />
+          <div className="bg-gradient-to-br from-[#00e5ff]/20 to-blue-600/20 p-1.5 rounded-xl border border-[#00e5ff]/40 shadow-[0_0_20px_rgba(0,229,255,0.3)] flex-shrink-0 relative group">
+             <div className="absolute inset-0 bg-[#00e5ff] rounded-xl opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500"></div>
+             <Hexagon className="w-7 h-7 text-[#00e5ff]" />
           </div>
           {!isCollapsed && (
-            <span className="text-xl font-bold tracking-widest text-slate-100 uppercase truncate">
-              Hepato<span className="text-cyan-400">AI</span>
+            <span className="text-2xl font-black tracking-[0.1em] text-white uppercase truncate drop-shadow-md">
+              Hepato<span className="text-[#00e5ff] drop-shadow-[0_0_10px_#00e5ff]">AI</span>
             </span>
           )}
         </div>
         
         {user && (
-          <div className={`bg-[#131826] border border-[#1e293b] rounded-xl flex flex-col hover:border-[#2a364a] transition-all mt-2 shadow-lg ${isCollapsed ? 'p-2 items-center' : 'p-3'}`}>
+          <div className={`bg-[#0f1522]/80 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col hover:border-[#00e5ff]/40 transition-all duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.5)] group/user ${isCollapsed ? 'p-2 items-center' : 'p-3'}`}>
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 flex-row'}`}>
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full border border-cyan-500/30 flex-shrink-0 object-cover" />
+                <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border-2 border-[#00e5ff]/50 flex-shrink-0 object-cover shadow-[0_0_15px_rgba(0,229,255,0.3)] group-hover/user:border-[#00e5ff] transition-colors" />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-cyan-950/50 border border-cyan-500/30 flex items-center justify-center flex-shrink-0 text-cyan-400 font-bold shadow-inner text-sm">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00e5ff]/20 to-blue-600/20 border-2 border-[#00e5ff]/50 flex items-center justify-center flex-shrink-0 text-[#00e5ff] font-bold shadow-[0_0_15px_rgba(0,229,255,0.3)] text-sm group-hover/user:border-[#00e5ff] transition-colors">
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
               )}
               {!isCollapsed && (
-                <div className="flex flex-col min-w-0">
-                   <span className="text-xs font-bold text-slate-200 truncate">Dr. {user.name}</span>
-                   <span className="text-[10px] text-slate-400 truncate">{user.level || 'Clinician'}</span>
+                <div className="flex flex-col min-w-0 justify-center">
+                   <span className="text-xs font-black text-white truncate tracking-wide">DR. {user.name}</span>
+                   <span className="text-[10px] text-[#00e5ff] uppercase tracking-widest truncate">{user.level || 'CLINICIAN'}</span>
                    <span className="text-[9px] text-slate-500 font-mono mt-0.5">{user.id}</span>
                 </div>
               )}
             </div>
             {!isCollapsed && (
-              <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-[#1e293b]">
-                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,0.5)]"></div>
-                 <span className="text-[9px] uppercase tracking-wider text-emerald-500/80 font-bold">Session Active</span>
+              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/10">
+                 <div className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse shadow-[0_0_10px_#00ff9d]"></div>
+                 <span className="text-[9px] uppercase tracking-[0.2em] text-[#00ff9d] font-black">SYSTEM CONNECTED</span>
               </div>
             )}
           </div>
         )}
       </div>
 
-      <div className="px-3 w-full flex flex-col gap-2">
+      <div className="px-3 w-full flex flex-col gap-1">
         <div className={getIconClass("activity")} onClick={() => setActivePage("activity")} title="Diagnostic Workspace">
           <Activity className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workspace</span>}
@@ -133,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
 
       </div>
       
-      <div className="mt-auto px-3 w-full flex flex-col gap-2">
+      <div className="mt-auto px-3 w-full flex flex-col gap-1">
         <div className={getIconClass("settings")} onClick={() => setActivePage("settings")} title="System Configuration">
           <Settings className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Settings</span>}
@@ -159,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
           )}
         </div>
         <div 
-          className={`w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-2 shadow-[0_0_10px_rgba(244,63,94,0.1)]`}
+          className={`w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-1 shadow-[0_0_10px_rgba(244,63,94,0.1)]`}
           onClick={() => {
             if (user && user.id) {
               fetch("http://127.0.0.1:8000/api/logout", {

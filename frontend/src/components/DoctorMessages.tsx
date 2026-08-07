@@ -205,73 +205,79 @@ export const DoctorMessages = ({ user }: { user: any }) => {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden animate-in fade-in duration-500">
-      <div className="flex items-center gap-4 mb-6 border-b border-[#1e293b] pb-5 flex-shrink-0">
-        <div className="p-3 bg-[#131524] border border-[#1e293b] text-blue-400 rounded-lg shadow-sm">
-          <Ticket className="w-7 h-7" />
+    <div className="flex-1 p-8 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col overflow-hidden relative z-0 animate-in fade-in duration-500">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-[#00e5ff]/5 blur-[120px] rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#00ff9d]/5 blur-[150px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      </div>
+      
+      <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-5 flex-shrink-0 relative z-10">
+        <div className="p-3 bg-[#0f1522]/80 border border-white/10 rounded-xl shadow-[0_0_20px_rgba(0,229,255,0.15)] flex-shrink-0 relative group">
+          <div className="absolute inset-0 bg-[#00e5ff] rounded-xl opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500"></div>
+          <Ticket className="w-7 h-7 text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] relative z-10" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 tracking-wide uppercase">IT Helpdesk & Ticketing</h1>
-          <p className="text-slate-400 text-sm flex items-center gap-2 mt-1">
-            <Info className="w-3.5 h-3.5" /> Enterprise Clinical Systems Support
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-black text-white uppercase tracking-[0.2em] drop-shadow-md">IT Helpdesk & Ticketing</h1>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse shadow-[0_0_5px_#00ff9d]"></span> Enterprise Clinical Systems Support
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-6 flex-shrink-0 border-b border-[#1e293b] pb-5">
+      <div className="flex items-center gap-3 mb-6 flex-shrink-0 border-b border-white/10 pb-5 relative z-10">
         <button 
           onClick={() => setActiveTab('create')}
-          className={`px-5 py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${
+          className={`px-6 py-3 rounded-lg font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 border ${
             activeTab === 'create' 
-              ? 'bg-blue-600 text-white shadow-md' 
-              : 'bg-[#131524] text-slate-400 hover:text-slate-200 hover:bg-[#1a1c2c] border border-[#2a364a]'
+              ? 'bg-[#00e5ff]/10 text-[#00e5ff] border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.2)]' 
+              : 'bg-[#0f1522]/60 text-slate-400 hover:text-white hover:bg-[#00e5ff]/5 hover:border-[#00e5ff]/30 border-white/10 backdrop-blur-xl'
           }`}
         >
           <Ticket className="w-4 h-4" /> Create New Ticket
         </button>
         <button 
           onClick={() => setActiveTab('history')}
-          className={`px-5 py-2.5 rounded font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${
+          className={`px-6 py-3 rounded-lg font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-2 border ${
             activeTab === 'history' 
-              ? 'bg-blue-600 text-white shadow-md' 
-              : 'bg-[#131524] text-slate-400 hover:text-slate-200 hover:bg-[#1a1c2c] border border-[#2a364a]'
+              ? 'bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/50 shadow-[0_0_15px_rgba(0,255,157,0.2)]' 
+              : 'bg-[#0f1522]/60 text-slate-400 hover:text-white hover:bg-[#00ff9d]/5 hover:border-[#00ff9d]/30 border-white/10 backdrop-blur-xl'
           }`}
         >
           <MessageSquare className="w-4 h-4" /> Ticket History
           {messages.length > 0 && (
-            <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] ${activeTab === 'history' ? 'bg-blue-500/30' : 'bg-slate-700 text-slate-300'}`}>
+            <span className={`ml-2 px-2 py-0.5 rounded-md text-[9px] font-black ${activeTab === 'history' ? 'bg-[#00ff9d]/20 border border-[#00ff9d]/30' : 'bg-black/40 border border-white/10'}`}>
               {messages.length}
             </span>
           )}
         </button>
       </div>
 
-      <div className="flex-1 bg-[#0f111a] border border-[#1e293b] rounded-lg shadow-2xl flex flex-col overflow-hidden relative">
+      <div className="flex-1 bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden relative z-10">
         {activeTab === 'history' && (
           <>
             {/* Ticketing Header */}
-            <div className="bg-[#131524] border-b border-[#1e293b] p-4 flex items-center justify-between z-10">
+            <div className="bg-black/40 border-b border-white/10 p-5 flex items-center justify-between z-10">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded bg-[#1a1c2c] border border-[#2a364a] flex items-center justify-center shadow-sm">
-                  <Ticket className="w-6 h-6 text-indigo-400" />
+                <div className="w-12 h-12 rounded-xl bg-[#0f1522]/80 border border-white/10 flex items-center justify-center shadow-inner">
+                  <Ticket className="w-5 h-5 text-[#00ff9d]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white tracking-wide">Ticket #{getTicketId()}: System Support</h3>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
+                  <h3 className="text-sm font-black text-white tracking-[0.1em] uppercase">Ticket #{getTicketId()}: System Support</h3>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-[#00ff9d]/10 text-[#00ff9d] border border-[#00ff9d]/30 px-2.5 py-1 rounded-md">
                       Status: Open
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">Assigned to: L2 Admin Support</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Assigned to: L2 Admin Support</span>
                   </div>
                 </div>
               </div>
-              <div className="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] uppercase tracking-widest font-bold rounded flex items-center gap-2">
+              <div className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] uppercase tracking-[0.2em] font-black rounded-lg flex items-center gap-2 shadow-[0_0_10px_rgba(239,68,68,0.1)]">
                 <AlertCircle className="w-3.5 h-3.5" /> Secure HIPAA Channel
               </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar bg-[#131524]">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent bg-transparent">
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <div className="flex items-center gap-3 bg-[#1a1c2c] px-6 py-3 rounded border border-[#2a364a] shadow-md">
@@ -326,23 +332,23 @@ export const DoctorMessages = ({ user }: { user: any }) => {
               
               return (
                 <div key={msg.id || i} className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-6' : 'mt-2'}`}>
-                  <div className={`group relative max-w-[85%] md:max-w-[75%] px-5 py-4 shadow-sm transition-all ${
+                  <div className={`group relative max-w-[85%] md:max-w-[75%] px-6 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all ${
                     isMine 
-                      ? 'bg-[#1a1d27] text-slate-200 rounded-lg rounded-tr-sm border border-[#2a364a]' 
-                      : 'bg-[#1a1c2c] text-slate-200 rounded-lg rounded-tl-sm border border-[#2a364a]'
+                      ? 'bg-[#00e5ff]/5 text-slate-200 rounded-2xl rounded-tr-sm border border-[#00e5ff]/20' 
+                      : 'bg-[#00ff9d]/5 text-slate-200 rounded-2xl rounded-tl-sm border border-[#00ff9d]/20'
                   }`}>
                     {parsedMeta && (
-                      <div className={`text-[11px] font-bold mb-3 pb-3 border-b flex flex-wrap items-center gap-x-3 gap-y-2 ${isMine ? 'border-[#2a364a]' : 'border-[#2a364a]'}`}>
+                      <div className={`text-[9px] font-black mb-4 pb-4 border-b flex flex-wrap items-center gap-x-3 gap-y-2 uppercase tracking-[0.1em] ${isMine ? 'border-white/10' : 'border-white/10'}`}>
                          <div className="flex items-center gap-2">
-                           <span className={`px-2 py-0.5 rounded ${isMine ? 'bg-[#0f111a] border border-[#2a364a] text-slate-300' : 'bg-[#2a364a] text-slate-300'}`}>{parsedMeta.category}</span>
-                           <span className={isMine ? "text-slate-500" : "text-slate-500"}>/</span>
+                           <span className={`px-2.5 py-1 rounded-md ${isMine ? 'bg-[#00e5ff]/10 border border-[#00e5ff]/30 text-[#00e5ff]' : 'bg-[#00ff9d]/10 border border-[#00ff9d]/30 text-[#00ff9d]'}`}>{parsedMeta.category}</span>
+                           <span className={isMine ? "text-[#00e5ff]/50" : "text-[#00ff9d]/50"}>/</span>
                            <span className={isMine ? "text-slate-300" : "text-slate-300"}>{parsedMeta.subCategory}</span>
                          </div>
                          
                          {parsedMeta.priority && (
                            <>
                              <span className={isMine ? "text-slate-500 hidden sm:inline" : "text-slate-500 hidden sm:inline"}>•</span>
-                             <span className={`px-2 py-0.5 rounded border ${isMine ? (priorityColors[parsedMeta.priority] || 'text-slate-400 bg-[#0f111a] border-[#2a364a]') : (priorityColors[parsedMeta.priority] || 'text-slate-300 bg-slate-800')}`}>
+                             <span className={`px-2.5 py-1 rounded-md border ${isMine ? (priorityColors[parsedMeta.priority] || 'text-slate-400 bg-black/40 border-white/10') : (priorityColors[parsedMeta.priority] || 'text-slate-300 bg-black/40 border-white/10')}`}>
                                {parsedMeta.priority} Priority
                              </span>
                            </>
@@ -358,38 +364,38 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                          {parsedMeta.patientRef && (
                            <>
                              <span className={isMine ? "text-slate-500 hidden sm:inline" : "text-slate-500 hidden sm:inline"}>•</span>
-                             <span className={`px-2 py-0.5 rounded ${isMine ? 'bg-[#0f111a] border border-[#2a364a] text-slate-300' : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'}`}>
+                             <span className={`px-2.5 py-1 rounded-md ${isMine ? 'bg-[#00e5ff]/10 border border-[#00e5ff]/30 text-[#00e5ff]' : 'bg-[#00ff9d]/10 text-[#00ff9d] border border-[#00ff9d]/30'}`}>
                                Ref: {parsedMeta.patientRef}
                              </span>
                            </>
                          )}
                       </div>
                     )}
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{textContent}</p>
-                    <div className={`text-[10px] mt-2.5 flex items-center gap-2 ${isMine ? 'text-slate-400 justify-end' : 'text-slate-400'}`}>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{textContent}</p>
+                    <div className={`text-[10px] mt-4 flex items-center gap-2 font-bold uppercase tracking-widest ${isMine ? 'text-slate-500 justify-end' : 'text-slate-500'}`}>
                       {msg.sent_via_email && (
-                        <span className={`flex items-center gap-1 mr-1 px-1.5 py-0.5 rounded ${isMine ? 'bg-[#0f111a] text-slate-300 border border-[#2a364a]' : 'bg-slate-800 text-slate-300'}`} title="Dispatched via Email">
-                          <Mail className="w-2.5 h-2.5" /> Sent via Email
+                        <span className={`flex items-center gap-1 mr-1 px-2 py-1 rounded-md ${isMine ? 'bg-black/40 text-slate-300 border border-white/10' : 'bg-black/40 text-slate-300 border border-white/10'}`} title="Dispatched via Email">
+                          <Mail className="w-3 h-3" /> Sent via Email
                         </span>
                       )}
                       {time}
                       
-                      <button onClick={() => setSelectedMessage(msg)} className={`flex items-center gap-1 hover:text-white transition-colors ${isMine ? 'text-slate-300' : 'text-slate-400'} ml-3`}>
-                        <Maximize2 className="w-3 h-3" /> <span className="hidden sm:inline uppercase font-bold tracking-wider text-[9px]">View</span>
+                      <button onClick={() => setSelectedMessage(msg)} className={`flex items-center gap-1 hover:text-white transition-colors ${isMine ? 'text-[#00e5ff]' : 'text-[#00ff9d]'} ml-3`}>
+                        <Maximize2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline uppercase font-black tracking-widest text-[9px]">View</span>
                       </button>
                       
                       {isMine && (
-                        <button onClick={() => handleDelete(msg.id)} disabled={isDeleting} className="flex items-center gap-1 hover:text-red-300 text-red-400/70 transition-colors ml-1">
-                          <Trash2 className="w-3 h-3" /> <span className="hidden sm:inline uppercase font-bold tracking-wider text-[9px]">Delete</span>
+                        <button onClick={() => handleDelete(msg.id)} disabled={isDeleting} className="flex items-center gap-1 hover:text-red-400 text-red-500/70 transition-colors ml-2">
+                          <Trash2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline uppercase font-black tracking-widest text-[9px]">Delete</span>
                         </button>
                       )}
                       
                       {isMine && (
-                        <span className="ml-2 pl-2 border-l border-blue-400/30">
+                        <span className="ml-3 pl-3 border-l border-white/10">
                           {msg.is_read ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-sky-300" title="Read by Admin" />
+                            <CheckCheck className="w-4 h-4 text-[#00e5ff]" title="Read by Admin" />
                           ) : (
-                            <Check className="w-3.5 h-3.5 text-blue-300/70" title="Delivered" />
+                            <Check className="w-4 h-4 text-[#00e5ff]/50" title="Delivered" />
                           )}
                         </span>
                       )}
@@ -405,24 +411,24 @@ export const DoctorMessages = ({ user }: { user: any }) => {
         )}
 
         {activeTab === 'create' && (
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#131524]">
-          <div className="bg-[#0f111a] border-b border-[#1e293b] p-6 text-center">
-            <div className="w-16 h-16 mx-auto bg-[#1a1c2c] border border-[#2a364a] rounded-full flex items-center justify-center mb-4">
-              <AlertCircle className="w-8 h-8 text-blue-400" />
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent bg-transparent">
+          <div className="bg-black/40 border-b border-white/10 p-8 text-center">
+            <div className="w-16 h-16 mx-auto bg-[#0f1522]/80 border border-[#00e5ff]/30 rounded-full flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+              <AlertCircle className="w-8 h-8 text-[#00e5ff]" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Submit a Support Request</h2>
-            <p className="text-sm text-slate-400 max-w-lg mx-auto">Please provide detailed information about the issue you are facing. Our L2 Support Team will review and respond as quickly as possible.</p>
+            <h2 className="text-xl font-black text-white uppercase tracking-[0.2em] mb-2">Submit a Support Request</h2>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 max-w-lg mx-auto">Please provide detailed information about the issue you are facing. Our L2 Support Team will review and respond as quickly as possible.</p>
           </div>
           
-          <div className="p-6 md:p-8">
-            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex flex-col gap-6">
+          <div className="p-6 md:p-10">
+            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex flex-col gap-8">
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Issue Category <span className="text-red-500">*</span></label>
+                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Issue Category <span className="text-red-500">*</span></label>
                 <select 
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); setSubCategory(""); }}
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer hover:border-slate-600"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold tracking-wide text-slate-200 focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all cursor-pointer hover:border-white/20 shadow-inner"
                   required
                 >
                   <option value="" disabled>Select Primary Category...</option>
@@ -432,12 +438,12 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                 </select>
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Specific Issue <span className="text-red-500">*</span></label>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Specific Issue <span className="text-red-500">*</span></label>
                 <select 
                   value={subCategory}
                   onChange={(e) => setSubCategory(e.target.value)}
                   disabled={!category}
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:border-slate-600"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold tracking-wide text-slate-200 focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all cursor-pointer hover:border-white/20 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="" disabled>Select Specific Issue...</option>
@@ -448,13 +454,13 @@ export const DoctorMessages = ({ user }: { user: any }) => {
               </div>
             </div>
             
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Priority Level <span className="text-red-500">*</span></label>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Priority Level <span className="text-red-500">*</span></label>
                 <select 
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer hover:border-slate-600"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold tracking-wide text-slate-200 focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all cursor-pointer hover:border-white/20 shadow-inner"
                   required
                 >
                   <option value="" disabled>Select Priority...</option>
@@ -465,11 +471,11 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                 </select>
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Impacted System <span className="text-red-500">*</span></label>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Impacted System <span className="text-red-500">*</span></label>
                 <select 
                   value={impactedSystem}
                   onChange={(e) => setImpactedSystem(e.target.value)}
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer hover:border-slate-600"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold tracking-wide text-slate-200 focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all cursor-pointer hover:border-white/20 shadow-inner"
                   required
                 >
                   <option value="" disabled>Select System...</option>
@@ -484,21 +490,21 @@ export const DoctorMessages = ({ user }: { user: any }) => {
             </div>
             
               <div className="w-full">
-                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Patient ID / Reference (Optional)</label>
+                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Patient ID / Reference (Optional)</label>
                <input 
                   type="text"
                   value={patientRef}
                   onChange={(e) => setPatientRef(e.target.value)}
                   placeholder="e.g. PAT-9832 (If applicable)"
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 shadow-inner"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-bold tracking-wide text-white focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all placeholder-slate-600 shadow-inner"
                />
             </div>
             
               <div className="w-full">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center justify-between">
                   <span>Detailed Description <span className="text-red-500">*</span></span>
-                  <button type="button" title="Attach file" className="text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1 text-[10px]">
-                    <Paperclip className="w-3.5 h-3.5" /> Attach File
+                  <button type="button" title="Attach file" className="text-[#00e5ff] hover:text-white transition-colors flex items-center gap-1.5 text-[9px] font-black tracking-widest bg-[#00e5ff]/10 px-2 py-1 rounded border border-[#00e5ff]/30">
+                    <Paperclip className="w-3.5 h-3.5" /> ATTACH FILE
                   </button>
                 </label>
                 <textarea
@@ -513,31 +519,31 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                      }
                   }}
                   placeholder="Provide detailed information about the issue to help IT resolve it quickly..."
-                  className="w-full bg-[#0f111a] border border-[#2a364a] rounded px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 shadow-inner resize-y min-h-[120px]"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-4 text-sm font-bold tracking-wide text-white focus:outline-none focus:border-[#00e5ff]/50 focus:ring-1 focus:ring-[#00e5ff]/50 transition-all placeholder-slate-600 shadow-inner resize-y min-h-[140px]"
                   required
                 />
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-3 mt-3">
                   {analyzeTone(newMessage) && (
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${analyzeTone(newMessage)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.1em] px-2.5 py-1 rounded-md border ${analyzeTone(newMessage)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
                       {analyzeTone(newMessage)?.icon} Tone: {analyzeTone(newMessage)?.tone}
                     </span>
                   )}
                   {getSuggestion(newMessage) && (
-                    <button type="button" onClick={() => setNewMessage(newMessage + getSuggestion(newMessage))} className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                    <button type="button" onClick={() => setNewMessage(newMessage + getSuggestion(newMessage))} className="text-[9px] font-black text-[#00e5ff] bg-[#00e5ff]/10 border border-[#00e5ff]/30 px-2.5 py-1 rounded-md hover:bg-[#00e5ff]/20 transition-all flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in-95 duration-200">
                       ✨ Suggestion: {getSuggestion(newMessage)} (Press Tab)
                     </button>
                   )}
                 </div>
               </div>
               
-              <div className="flex justify-end pt-4 border-t border-[#2a364a]">
+              <div className="flex justify-end pt-6 border-t border-white/10">
                 <button
                   type="submit"
                   disabled={!newMessage.trim() || !category || !subCategory || !priority || !impactedSystem}
-                  className="px-8 py-3 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded font-bold flex items-center justify-center gap-2 transition-all border border-blue-600 hover:border-blue-500 disabled:border-slate-700 shadow-sm"
+                  className="px-8 py-4 bg-[#00e5ff]/10 hover:bg-[#00e5ff]/20 text-[#00e5ff] rounded-xl font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all border border-[#00e5ff]/30 hover:border-[#00e5ff]/60 hover:shadow-[0_0_15px_rgba(0,229,255,0.3)] disabled:opacity-50 disabled:border-slate-700 disabled:text-slate-500 disabled:bg-slate-800 disabled:shadow-none"
                 >
                   <Send className="w-4 h-4" />
-                  <span className="text-xs tracking-wider uppercase">Submit Ticket</span>
+                  SUBMIT TICKET
                 </button>
               </div>
             </form>
@@ -548,19 +554,19 @@ export const DoctorMessages = ({ user }: { user: any }) => {
 
       {/* Modal */}
       {selectedMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-[#131524] border border-[#2a364a] rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="p-4 border-b border-[#1e293b] flex items-center justify-between bg-[#0f111a]">
-              <h3 className="text-base font-bold text-slate-200 flex items-center gap-2 uppercase tracking-wide">
-                <Ticket className="w-5 h-5 text-indigo-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#0a0f18]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.8)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-black/40">
+              <h3 className="text-sm font-black text-white flex items-center gap-2 uppercase tracking-[0.1em]">
+                <Ticket className="w-5 h-5 text-[#00e5ff]" />
                 Ticket Details
               </h3>
-              <button onClick={() => setSelectedMessage(null)} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded hover:bg-slate-800">
+              <button onClick={() => setSelectedMessage(null)} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-[#131524]">
+            <div className="p-8 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent flex-1 bg-transparent">
               {(() => {
                 let parsed: any = null;
                 let text = selectedMessage.content;
@@ -583,38 +589,38 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                 return (
                   <div>
                     {parsed && (
-                      <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="bg-[#0f111a] border border-[#2a364a] p-3 rounded">
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Category</p>
-                          <p className="text-sm text-slate-200 font-medium">{parsed.category}</p>
+                      <div className="grid grid-cols-2 gap-5 mb-8">
+                        <div className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner">
+                          <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Category</p>
+                          <p className="text-sm text-slate-200 font-bold tracking-wide">{parsed.category}</p>
                         </div>
-                        <div className="bg-[#0f111a] border border-[#2a364a] p-3 rounded">
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Specific Issue</p>
-                          <p className="text-sm text-slate-200 font-medium">{parsed.subCategory}</p>
+                        <div className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner">
+                          <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Specific Issue</p>
+                          <p className="text-sm text-slate-200 font-bold tracking-wide">{parsed.subCategory}</p>
                         </div>
                         {parsed.priority && (
-                          <div className="bg-[#0f111a] border border-[#2a364a] p-3 rounded">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Priority</p>
-                            <p className={`text-sm font-bold ${
-                              parsed.priority === 'Critical' ? 'text-red-400' :
+                          <div className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner">
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Priority</p>
+                            <p className={`text-sm font-black tracking-wide ${
+                              parsed.priority === 'Critical' ? 'text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.5)]' :
                               parsed.priority === 'High' ? 'text-orange-400' :
                               parsed.priority === 'Medium' ? 'text-amber-400' : 'text-slate-300'
                             }`}>{parsed.priority}</p>
                           </div>
                         )}
                         {parsed.impactedSystem && (
-                          <div className="bg-[#0f111a] border border-[#2a364a] p-3 rounded">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Impacted System</p>
-                            <p className="text-sm text-slate-200">{parsed.impactedSystem}</p>
+                          <div className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner">
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Impacted System</p>
+                            <p className="text-sm text-slate-200 font-bold tracking-wide">{parsed.impactedSystem}</p>
                           </div>
                         )}
                         {parsed.patientRef && (
-                          <div className="bg-[#0f111a] border border-[#2a364a] p-3 rounded col-span-2 flex items-center justify-between">
+                          <div className="bg-black/40 border border-white/10 p-4 rounded-xl shadow-inner col-span-2 flex items-center justify-between">
                             <div>
-                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Patient Reference</p>
-                              <p className="text-sm text-indigo-300 font-mono">{parsed.patientRef}</p>
+                              <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Patient Reference</p>
+                              <p className="text-sm text-[#00e5ff] font-mono font-bold tracking-widest">{parsed.patientRef}</p>
                             </div>
-                            <div className="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded border border-indigo-500/20">
+                            <div className="px-2.5 py-1.5 bg-[#00e5ff]/10 text-[#00e5ff] text-[9px] font-black uppercase tracking-[0.2em] rounded-md border border-[#00e5ff]/30">
                               Linked
                             </div>
                           </div>
@@ -623,11 +629,11 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                     )}
                     
                     <div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em] mb-3 flex items-center gap-3">
                         Detailed Description
-                        <span className="flex-1 h-px bg-[#2a364a]"></span>
+                        <span className="flex-1 h-px bg-white/10"></span>
                       </p>
-                      <div className="bg-[#0f111a] border border-[#2a364a] p-5 rounded text-sm text-slate-300 whitespace-pre-wrap leading-relaxed shadow-inner">
+                      <div className="bg-black/40 border border-white/10 p-6 rounded-xl text-sm font-medium text-slate-300 whitespace-pre-wrap leading-relaxed shadow-inner">
                         {text}
                       </div>
                     </div>
@@ -636,18 +642,18 @@ export const DoctorMessages = ({ user }: { user: any }) => {
               })()}
             </div>
             
-            <div className="p-4 border-t border-[#1e293b] bg-[#131524]">
-              <div className="flex flex-col gap-3">
+            <div className="p-6 border-t border-white/10 bg-black/40">
+              <div className="flex flex-col gap-4">
                 {selectedMessage.sender_id !== resolveUserId() && (
                   <div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                       <input
                         type="text"
                         spellCheck="true"
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Type a quick reply..."
-                        className="flex-1 bg-[#0f111a] border border-[#2a364a] rounded px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600 shadow-inner"
+                        placeholder="TYPE A QUICK REPLY..."
+                        className="flex-1 bg-[#0f1522]/80 border border-white/10 rounded-xl px-5 py-3 text-xs font-black tracking-widest text-slate-200 focus:outline-none focus:border-[#00ff9d]/50 focus:ring-1 focus:ring-[#00ff9d]/50 transition-all placeholder-slate-600 shadow-inner"
                         onKeyDown={(e) => {
                           const suggestion = getSuggestion(replyText);
                           if (e.key === 'Tab' && suggestion) {
@@ -662,19 +668,19 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                       <button 
                         onClick={handleQuickReply}
                         disabled={isReplying || !replyText.trim()}
-                        className="px-6 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded font-bold text-xs uppercase tracking-wider transition-all border border-blue-600 hover:border-blue-500 disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700 shadow-sm flex items-center justify-center min-w-[100px]"
+                        className="px-6 py-3 bg-[#00ff9d]/10 hover:bg-[#00ff9d]/20 text-[#00ff9d] rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all border border-[#00ff9d]/30 hover:border-[#00ff9d]/60 hover:shadow-[0_0_15px_rgba(0,255,157,0.3)] disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700 disabled:shadow-none shadow-sm flex items-center justify-center min-w-[120px]"
                       >
-                        {isReplying ? "Sending..." : "Reply"}
+                        {isReplying ? "SENDING..." : "REPLY"}
                       </button>
                     </div>
-                    <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-3 mt-3">
                       {analyzeTone(replyText) && (
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${analyzeTone(replyText)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                        <span className={`text-[9px] font-black uppercase tracking-[0.1em] px-2.5 py-1 rounded-md border ${analyzeTone(replyText)?.color} shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200`}>
                           {analyzeTone(replyText)?.icon} Tone: {analyzeTone(replyText)?.tone}
                         </span>
                       )}
                       {getSuggestion(replyText) && (
-                        <button type="button" onClick={() => setReplyText(replyText + getSuggestion(replyText))} className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded hover:bg-blue-500/20 transition-all flex items-center gap-1 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                        <button type="button" onClick={() => setReplyText(replyText + getSuggestion(replyText))} className="text-[9px] font-black text-[#00ff9d] bg-[#00ff9d]/10 border border-[#00ff9d]/30 px-2.5 py-1 rounded-md hover:bg-[#00ff9d]/20 transition-all flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in-95 duration-200">
                           ✨ Suggestion: {getSuggestion(replyText)} (Press Tab)
                         </button>
                       )}
@@ -682,21 +688,21 @@ export const DoctorMessages = ({ user }: { user: any }) => {
                   </div>
                 )}
                 <div className="flex justify-between items-center mt-2">
-                  <div className="text-xs text-slate-500">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                     Ticket ID: {selectedMessage.id || "N/A"}
                   </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setSelectedMessage(null)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold text-xs uppercase tracking-wider transition-colors border border-[#2a364a]">
-                      Close
+                  <div className="flex gap-4">
+                    <button onClick={() => setSelectedMessage(null)} className="px-6 py-2.5 bg-black/40 hover:bg-white/5 text-slate-300 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] transition-colors border border-white/10">
+                      CLOSE
                     </button>
                     {selectedMessage.sender_id === resolveUserId() && (
                       <button 
                         onClick={() => handleDelete(selectedMessage.id)}
                         disabled={isDeleting}
-                        className="px-5 py-2 bg-red-900/40 hover:bg-red-600 text-white rounded font-bold text-xs uppercase tracking-wider transition-all border border-red-900/50 flex items-center gap-2 disabled:opacity-50"
+                        className="px-6 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] transition-all border border-red-500/30 flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        {isDeleting ? "Deleting..." : "Delete"}
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {isDeleting ? "DELETING..." : "DELETE"}
                       </button>
                     )}
                   </div>
