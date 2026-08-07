@@ -66,85 +66,95 @@ export default function DoctorBillingPage({ user, onBack }: DoctorBillingPagePro
   };
 
   return (
-    <div className="flex-1 p-8 bg-[#030712] text-slate-300 font-sans flex flex-col h-screen overflow-hidden relative">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-900/10 blur-[150px] rounded-full pointer-events-none"></div>
-      
-      <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6 relative z-10">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/10">
-            <ArrowLeft className="w-5 h-5 text-slate-400" />
-          </button>
-          <div className="p-3 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-            <CreditCard className="w-7 h-7 text-emerald-400" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight uppercase drop-shadow-md">
-              Workload & Billing Logs
-            </h1>
-            <p className="text-slate-500 text-sm font-medium mt-1">Verify your daily patient check counts for hospital payments.</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4 bg-white/[0.02] border border-white/5 px-4 py-2 rounded-xl backdrop-blur-md">
-          <div className="flex flex-col items-end border-r border-white/10 pr-4">
-             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Total Encounters Verified</span>
-             <span className="text-xl font-mono text-emerald-400 font-black">{totalPatients}</span>
-          </div>
-          <button onClick={exportPDF} disabled={workload.length === 0 || isExporting} className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download className="w-4 h-4" /> {isExporting ? 'Generating...' : 'Export PDF'}
-          </button>
-        </div>
+    <div className="flex-1 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col overflow-hidden relative z-0">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#00ff9d]/5 blur-[120px] rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-[#00e5ff]/5 blur-[150px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
       </div>
+      
+      <div className="flex-1 p-8 flex flex-col relative z-10 overflow-hidden">
+        <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="p-2 bg-[#0f1522]/60 hover:bg-[#00ff9d]/10 rounded-xl transition-all border border-white/10 hover:border-[#00ff9d]/50 shadow-lg group">
+              <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-[#00ff9d] transition-colors" />
+            </button>
+            <div className="p-3 bg-[#0f1522]/80 border border-white/10 rounded-xl shadow-[0_0_20px_rgba(0,255,157,0.15)] flex-shrink-0 relative group">
+              <div className="absolute inset-0 bg-[#00ff9d] rounded-xl opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500"></div>
+              <CreditCard className="w-7 h-7 text-[#00ff9d] drop-shadow-[0_0_8px_rgba(0,255,157,0.8)] relative z-10" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl font-black text-white uppercase tracking-[0.2em] drop-shadow-md">
+                Workload & Billing Logs
+              </h1>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] animate-pulse shadow-[0_0_5px_#00e5ff]"></span>
+                Verify your daily patient check counts for hospital payments.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4 bg-[#0f1522]/60 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-2xl shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+            <div className="flex flex-col items-end border-r border-white/10 pr-4">
+               <span className="text-[9px] uppercase font-black text-slate-400 tracking-[0.2em]">Total Encounters Verified</span>
+               <span className="text-xl font-mono text-[#00ff9d] font-black drop-shadow-[0_0_5px_rgba(0,255,157,0.5)]">{totalPatients}</span>
+            </div>
+            <button onClick={exportPDF} disabled={workload.length === 0 || isExporting} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#00e5ff] bg-[#00e5ff]/10 hover:bg-[#00e5ff]/20 px-3 py-2 rounded-lg border border-[#00e5ff]/30 hover:border-[#00e5ff]/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-inner group/btn">
+              <Download className="w-4 h-4 group-hover/btn:-translate-y-0.5 transition-transform" /> {isExporting ? 'GENERATING...' : 'EXPORT PDF'}
+            </button>
+          </div>
+        </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10 pr-2">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent relative z-10 pr-2">
         {loading ? (
           <div className="flex justify-center items-center h-40">
-            <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[#00ff9d] border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : workload.length === 0 ? (
-          <div className="text-center py-20 bg-white/[0.02] rounded-2xl border border-white/5">
+          <div className="text-center py-24 bg-[#0f1522]/60 backdrop-blur-2xl rounded-2xl border border-white/10">
             <FileText className="w-12 h-12 text-slate-600 mx-auto mb-4 opacity-50" />
-            <p className="text-slate-500">No workload history found for your account yet.</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">No workload history found for your account yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {workload.map((dayLog, idx) => (
               <div 
                 key={idx} 
-                className="bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.05)] hover:border-emerald-500/30 transition-all group"
+                className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 p-7 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:shadow-[0_8px_40px_rgba(0,255,157,0.15)] hover:border-[#00ff9d]/30 transition-all group overflow-hidden relative"
               >
-                <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner group-hover:scale-110 transition-transform">
-                      <Calendar className="w-5 h-5" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#00ff9d]/5 blur-[40px] pointer-events-none group-hover:bg-[#00ff9d]/10 transition-colors"></div>
+                <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-5 relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-[#00ff9d] shadow-inner group-hover:bg-[#00ff9d]/10 group-hover:border-[#00ff9d]/30 transition-all">
+                      <Calendar className="w-5 h-5 drop-shadow-[0_0_5px_rgba(0,255,157,0.5)]" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-200 text-lg">{new Date(dayLog.date).toLocaleDateString('en-US', { weekday: 'long' })}</h3>
-                      <p className="text-xs font-mono text-slate-500">{dayLog.date}</p>
+                      <h3 className="font-black text-white text-lg uppercase tracking-[0.1em]">{new Date(dayLog.date).toLocaleDateString('en-US', { weekday: 'long' })}</h3>
+                      <p className="text-[10px] font-mono font-bold tracking-widest text-slate-400 mt-1">{dayLog.date}</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="bg-[#0a0e1a] p-4 rounded-xl border border-white/5 flex flex-col justify-center shadow-inner relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 blur-[20px]"></div>
-                      <span className="text-[10px] uppercase text-slate-500 font-bold flex items-center gap-1.5 mb-2 relative z-10">
-                        <UserCheck className="w-3 h-3 text-blue-400" /> Unique Patients
+                <div className="grid grid-cols-2 gap-5 relative z-10">
+                   <div className="bg-black/40 p-5 rounded-xl border border-white/10 flex flex-col justify-center shadow-inner relative overflow-hidden group/card hover:border-[#00e5ff]/30 transition-colors">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-[#00e5ff]/10 blur-[20px] pointer-events-none group-hover/card:bg-[#00e5ff]/20"></div>
+                      <span className="text-[9px] uppercase text-slate-400 font-black flex items-center gap-2 mb-2 tracking-[0.2em] relative z-10">
+                        <UserCheck className="w-3 h-3 text-[#00e5ff]" /> Unique Patients
                       </span>
-                      <span className="text-3xl font-black text-white font-mono relative z-10">{dayLog.unique_patients_seen}</span>
+                      <span className="text-3xl font-black text-white font-mono relative z-10 drop-shadow-sm">{dayLog.unique_patients_seen}</span>
                    </div>
-                   <div className="bg-[#0a0e1a] p-4 rounded-xl border border-white/5 flex flex-col justify-center shadow-inner relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 blur-[20px]"></div>
-                      <span className="text-[10px] uppercase text-slate-500 font-bold flex items-center gap-1.5 mb-2 relative z-10">
-                        <Activity className="w-3 h-3 text-indigo-400" /> Total Inferences
+                   <div className="bg-black/40 p-5 rounded-xl border border-white/10 flex flex-col justify-center shadow-inner relative overflow-hidden group/card hover:border-[#00ff9d]/30 transition-colors">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-[#00ff9d]/10 blur-[20px] pointer-events-none group-hover/card:bg-[#00ff9d]/20"></div>
+                      <span className="text-[9px] uppercase text-slate-400 font-black flex items-center gap-2 mb-2 tracking-[0.2em] relative z-10">
+                        <Activity className="w-3 h-3 text-[#00ff9d]" /> Total Inferences
                       </span>
-                      <span className="text-3xl font-black text-white font-mono relative z-10">{dayLog.total_inferences}</span>
+                      <span className="text-3xl font-black text-white font-mono relative z-10 drop-shadow-sm">{dayLog.total_inferences}</span>
                    </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {/* Hidden Enterprise Report Template for PDF Export */}
