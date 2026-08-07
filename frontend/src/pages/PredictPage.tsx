@@ -74,10 +74,10 @@ export interface PredictionResult {
 }
 
 const InputField = ({ label, name, value, type="number", unit="", step="1", onChange, autoFilled }: any) => (
-  <div className="flex flex-col">
-    <label className="text-[10px] uppercase tracking-wider text-slate-400 mb-1 flex justify-between items-center font-semibold">
+  <div className="flex flex-col group relative">
+    <label className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 flex justify-between items-center font-bold group-focus-within:text-[#00e5ff] transition-colors duration-300">
       {label}
-      {autoFilled && <span className="text-[8px] text-blue-400 bg-blue-500/10 px-1 rounded-sm border border-blue-500/20">AUTO</span>}
+      {autoFilled && <span className="text-[8px] text-[#00e5ff] bg-[#00e5ff]/10 px-1.5 py-0.5 rounded border border-[#00e5ff]/30 animate-pulse shadow-[0_0_8px_rgba(0,229,255,0.3)]">AUTO</span>}
     </label>
     <div className="relative flex">
       <input
@@ -86,11 +86,11 @@ const InputField = ({ label, name, value, type="number", unit="", step="1", onCh
         value={value}
         onChange={onChange}
         step={step}
-        className={`w-full text-xs font-mono ${autoFilled ? 'bg-blue-900/20 border-blue-500/50 text-blue-100' : 'bg-[#0a0e17] border-[#2a364a] text-slate-200'} border rounded-sm py-1.5 pl-2 ${unit ? 'pr-8' : 'pr-2'} focus:ring-1 focus:ring-blue-500 outline-none transition-colors shadow-inner`}
+        className={`w-full text-xs font-mono ${autoFilled ? 'bg-[#00e5ff]/10 border-[#00e5ff]/50 text-cyan-100 shadow-[0_0_15px_rgba(0,229,255,0.15)]' : 'bg-[#0a0f18]/60 border-white/10 text-slate-200 hover:bg-[#0f1623]/80'} border rounded-lg py-2 pl-3 ${unit ? 'pr-10' : 'pr-3'} focus:border-[#00e5ff] focus:ring-1 focus:ring-[#00e5ff]/50 focus:bg-[#0a0f18] outline-none transition-all duration-300 backdrop-blur-sm`}
       />
       {unit && (
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <span className="text-slate-500 text-[9px] font-bold">{unit}</span>
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <span className="text-slate-500 text-[10px] font-bold group-focus-within:text-[#00e5ff]/70 transition-colors">{unit}</span>
         </div>
       )}
     </div>
@@ -98,33 +98,46 @@ const InputField = ({ label, name, value, type="number", unit="", step="1", onCh
 );
 
 const SelectField = ({ label, name, value, options, onChange, autoFilled }: any) => (
-  <div className="flex flex-col">
-    <label className="text-[10px] uppercase tracking-wider text-slate-400 mb-1 flex justify-between items-center font-semibold">
+  <div className="flex flex-col group relative">
+    <label className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 flex justify-between items-center font-bold group-focus-within:text-[#00e5ff] transition-colors duration-300">
       {label}
-      {autoFilled && <span className="text-[8px] text-blue-400 bg-blue-500/10 px-1 rounded-sm border border-blue-500/20">AUTO</span>}
+      {autoFilled && <span className="text-[8px] text-[#00e5ff] bg-[#00e5ff]/10 px-1.5 py-0.5 rounded border border-[#00e5ff]/30 animate-pulse shadow-[0_0_8px_rgba(0,229,255,0.3)]">AUTO</span>}
     </label>
-    <select
-      name={name}
-      value={value}
-      onChange={onChange}
-      className={`w-full text-xs font-mono ${autoFilled ? 'bg-blue-900/20 border-blue-500/50 text-blue-100' : 'bg-[#0a0e17] border-[#2a364a] text-slate-200'} border rounded-sm py-1.5 px-2 focus:ring-1 focus:ring-blue-500 outline-none shadow-inner`}
-    >
-      {options.map((opt: any) => <option key={opt.value} value={opt.value} className="bg-[#131826] font-sans text-xs">{opt.label}</option>)}
-    </select>
+    <div className="relative flex">
+      <select
+        name={name}
+        value={value}
+        onChange={onChange}
+        className={`w-full text-xs font-mono ${autoFilled ? 'bg-[#00e5ff]/10 border-[#00e5ff]/50 text-cyan-100 shadow-[0_0_15px_rgba(0,229,255,0.15)]' : 'bg-[#0a0f18]/60 border-white/10 text-slate-200 hover:bg-[#0f1623]/80'} border rounded-lg py-2 pl-3 pr-8 focus:border-[#00e5ff] focus:ring-1 focus:ring-[#00e5ff]/50 focus:bg-[#0a0f18] outline-none transition-all duration-300 backdrop-blur-sm appearance-none cursor-pointer`}
+      >
+        {options.map((opt: any) => <option key={opt.value} value={opt.value} className="bg-[#0f1623] font-sans text-xs">{opt.label}</option>)}
+      </select>
+      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-slate-500 group-focus-within:text-[#00e5ff] transition-colors">
+        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path></svg>
+      </div>
+    </div>
   </div>
 );
 
 const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
-  <label className={`flex items-center gap-2 p-1.5 rounded-sm border ${autoFilled ? 'bg-blue-900/20 border-blue-500/50' : 'bg-[#0a0e17] border-[#2a364a]'} cursor-pointer hover:bg-[#1e293b] transition-colors`}>
-    <input
-      type="checkbox"
-      name={name}
-      checked={checked}
-      onChange={onChange}
-      className="w-3.5 h-3.5 rounded-sm border-slate-600 bg-[#0a0e17] text-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-offset-0"
-    />
-    <span className="text-[11px] font-medium text-slate-300 flex-1 truncate">{label}</span>
-    {autoFilled && <span className="text-[8px] font-bold text-blue-400">AUTO</span>}
+  <label className={`flex items-center gap-2 p-2 rounded-lg border ${autoFilled ? 'bg-[#00e5ff]/10 border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.15)]' : 'bg-[#0a0f18]/60 border-white/10 hover:border-white/20 hover:bg-[#0f1623]/80'} cursor-pointer transition-all duration-300 backdrop-blur-sm group relative overflow-hidden`}>
+    {checked && <div className="absolute inset-0 bg-gradient-to-r from-[#00e5ff]/10 to-transparent opacity-50"></div>}
+    <div className="relative flex items-center justify-center flex-shrink-0">
+      <input
+        type="checkbox"
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        className="peer sr-only"
+      />
+      <div className="w-3.5 h-3.5 rounded border border-slate-500 bg-black/50 peer-checked:bg-[#00e5ff] peer-checked:border-[#00e5ff] transition-all duration-300 flex items-center justify-center shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)] peer-checked:shadow-[0_0_10px_rgba(0,229,255,0.5)]">
+        <svg className={`w-2.5 h-2.5 text-black transform transition-transform duration-300 ${checked ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    </div>
+    <span className={`text-[10px] font-bold tracking-wide flex-1 leading-tight transition-colors duration-300 z-10 ${checked ? 'text-[#00e5ff]' : 'text-slate-300 group-hover:text-slate-200'}`}>{label}</span>
+    {autoFilled && <span className="text-[8px] font-black text-[#00e5ff] z-10">AUTO</span>}
   </label>
 );
 
@@ -459,170 +472,212 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-full relative">
+    <div className="flex-1 flex flex-col min-h-full relative overflow-hidden bg-[#030712]">
+      <style>{`
+        @keyframes slideDown {
+          0% { transform: translateY(-100%); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: translateY(100%); opacity: 0; }
+        }
+        @keyframes slideUp {
+          0% { transform: translateY(100%); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: translateY(-100%); opacity: 0; }
+        }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+      
+      {/* Immersive Animated Background */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(0,184,212,0.08),transparent_60%)] blur-[100px] animate-[pulse_10s_ease-in-out_infinite_alternate] pointer-events-none z-0"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.06),transparent_60%)] blur-[100px] animate-[pulse_12s_ease-in-out_infinite_alternate-reverse] pointer-events-none z-0"></div>
+      <div className="absolute top-[40%] left-[60%] w-[30vw] h-[30vw] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.05),transparent_60%)] blur-[80px] animate-[pulse_15s_ease-in-out_infinite_alternate] pointer-events-none z-0"></div>
+      
+      {/* Holographic Grid Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-20 z-0"></div>
+
       {/* Subtle Screen Flash on Completion */}
-      <div className={`fixed inset-0 bg-[#00b8d4] pointer-events-none transition-opacity duration-300 z-50 ${
-        screenFlash ? "opacity-15" : "opacity-0"
+      <div className={`absolute inset-0 bg-[#00e5ff] pointer-events-none transition-opacity duration-700 z-50 ${
+        screenFlash ? "opacity-20 mix-blend-overlay" : "opacity-0"
       }`} />
-      {/* TOP HEADER: Patient Context Banner */}
-      <div className="h-12 bg-[#131826] border-b border-[#1e293b] flex items-center px-4 justify-between flex-shrink-0 shadow-md sticky top-0 z-20">
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-2 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
-              <span className="text-slate-500 font-semibold uppercase">MRN</span>
-              <span className="font-mono text-blue-400 font-bold tracking-wider">{patientInfo.mrn}</span>
+      
+      {/* TOP HEADER: Premium Glassmorphic Banner */}
+      <div className="h-14 bg-[#0a0f18]/60 backdrop-blur-xl border-b border-white/10 flex items-center px-6 justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.5)] sticky top-0 z-40">
+          <div className="flex items-center gap-5 text-xs">
+            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner">
+              <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">MRN</span>
+              <span className="font-mono text-[#00e5ff] font-black tracking-wider text-xs drop-shadow-[0_0_5px_rgba(0,229,255,0.3)]">{patientInfo.mrn}</span>
             </div>
-            <span className="font-bold text-slate-200 tracking-wide">{patientInfo.name}</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400 font-mono">DOB: {patientInfo.dob} {patientInfo.age !== "-" ? `(${patientInfo.age}y)` : ""}</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
+            <span className="font-black text-slate-100 tracking-wider text-sm uppercase drop-shadow-md">{patientInfo.name}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-50"/> DOB: <span className="text-slate-300">{patientInfo.dob}</span> {patientInfo.age !== "-" ? <span className="bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-200">{patientInfo.age}Y</span> : ""}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-50"/> Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
+            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Stethoscope className="w-3.5 h-3.5 opacity-50"/> Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
              <button
                type="button"
                onClick={handleResetWorkspace}
-               className="bg-[#1e293b] hover:bg-blue-600 hover:text-white text-slate-300 px-3 py-1 rounded text-xs font-bold tracking-wider transition-all border border-[#334155] shadow flex items-center gap-1.5"
+               className="group relative overflow-hidden bg-[#0f1623] hover:bg-[#152033] text-slate-300 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 border border-white/10 shadow-lg flex items-center gap-2 hover:border-blue-500/50 hover:text-white hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                title="Clear active patient encounter and reset workspace"
              >
-               <RotateCcw className="w-3.5 h-3.5" />
+               <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/10 to-blue-600/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+               <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-180 transition-transform duration-500" />
                NEW ENCOUNTER
              </button>
-             <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded border border-emerald-900/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+             <div className="flex items-center gap-2 text-[10px] font-mono font-black tracking-widest text-[#00ff9d] bg-[#00ff9d]/5 px-3 py-1.5 rounded-lg border border-[#00ff9d]/20 shadow-[0_0_15px_rgba(0,255,157,0.1)]">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00ff9d] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00ff9d]"></span>
+                </div>
                 SYSTEM SECURE
              </div>
-             <div className="text-xs text-slate-500 font-mono">{new Date().toISOString().split('T')[0]}</div>
-             <div className="h-4 w-px bg-[#1e293b] mx-1"></div>
-             <div className="text-xs text-slate-400 font-medium">
-               {user ? `Dr. ${user.name}` : "Unknown User"} <span className="text-slate-500">- {user?.level || "Clinician"}</span>
+             <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">{new Date().toISOString().split('T')[0]}</div>
+             <div className="h-6 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent mx-2"></div>
+             <div className="text-[11px] font-bold tracking-wide text-slate-200 flex items-center gap-2">
+               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border border-white/20 shadow-md">
+                 <span className="text-white text-[10px] font-black">{user?.name?.charAt(0) || "U"}</span>
+               </div>
+               <div className="flex flex-col">
+                 <span>{user ? `Dr. ${user.name}` : "Unknown User"}</span>
+                 <span className="text-[9px] text-blue-400 font-mono uppercase tracking-widest">{user?.level || "Clinician"}</span>
+               </div>
              </div>
           </div>
         </div>
 
         {/* MAIN WORKSTATION GRID */}
-        <form onSubmit={handleSubmit} className="flex-1 p-4 flex flex-col gap-4 bg-[#070b14]">
+        <form onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10">
           
           {/* TOP INPUT ROW */}
-          <div className="flex flex-col xl:flex-row gap-4 w-full items-stretch">
+          <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch">
             {/* LEFT COLUMN: Data Sources */}
-            <div className="w-full xl:w-[380px] flex flex-col gap-4 flex-shrink-0">
+            <div className="w-full xl:w-[420px] flex flex-col gap-6 flex-shrink-0">
               
-              {/* Panel: Diagnostic Input */}
-              <div className="bg-[#131826] border border-[#1e293b] rounded-md flex flex-col shadow-lg h-full relative">
-                <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b] flex items-center justify-between rounded-t-md z-10">
-                  <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
-                    <Database className="w-3.5 h-3.5 text-blue-400" />
+              {/* Panel: Diagnostic Pipeline - Glassmorphic Redesign */}
+              <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden h-full group">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00e5ff]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                
+                <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 flex items-center justify-between z-10 relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#00e5ff] to-blue-600 shadow-[0_0_10px_#00e5ff]"></div>
+                  <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
+                    <Database className="w-4 h-4 text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]" />
                     1. Diagnostic Pipeline
                   </h2>
                 </div>
-                <div className="p-3 flex flex-col gap-3 flex-1 justify-center max-h-[calc(100vh-240px)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a364a] scrollbar-track-transparent">
-                  <div className={`border rounded-lg p-4 flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group cursor-pointer overflow-hidden ${
+                <div className="p-4 flex flex-col gap-4 flex-1 justify-start max-h-[calc(100vh-260px)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent relative z-10">
+                  <div className={`border-2 rounded-xl p-4 min-h-[160px] flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group/drop cursor-pointer overflow-hidden ${
                     pipelineStep === "STEP1" || pipelineStep === "STEP3"
-                      ? "border-[#00b8d4] bg-[#040810] shadow-[0_0_20px_rgba(0,184,212,0.3),inset_0_0_15px_rgba(0,184,212,0.15)]"
-                      : "border-dashed border-[#2a364a] hover:border-[#00b8d4]/50 bg-[#0a0e17]"
+                      ? "border-[#00e5ff] bg-[#00e5ff]/5 shadow-[0_0_30px_rgba(0,229,255,0.2),inset_0_0_20px_rgba(0,229,255,0.1)]"
+                      : "border-dashed border-white/10 hover:border-[#00e5ff]/40 bg-black/30 hover:bg-[#00e5ff]/5"
                   }`}>
-                    {/* Enterprise Scanning Laser Effect for DICOM */}
+                    {/* Futuristic Scanning Effect */}
                     {(pipelineStep === "STEP1" || pipelineStep === "STEP3") && (
                       <>
-                         <div className="absolute top-0 bottom-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(0,184,212,0.3),transparent)] animate-pulse"></div>
-                         <div className="absolute top-0 left-0 w-full h-[3px] bg-[#00e5ff] shadow-[0_0_20px_#00e5ff] animate-[ping_2s_infinite]"></div>
-                         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00e5ff]/20 to-transparent animate-pulse pointer-events-none"></div>
+                         <div className="absolute top-0 bottom-0 left-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(0,229,255,0.2),transparent)] animate-[pulse_1.5s_infinite]"></div>
+                         <div className="absolute top-0 left-0 w-full h-[2px] bg-[#00e5ff] shadow-[0_0_15px_#00e5ff,0_0_30px_#00e5ff] animate-[ping_2s_infinite]"></div>
                       </>
                     )}
                     <input type="file" accept=".dcm,image/dicom,application/dicom,*/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
-                        <div className={`flex flex-col items-center gap-2 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00e5ff]" : "text-blue-400"}`}>
-                          <div className="relative">
-                            {pipelineStep === "STEP1" && (
-                              <svg className="absolute -inset-4 w-[calc(100%+32px)] h-[calc(100%+32px)] text-[#00b8d4] animate-[spin_3s_linear_infinite] opacity-50" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" strokeDasharray="10 20" strokeLinecap="round" />
-                              </svg>
-                            )}
-                            <Database className={`w-8 h-8 mx-auto mb-1 transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_12px_#00e5ff] scale-110" : "opacity-90"}`} />
+                        <div className={`flex flex-col items-center gap-3 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00e5ff]" : "text-[#00b8d4]"}`}>
+                          <div className="relative w-16 h-16 flex items-center justify-center mb-2">
+                            {/* Orbital Rings */}
+                            <svg className={`absolute inset-0 w-full h-full text-[#00e5ff] ${pipelineStep === "STEP1" ? 'animate-[spin_3s_linear_infinite] opacity-100' : 'opacity-30'}`} viewBox="0 0 100 100" fill="none">
+                               <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="2" strokeDasharray="60 40" strokeLinecap="round" />
+                               <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="1.5" strokeDasharray="30 70" strokeLinecap="round" className="animate-[spin_4s_linear_infinite_reverse]" />
+                            </svg>
+                            <Database className={`w-8 h-8 transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_15px_#00e5ff] scale-110" : "opacity-90"}`} />
                           </div>
-                          <div className="flex items-center gap-1.5 bg-[#0a0e17]/80 px-2 py-1 rounded shadow-inner">
-                            <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${pipelineStep === "STEP1" ? "animate-ping text-[#00e5ff]" : "text-[#00b8d4]"}`} />
-                            <span className="text-[11px] font-mono font-bold truncate max-w-[180px] text-slate-100 tracking-wide">{imageFile?.name || "DICOM Loaded"}</span>
+                          <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 shadow-lg backdrop-blur-md">
+                            <CheckCircle className={`w-4 h-4 flex-shrink-0 ${pipelineStep === "STEP1" ? "animate-ping text-[#00e5ff]" : "text-[#00e5ff]"}`} />
+                            <span className="text-[11px] font-mono font-bold truncate max-w-[180px] text-white tracking-wider">{imageFile?.name || "DICOM Loaded"}</span>
                           </div>
-                          <span className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold tracking-widest border transition-all ${pipelineStep === "STEP1" ? "bg-[#00b8d4]/20 text-[#00e5ff] border-[#00b8d4] shadow-[0_0_10px_#00b8d4] animate-pulse" : "bg-blue-950/60 text-blue-300 border-blue-800/50"}`}>
+                          <span className={`text-[9px] font-black px-3 py-1 mt-1 rounded-md tracking-[0.2em] border transition-all ${pipelineStep === "STEP1" ? "bg-[#00e5ff]/20 text-[#00e5ff] border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.4)] animate-pulse" : "bg-cyan-950/60 text-cyan-300 border-cyan-800/50"}`}>
                             {pipelineStep === "STEP1" ? "EXTRACTING RADIOMICS..." : "3D VOLUME READY"}
                           </span>
                         </div>
                       ) : (
                         <div className="relative w-full flex justify-center z-10">
-                          <img src={imagePreview} alt="Preview" className={`max-h-24 rounded object-cover shadow-lg transition-all duration-500 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "ring-2 ring-[#00e5ff] shadow-[0_0_20px_#00e5ff] scale-105" : ""}`} />
+                          <img src={imagePreview} alt="Preview" className={`max-h-28 rounded-lg object-cover shadow-2xl transition-all duration-500 border border-white/10 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "ring-2 ring-[#00e5ff] ring-offset-2 ring-offset-[#0a0f18] shadow-[0_0_30px_rgba(0,229,255,0.5)] scale-105" : ""}`} />
                         </div>
                       )
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-[#00b8d4] transition-colors">
-                        <Upload className="w-8 h-8 mx-auto mb-2 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-transform" />
-                        <p className="text-[10px] uppercase tracking-widest font-bold">Load DICOM Volume</p>
+                      <div className="text-center text-slate-400 group-hover/drop:text-[#00e5ff] transition-all duration-300 transform group-hover/drop:-translate-y-1">
+                        <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 group-hover/drop:bg-[#00e5ff]/10 group-hover/drop:border-[#00e5ff]/30 group-hover/drop:shadow-[0_0_20px_rgba(0,229,255,0.2)] transition-all">
+                          <Upload className="w-6 h-6 opacity-70 group-hover/drop:opacity-100 group-hover/drop:scale-110 transition-transform" />
+                        </div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] font-black">Load DICOM Volume</p>
+                        <p className="text-[9px] text-slate-500 mt-1 font-mono uppercase">Drag & Drop or Click</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Multimodal Fusion Link / Connector */}
-                  <div className="flex items-center justify-center -my-1 z-10 relative h-10">
+                  {/* High-Tech Data Fusion Connector */}
+                  <div className="flex items-center justify-center -my-3 z-20 relative h-12">
                     <div className={`h-full transition-all duration-700 ${
                       pipelineStep === "STEP3" 
-                        ? "w-[4px] bg-gradient-to-b from-[#00e5ff] via-[#10b981] to-[#00e5ff] shadow-[0_0_15px_#00e5ff] animate-pulse" 
-                        : "w-px bg-[#2a364a]"
+                        ? "w-[3px] bg-gradient-to-b from-[#00e5ff] via-[#00ff9d] to-[#00e5ff] shadow-[0_0_20px_#00e5ff] animate-pulse" 
+                        : "w-px bg-white/10"
                     }`} />
                     {pipelineStep === "STEP3" && (
-                      <>
-                        {/* Particles moving to center */}
-                        <div className="absolute top-0 w-2.5 h-2.5 bg-[#00e5ff] rounded-full shadow-[0_0_10px_#00e5ff] animate-[ping_1s_infinite]"></div>
-                        <div className="absolute bottom-0 w-2.5 h-2.5 bg-[#10b981] rounded-full shadow-[0_0_10px_#10b981] animate-[ping_1s_infinite_0.5s]"></div>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {/* Data flowing animation */}
+                        <div className="absolute top-0 w-1.5 h-6 bg-gradient-to-b from-transparent via-[#00e5ff] to-transparent shadow-[0_0_15px_#00e5ff] animate-[slideDown_1s_ease-in-out_infinite]"></div>
+                        <div className="absolute bottom-0 w-1.5 h-6 bg-gradient-to-t from-transparent via-[#00ff9d] to-transparent shadow-[0_0_15px_#00ff9d] animate-[slideUp_1s_ease-in-out_infinite_0.5s]"></div>
                         
-                        <div className="absolute bg-[#0a0e17] border border-[#00e5ff] text-[#00e5ff] text-[10px] font-mono px-3 py-1.5 rounded-full shadow-[0_0_25px_rgba(0,229,255,0.7)] flex items-center gap-2 z-20">
-                          <Activity className="w-4 h-4 animate-pulse" /> 
-                          <span className="font-bold tracking-widest">MULTIMODAL FUSION</span>
+                        <div className="bg-[#0f1623] border-2 border-[#00e5ff] text-[#00e5ff] text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-xl shadow-[0_0_30px_rgba(0,229,255,0.6)] flex items-center gap-3 z-30 backdrop-blur-md">
+                          <Hexagon className="w-4 h-4 animate-spin-slow" /> 
+                          <span>Data Fusion Active</span>
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
 
-                  <div className={`border rounded-lg p-3 flex flex-col justify-center items-center relative transition-all duration-500 group cursor-pointer h-24 overflow-hidden ${
+                  <div className={`border-2 rounded-xl p-4 min-h-[160px] flex flex-col justify-center items-center relative transition-all duration-500 group/drop cursor-pointer flex-1 overflow-hidden ${
                     pipelineStep === "STEP2" || pipelineStep === "STEP3"
-                      ? "border-[#10b981] bg-[#04100b] shadow-[0_0_20px_rgba(16,185,129,0.3),inset_0_0_15px_rgba(16,185,129,0.15)]"
-                      : "border-dashed border-[#2a364a] hover:border-[#10b981]/50 bg-[#0a0e17]"
+                      ? "border-[#00ff9d] bg-[#00ff9d]/5 shadow-[0_0_30px_rgba(0,255,157,0.2),inset_0_0_20px_rgba(0,255,157,0.1)]"
+                      : "border-dashed border-white/10 hover:border-[#00ff9d]/40 bg-black/30 hover:bg-[#00ff9d]/5"
                   }`}>
-                    {/* Enterprise Scanning Laser Effect for PDF */}
+                    {/* Futuristic Scanning Effect */}
                     {(pipelineStep === "STEP2" || pipelineStep === "STEP3") && (
                       <>
-                         <div className="absolute top-0 bottom-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(16,185,129,0.3),transparent)] animate-pulse"></div>
-                         <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#34d399] shadow-[0_0_20px_#34d399] animate-[ping_2s_infinite]"></div>
-                         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-[#34d399]/20 to-transparent animate-pulse pointer-events-none"></div>
+                         <div className="absolute top-0 bottom-0 left-0 w-full bg-[linear-gradient(to_bottom,transparent,rgba(0,255,157,0.2),transparent)] animate-[pulse_1.5s_infinite]"></div>
+                         <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#00ff9d] shadow-[0_0_15px_#00ff9d,0_0_30px_#00ff9d] animate-[ping_2s_infinite]"></div>
                       </>
                     )}
                     <input type="file" accept=".pdf" onChange={handlePdfChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
                     {pdfFile ? (
-                      <div className={`flex flex-col items-center gap-1.5 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#34d399]" : "text-emerald-400"}`}>
-                        <div className="relative">
-                          {pipelineStep === "STEP2" && (
-                            <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] text-[#10b981] animate-[spin_3s_linear_infinite_reverse] opacity-50 scale-x-[-1]" viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="15 15" strokeLinecap="round" />
-                            </svg>
-                          )}
-                          <FileText className={`w-7 h-7 mx-auto mb-1 transition-all duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_12px_#34d399] scale-110" : "opacity-90"}`} />
+                      <div className={`flex flex-col items-center gap-3 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "text-[#00ff9d]" : "text-emerald-400"}`}>
+                        <div className="relative w-16 h-16 flex items-center justify-center mb-1">
+                          {/* Orbital Rings */}
+                          <svg className={`absolute inset-0 w-full h-full text-[#00ff9d] ${pipelineStep === "STEP2" ? 'animate-[spin_3s_linear_infinite_reverse] opacity-100' : 'opacity-30'}`} viewBox="0 0 100 100" fill="none">
+                             <circle cx="50" cy="50" r="48" stroke="currentColor" strokeWidth="2" strokeDasharray="30 20 50 10" strokeLinecap="round" />
+                             <polygon points="50,5 55,15 45,15" fill="currentColor" className="animate-pulse" />
+                          </svg>
+                          <FileText className={`w-7 h-7 transition-all duration-500 ${pipelineStep === "STEP2" || pipelineStep === "STEP3" ? "animate-pulse drop-shadow-[0_0_15px_#00ff9d] scale-110" : "opacity-90"}`} />
                         </div>
-                        <div className="flex items-center gap-1.5 bg-[#0a0e17]/80 px-2 py-1 rounded shadow-inner">
-                          <CheckCircle className={`w-3.5 h-3.5 ${pipelineStep === "STEP2" ? "animate-ping text-[#34d399]" : "text-emerald-400"}`} />
-                          <span className="text-[11px] font-mono font-bold truncate max-w-[200px] text-slate-100">{pdfFile.name}</span>
+                        <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 shadow-lg backdrop-blur-md">
+                          <CheckCircle className={`w-4 h-4 ${pipelineStep === "STEP2" ? "animate-ping text-[#00ff9d]" : "text-[#00ff9d]"}`} />
+                          <span className="text-[11px] font-mono font-bold truncate max-w-[200px] text-white tracking-wider">{pdfFile.name}</span>
                         </div>
                         {pipelineStep === "STEP2" && (
-                          <span className="text-[9px] font-mono px-2 py-0.5 mt-1 rounded font-bold tracking-widest border bg-[#10b981]/20 text-[#34d399] border-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse">
+                          <span className="text-[9px] font-black px-3 py-1 mt-1 rounded-md tracking-[0.2em] border bg-[#00ff9d]/20 text-[#00ff9d] border-[#00ff9d]/50 shadow-[0_0_15px_rgba(0,255,157,0.4)] animate-pulse">
                             NLP EXTRACTION...
                           </span>
                         )}
                       </div>
                     ) : (
-                      <div className="text-center text-slate-500 group-hover:text-[#10b981] transition-colors flex flex-col items-center gap-2">
-                         <FileText className="w-8 h-8 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-transform" />
-                         <p className="text-[10px] uppercase tracking-widest font-bold">Load Clinical PDF</p>
+                      <div className="text-center text-slate-400 group-hover/drop:text-[#00ff9d] transition-all duration-300 transform group-hover/drop:-translate-y-1">
+                         <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-2 group-hover/drop:bg-[#00ff9d]/10 group-hover/drop:border-[#00ff9d]/30 group-hover/drop:shadow-[0_0_20px_rgba(0,255,157,0.2)] transition-all">
+                           <FileText className="w-5 h-5 opacity-70 group-hover/drop:opacity-100 group-hover/drop:scale-110 transition-transform" />
+                         </div>
+                         <p className="text-[11px] uppercase tracking-[0.2em] font-black">Load Clinical PDF</p>
                       </div>
                     )}
                   </div>
@@ -691,49 +746,44 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   )}
 
                 </div>
-                <div className="p-3 bg-[#131826] border-t border-[#1e293b] sticky bottom-0 z-20 rounded-b-md shadow-[0_-8px_16px_rgba(0,0,0,0.4)] mt-auto">
+                <div className="p-4 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-md border-t border-white/10 sticky bottom-0 z-20 rounded-b-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] mt-auto">
                   <button
                     type="submit"
                     disabled={loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
-                    className={`relative w-full h-[48px] rounded flex items-center justify-center font-bold text-xs uppercase tracking-widest transition-all duration-500 overflow-hidden group ${
+                    className={`relative w-full h-14 rounded-xl flex items-center justify-center font-black text-xs uppercase tracking-[0.25em] transition-all duration-500 overflow-hidden group shadow-lg ${
                       loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
                         ? loading
-                          ? "bg-[#040810] border border-[#00b8d4] shadow-[0_0_25px_rgba(0,184,212,0.4),inset_0_0_15px_rgba(0,184,212,0.2)]"
-                          : "bg-[#1e293b] text-slate-500 cursor-not-allowed border border-[#2a364a]" 
-                        : "bg-gradient-to-r from-[#00b8d4] via-[#00e5ff] to-[#00b8d4] bg-[length:200%_auto] hover:bg-[position:right_center] text-[#0a0e17] font-black border border-[#00b8d4] shadow-[0_0_20px_rgba(0,184,212,0.4)] hover:shadow-[0_0_30px_rgba(0,184,212,0.6)] hover:scale-[1.01]"
+                          ? "bg-black/50 border border-[#00e5ff] shadow-[0_0_30px_rgba(0,229,255,0.3),inset_0_0_20px_rgba(0,229,255,0.2)]"
+                          : "bg-black/30 text-slate-600 cursor-not-allowed border border-white/5" 
+                        : "bg-gradient-to-r from-blue-600 via-[#00e5ff] to-blue-600 bg-[length:200%_auto] hover:bg-[position:right_center] text-white border border-white/20 shadow-[0_0_25px_rgba(0,229,255,0.5)] hover:shadow-[0_0_40px_rgba(0,229,255,0.8)] hover:scale-[1.02] active:scale-[0.98]"
                     }`}
                   >
                     {loading && (
                       <>
-                        {/* Shimmering background effect using tailwind's pulse */}
-                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#00b8d4]/30 via-transparent to-transparent animate-pulse"></div>
-                        <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00e5ff]/80 to-transparent shadow-[0_0_15px_#00e5ff] animate-pulse"></div>
-                        <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-[#00b8d4]/50 to-transparent animate-pulse"></div>
-                        <div className="absolute inset-y-0 right-0 w-2 bg-gradient-to-l from-[#00b8d4]/50 to-transparent animate-pulse"></div>
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] animate-[shimmer_2s_infinite]"></div>
+                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00e5ff] to-transparent shadow-[0_0_10px_#00e5ff] animate-[pulse_1s_infinite]"></div>
+                        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00e5ff] to-transparent shadow-[0_0_10px_#00e5ff] animate-[pulse_1s_infinite_0.5s]"></div>
                       </>
                     )}
                     
-                    <div className={`relative z-10 flex items-center justify-center gap-3 h-full w-full transition-all duration-300 ${loading ? "text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.9)]" : ""}`}>
+                    <div className={`relative z-10 flex items-center justify-center gap-3 h-full w-full transition-all duration-300 ${loading ? "text-[#00e5ff] drop-shadow-[0_0_10px_rgba(0,229,255,1)]" : "drop-shadow-md"}`}>
                       {loading ? (
                         <>
                           <div className="relative flex items-center justify-center w-6 h-6">
-                            {/* Outer orbital ring */}
-                            <svg className="absolute w-full h-full text-[#00b8d4] animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animationDuration: '2s' }}>
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeDasharray="15 85" strokeLinecap="round" />
+                            <svg className="absolute w-full h-full text-[#00e5ff] animate-[spin_1.5s_linear_infinite]" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" strokeDasharray="15 85" strokeLinecap="round" />
                             </svg>
-                            {/* Inner orbital ring (reversed by flipping X axis) */}
-                            <svg className="absolute w-full h-full text-[#00e5ff] animate-spin scale-x-[-1]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animationDuration: '1.2s' }}>
-                              <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="20 40" strokeLinecap="round" />
+                            <svg className="absolute w-full h-full text-white animate-[spin_1s_linear_infinite_reverse] scale-75" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeDasharray="20 40" strokeLinecap="round" />
                             </svg>
-                            {/* Pulsing core */}
-                            <div className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full shadow-[0_0_12px_#00e5ff] animate-ping"></div>
+                            <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_10px_white] animate-ping"></div>
                           </div>
-                          <span className="animate-pulse tracking-[0.25em]">Pipeline Active...</span>
+                          <span className="animate-pulse">Processing Telemetry...</span>
                         </>
                       ) : (
-                        <div className="flex items-center gap-2">
-                           <Activity className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:animate-pulse transition-opacity" />
-                           <span className="tracking-[0.1em]">{!imageFile && !pdfFile ? "Upload DICOM or PDF" : "Initialize Diagnostic Pipeline"}</span>
+                        <div className="flex items-center gap-3">
+                           <Activity className="w-5 h-5 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300" />
+                           <span>{!imageFile && !pdfFile ? "Upload Data Required" : "Initialize Diagnostic Pipeline"}</span>
                         </div>
                       )}
                     </div>
@@ -743,19 +793,21 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
             </div>
 
             {/* RIGHT COLUMN: Clinical Form */}
-            <div className="flex-1 flex flex-col gap-4 min-w-0">
+            <div className="flex-1 flex flex-col gap-6 min-w-0 z-10">
               
-              <div className="flex flex-col xl:flex-row gap-4 flex-shrink-0">
+              <div className="flex flex-col xl:flex-row gap-6 flex-shrink-0">
                 
-                {/* Panel: Radiology Form */}
-                <div className="flex-1 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden">
-                  <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b]">
-                    <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
-                      <Microscope className="w-3.5 h-3.5 text-indigo-400" />
+                {/* Panel: Radiology Form - Glassmorphic Redesign */}
+                <div className="flex-1 bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+                  <div className="absolute inset-0 bg-gradient-to-bl from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                  <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 to-purple-600 shadow-[0_0_10px_#818cf8]"></div>
+                    <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
+                      <Microscope className="w-4 h-4 text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
                       2. Radiological Features
                     </h2>
                   </div>
-                  <div className="p-3 grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-3">
+                  <div className="p-5 grid grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-5 relative z-10">
                     <InputField label="Tumor Size" name="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" step="0.1" onChange={handleInputChange} autoFilled={autoFilled} />
                     <InputField label="Tumor Number" name="tumor_number" value={formData.tumor_number} unit="" onChange={handleInputChange} autoFilled={autoFilled} />
                     <InputField label="Tumor Density" name="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" onChange={handleInputChange} autoFilled={autoFilled} />
@@ -792,15 +844,17 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </div>
                 </div>
 
-                {/* Panel: Lab Markers */}
-                <div className="flex-1 bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden">
-                  <div className="bg-[#1a2235] px-3 py-2 border-b border-[#1e293b]">
-                    <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
-                      <Stethoscope className="w-3.5 h-3.5 text-emerald-400" />
+                {/* Panel: Lab Markers - Glassmorphic Redesign */}
+                <div className="flex-1 bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+                  <div className="absolute inset-0 bg-gradient-to-bl from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                  <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-600 shadow-[0_0_10px_#34d399]"></div>
+                    <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
+                      <Stethoscope className="w-4 h-4 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
                       3. Lab Markers & Phenotypes
                     </h2>
                   </div>
-                  <div className="p-3">
+                  <div className="p-5 relative z-10">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-3">
                       <InputField label="AFP" name="afp_ngml" value={formData.afp_ngml} unit="ng/ml" onChange={handleInputChange} autoFilled={autoFilled} />
                       <InputField label="ALP" name="alp_iul" value={formData.alp_iul} unit="IU/L" onChange={handleInputChange} autoFilled={autoFilled} />
@@ -825,7 +879,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                         options={[{ value: "0", label: "0" }, { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }]} 
                       />
                     </div>
-                    <div className="mt-3 grid grid-cols-2 xl:grid-cols-4 gap-2 pt-3 border-t border-[#1e293b]">
+                    <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 relative z-10">
                       <CheckboxField label="Cirrhosis" name="cirrhosis_present" checked={formData.cirrhosis_present} onChange={handleInputChange} autoFilled={autoFilled} />
                       <CheckboxField label="MVI Pathology" name="mvi_pathology" checked={formData.mvi_pathology} onChange={handleInputChange} autoFilled={autoFilled} />
                       <CheckboxField label="Hepatitis B" name="hepatitis_b" checked={formData.hepatitis_b} onChange={handleInputChange} autoFilled={autoFilled} />
