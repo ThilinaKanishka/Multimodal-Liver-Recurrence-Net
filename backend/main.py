@@ -1385,13 +1385,93 @@ async def login_user(payload: LoginPayload):
     if user.get("status") != "Active":
         raise HTTPException(status_code=403, detail="Account is revoked or suspended")
 
+    if user.get("level") == "IT Admin":
+        import random
+        from datetime import timedelta
+        otp = str(random.randint(100000, 999999))
+        otp_expiry = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+        await users_collection.update_one({"id": user["id"]}, {"$set": {"otp": otp, "otp_expiry": otp_expiry}})
+        
+        # Dispatch email
+        import os
+        sender_email = os.environ.get("SENDER_EMAIL", "thilinakanishka20010313@gmail.com")
+        sender_password = os.environ.get("EMAIL_PASSWORD", "uolo dxmm lxzo toyn")
+        
+        msg = MIMEMultipart()
+        msg['From'] = f"HepatoAI Security <{sender_email}>"
+        # Always send to the authenticated admin's configured real email (or fallback to sender for testing)
+        msg['To'] = sender_email if user.get("email") == "admin@HepatoAI.com" else user.get("email")
+        msg['Subject'] = "HepatoAI - Admin Login Security Code (OTP)"
+        
+        body = f"""
+        <html>
+        <body style="font-family:sans-serif; background-color:#020617; color:#f1f5f9; padding:30px;">
+            <h2 style="color:#f43f5e;">HepatoAI Security Override</h2>
+            <p>An administrative login attempt was detected. Your Secure Authorization Code is:</p>
+            <h1 style="color:#0ea5e9; font-size:36px; letter-spacing:5px; padding:15px; border:2px solid #334155; display:inline-block; border-radius:12px; background-color:#0f172a;">{otp}</h1>
+            <p style="color:#64748b; margin-top:20px;">This code will expire in 5 minutes. Do not share this with anyone.</p>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, 'html'))
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+        except Exception as e:
+            print(f"[SMTP] OTP email failed: {e}")
+            raise HTTPException(status_code=502, detail="Failed to send OTP email. Contact Support.")
+            
+        return {
+            "message": "OTP sent successfully", 
+            "requires_otp": True,
+            "requires_reset": False,
+        }
+
     requires_reset = payload.password.startswith("Hepato-") and not user.get("first_login_skipped")
 
     await users_collection.update_one({"id": user["id"]}, {"$set": {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}})
 
     return {
         "message": "Login successful", 
+        "requires_otp": False,
         "requires_reset": requires_reset,
+        "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature"), "picture": user.get("picture")}
+    }
+
+class VerifyOTPPayload(BaseModel):
+    id: str
+    otp: str
+
+@app.post("/api/login/verify-otp")
+async def verify_otp(payload: VerifyOTPPayload):
+    import re
+    regex = re.compile(f"^{re.escape(payload.id)}$", re.IGNORECASE)
+    user = await users_collection.find_one({"$or": [{"id": regex}, {"email": regex}]})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid User")
+
+    stored_otp = user.get("otp")
+    otp_expiry_str = user.get("otp_expiry")
+    if not stored_otp or not otp_expiry_str:
+        raise HTTPException(status_code=400, detail="No OTP request found for this user.")
+
+    otp_expiry = datetime.fromisoformat(otp_expiry_str)
+    if datetime.utcnow() > otp_expiry:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please login again.")
+    
+    if stored_otp != payload.otp:
+        raise HTTPException(status_code=401, detail="Invalid OTP code.")
+
+    # Success
+    await users_collection.update_one(
+        {"id": user["id"]}, 
+        {"$set": {"is_logged_in": True, "last_login": datetime.utcnow().isoformat()}, "$unset": {"otp": "", "otp_expiry": ""}}
+    )
+
+    return {
+        "message": "Login successful", 
+        "requires_reset": False,
         "user": {"id": user["id"], "name": user["name"], "level": user["level"], "email": user.get("email"), "signature": user.get("signature"), "picture": user.get("picture")}
     }
 
