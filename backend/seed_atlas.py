@@ -7,7 +7,7 @@ db = client['liver_recurrence_net']
 users = db['users']
 
 print("Connected!")
-pwd_hash = hashlib.sha256('1234'.encode()).hexdigest()
+pwd_hash = hashlib.sha256('Admin@Hettiarachci#'.encode()).hexdigest()
 admin_doc = {
     'id': 'ST-ADMIN',
     'name': 'System Admin',
@@ -21,7 +21,7 @@ admin_doc = {
 users.delete_many({'email': 'admin@HepatoAI.com'})
 users.delete_many({'id': 'ST-ADMIN'})
 users.insert_one(admin_doc)
-print('Admin seeded successfully with password 1234!')
+print('Admin seeded successfully with password Admin@Hettiarachci#!')
 
 # Verify
 admin = users.find_one({'email': 'admin@HepatoAI.com'})

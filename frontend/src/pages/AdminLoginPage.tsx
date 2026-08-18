@@ -7,6 +7,10 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [requiresEmailForOtp, setRequiresEmailForOtp] = useState(false);
+  const [targetEmail, setTargetEmail] = useState("");
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [otp, setOtp] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +28,10 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
         if (data.detail) {
           const errorMsg = Array.isArray(data.detail) ? "Invalid input format." : data.detail;
           setError(errorMsg || "Invalid administrator credentials or revoked security key.");
+        } else if (data.requires_email_for_otp) {
+          setRequiresEmailForOtp(true);
+        } else if (data.requires_otp) {
+          setOtpRequired(true);
         } else {
           onLogin();
         }
@@ -31,6 +39,57 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
       .catch((err) => {
         setLoading(false);
         setError("Network error connecting to authentication server.");
+      });
+  };
+
+  const handleSendOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    fetch("http://localhost:8000/api/login/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: credentials.username, target_email: targetEmail })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setLoading(false);
+        if (data.detail) {
+          setError(data.detail);
+        } else {
+          setRequiresEmailForOtp(false);
+          setOtpRequired(true);
+        }
+      })
+      .catch((err) => {
+        setLoading(false);
+        setError("Network error connecting to authentication server.");
+      });
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    fetch("http://localhost:8000/api/login/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: credentials.username, otp: otp })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setLoading(false);
+        if (data.detail) {
+          setError(data.detail);
+        } else {
+          onLogin();
+        }
+      })
+      .catch((err) => {
+        setLoading(false);
+        setError("Network error verifying OTP.");
       });
   };
 
@@ -141,10 +200,15 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
 
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">Admin Authorization</h2>
-              <p className="text-sm text-slate-400">Authenticate with IT system administrator credentials.</p>
+              <p className="text-sm text-slate-400">
+                {requiresEmailForOtp ? "Provide a designated secure email to receive your OTP." 
+                 : otpRequired ? "Enter the 6-digit security code sent to your email." 
+                 : "Authenticate with IT system administrator credentials."}
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            {!requiresEmailForOtp && !otpRequired ? (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               {error && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
                   <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -211,6 +275,118 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
               </button>
               
             </form>
+            ) : requiresEmailForOtp ? (
+              <form onSubmit={handleSendOtp} className="flex flex-col gap-5">
+                {error && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                    <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <p>{error}</p>
+                  </div>
+                )}
+                
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    OTP Delivery Email
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="w-4 h-4 text-slate-500 group-focus-within:text-rose-400 transition-colors" />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={targetEmail}
+                      onChange={(e) => setTargetEmail(e.target.value)}
+                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all font-mono shadow-inner"
+                      placeholder="Enter email for OTP"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 mt-4">
+                  <button
+                    type="submit"
+                    disabled={loading || !targetEmail}
+                    className="w-full bg-white text-slate-950 hover:bg-slate-200 font-bold text-sm uppercase tracking-wider py-3.5 rounded-xl transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]"
+                  >
+                    {loading ? (
+                      <span className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin"></span>
+                    ) : (
+                      <>
+                        Dispatch OTP
+                        <Mail className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setRequiresEmailForOtp(false); setTargetEmail(""); setError(null); }}
+                    className="text-xs text-slate-400 hover:text-white transition-colors py-2"
+                  >
+                    Cancel & Return to Login
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
+                {error && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                    <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <p>{error}</p>
+                  </div>
+                )}
+                
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Security Code (OTP)
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <KeyRound className="w-4 h-4 text-slate-500 group-focus-within:text-rose-400 transition-colors" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-11 pr-4 text-center text-2xl tracking-[0.5em] text-white placeholder-slate-600 focus:outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all font-mono shadow-inner"
+                      placeholder="------"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 mt-4">
+                  <button
+                    type="submit"
+                    disabled={loading || otp.length !== 6}
+                    className="w-full bg-white text-slate-950 hover:bg-slate-200 font-bold text-sm uppercase tracking-wider py-3.5 rounded-xl transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed group shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]"
+                  >
+                    {loading ? (
+                      <span className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin"></span>
+                    ) : (
+                      <>
+                        Verify Identity
+                        <ShieldCheck className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOtpRequired(false); setRequiresEmailForOtp(true); setOtp(""); setError(null); }}
+                    className="text-xs text-slate-400 hover:text-white transition-colors py-2"
+                  >
+                    Change Email / Resend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOtpRequired(false); setRequiresEmailForOtp(false); setOtp(""); setError(null); }}
+                    className="text-xs text-slate-400 hover:text-white transition-colors py-2"
+                  >
+                    Cancel & Return to Login
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
           {/* Legal Compliance Block */}
