@@ -1098,33 +1098,84 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
           {result ? (
               <>
                 <div className="w-full bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '850px' }}>
-                  <div className={`px-4 py-2 border-b flex justify-between items-center flex-shrink-0 ${
-                    result.recurrence_risk === "HIGH" ? "bg-rose-950/40 border-rose-900/50" : "bg-emerald-950/40 border-emerald-900/50"
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                      <div className="flex flex-col">
-                          <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
-                              {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `LONGITUDINAL PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
+                  <div className="relative overflow-hidden bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
+                    <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
+                      result.recurrence_risk === "HIGH" 
+                        ? "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-900/40 via-rose-600/10 to-transparent" 
+                        : "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900/40 via-emerald-600/10 to-transparent"
+                    }`}></div>
+                    
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 p-4 md:px-8 md:py-6 bg-[#0a0f18]/60 backdrop-blur-3xl">
+                      {/* Left Side: Diagnosis */}
+                      <div className="flex items-center gap-6 w-full md:w-auto">
+                        {/* Icon with glowing ring */}
+                        <div className="relative flex-shrink-0">
+                          <div className={`absolute -inset-1 rounded-full blur-md opacity-60 animate-pulse ${
+                            result.recurrence_risk === "HIGH" ? "bg-rose-500" : "bg-emerald-500"
+                          }`}></div>
+                          <div className="relative w-14 h-14 bg-[#0a0f18] rounded-full border-2 border-white/10 flex items-center justify-center shadow-inner">
+                            {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-6 h-6 text-rose-500" /> : <CheckCircle className="w-6 h-6 text-emerald-500" />}
+                          </div>
+                        </div>
+                        
+                        {/* Text block */}
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-1">
+                            {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ALERT" : "LONGITUDINAL PROGNOSIS"}
                           </span>
-                          {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
-                              <span className="font-mono font-bold text-[10px] tracking-wider text-amber-500/90 mt-0.5">
-                                  ESTIMATED RECURRENCE TIME: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
-                              </span>
+                          <h2 className={`font-black tracking-wide text-2xl md:text-3xl uppercase drop-shadow-md flex items-center gap-3 ${
+                            result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"
+                          }`}>
+                            <span>{result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}</span>
+                            {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                              <>
+                                <span className="opacity-40 font-normal">|</span>
+                                <span>{result.probability}%</span>
+                              </>
+                            )}
+                          </h2>
+                          {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                            <div className="flex items-center mt-2">
+                              <div className="h-1.5 w-48 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                 <div className={`h-full ${result.recurrence_risk === "HIGH" ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`} style={{ width: `${result.probability}%` }}></div>
+                              </div>
+                            </div>
                           )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        type="button" 
-                        onClick={handleDownloadPdf}
-                        className="bg-[#1e293b]/50 hover:bg-[#2a364a] text-slate-300 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-wider transition-colors border border-[#334155]"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        EXPORT PDF
-                      </button>
-                      <div className="font-mono text-[10px] text-slate-500 bg-black/40 backdrop-blur-sm px-2 py-1 rounded border border-[#2a364a]">
-                        ID: {result.pseudo_anonymous_id}
+                      
+                      {/* Right Side: Timeline & Actions */}
+                      <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
+                        {/* Timeline box */}
+                        {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                          <div className="flex flex-col items-end border-r border-white/10 pr-6">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Predicted Timeline
+                            </span>
+                            <div className="flex items-baseline gap-1.5">
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md">{result.estimated_recurrence_min_months}</span>
+                               <span className="text-amber-500/50 font-black text-lg">-</span>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md">{result.estimated_recurrence_max_months}</span>
+                               <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest">Months</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Actions */}
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          <button 
+                            type="button" 
+                            onClick={handleDownloadPdf}
+                            className="group relative overflow-hidden bg-[#1e293b]/80 hover:bg-[#2a364a] text-slate-200 px-5 py-2.5 rounded-lg border border-[#334155] flex items-center justify-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase transition-all w-full shadow-lg hover:shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:border-indigo-500/50"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                            <Download className="w-4 h-4 text-indigo-400" />
+                            EXPORT PDF
+                          </button>
+                          <div className="text-[9px] font-mono text-slate-500 flex items-center justify-center gap-1 bg-black/40 py-1 rounded border border-white/5">
+                            ID: <span className="text-slate-400 font-bold truncate max-w-[120px]">{result.pseudo_anonymous_id}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
