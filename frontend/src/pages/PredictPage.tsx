@@ -192,6 +192,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
   const [cdssReport, setCdssReport] = useState<any>(null);
   const [generatingCdss, setGeneratingCdss] = useState<boolean>(false);
+  const [simData, setSimData] = useState<any>(null);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateCdss = async () => {
@@ -215,6 +217,27 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       alert("Failed to generate CDSS Report.");
     } finally {
       setGeneratingCdss(false);
+    }
+  };
+
+  const handleSimulate = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", simData);
+      setResult(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recurrence_risk: res.data.recurrence_risk,
+          probability: res.data.probability,
+          explainable_ai_weights: res.data.explainable_ai_weights
+        };
+      });
+    } catch(err) {
+      console.error(err);
+      alert("Failed to run simulation.");
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -413,6 +436,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       setPipelineStep("IDLE");
     } else {
       setResult(res.data);
+      setSimData({
+        tumor_size_cm: formData.tumor_size_cm || 5.0,
+        afp_ngml: formData.afp_ngml || 20.0,
+        alp_iul: formData.alp_iul || 100.0,
+        bilirubin_mgdl: formData.bilirubin_mgdl || 1.0,
+        bclc_stage: formData.bclc_stage || "A",
+        mvi_pathology: formData.mvi_pathology || false,
+        cirrhosis_present: formData.cirrhosis_present || false
+      });
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
       setTimeout(() => setPipelineStep("IDLE"), 2000);
@@ -467,6 +499,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setAutoFilled(false);
     setHistoryInfo(null);
     setResult(null);
+    setSimData(null);
     setErrorMessage(null);
     setPipelineStep("IDLE");
     setProgress(0);
@@ -1172,6 +1205,30 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                             </div>
                           </div>
                         )}
+
+                        {/* Interactive What-If Analysis */}
+                        <div className="mt-4 border-t border-[#1e293b] pt-4">
+                          <h4 className="text-[11px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5" /> What-If Simulation
+                          </h4>
+                          <div className="space-y-3">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
+                              <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">AFP (ng/ml): {simData?.afp_ngml}</label>
+                              <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <button 
+                              onClick={(e) => { e.preventDefault(); handleSimulate(); }}
+                              disabled={isSimulating}
+                              className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded transition-colors"
+                            >
+                              {isSimulating ? "Simulating..." : "Simulate Outcome"}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                   </div>
                 </div>

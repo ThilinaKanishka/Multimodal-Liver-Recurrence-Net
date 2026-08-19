@@ -935,6 +935,63 @@ async def predict_recurrence(
         "pseudo_anonymous_id": pseudo_id
     }
 
+class SimulateRiskPayload(BaseModel):
+    tumor_size_cm: float = 5.0
+    afp_ngml: float = 20.0
+    alp_iul: float = 100.0
+    bilirubin_mgdl: float = 1.0
+    bclc_stage: str = "A"
+    mvi_pathology: bool = False
+    cirrhosis_present: bool = False
+
+@app.post("/api/v1/simulate_risk")
+async def simulate_risk(payload: SimulateRiskPayload):
+    bclc_stage_c = 1 if payload.bclc_stage == "C" else 0
+    mvi_status = 1 if payload.mvi_pathology else 0
+    cirrhosis_status = 1 if payload.cirrhosis_present else 0
+    metastasis_status = 0
+    
+    # We can mock cnn_features like in predict_recurrence for the simulation
+    cnn_features = np.random.normal(0.5, 0.2, 128)
+    
+    master_dict = {
+        'tumor_size_cm': payload.tumor_size_cm,
+        'afp_ngml': payload.afp_ngml,
+        'alp_iul': payload.alp_iul,
+        'bilirubin_mgdl': payload.bilirubin_mgdl,
+        'mvi_status': mvi_status,
+        'cirrhosis_status': cirrhosis_status,
+        'metastasis_status': metastasis_status,
+        'bclc_stage_c': bclc_stage_c
+    }
+    for i in range(128):
+        master_dict[f'cnn_feat_{i}'] = cnn_features[i]
+        
+    master_vector = pd.DataFrame([master_dict], columns=feature_columns)
+    
+    ensemble_probs = [float(model.predict_proba(master_vector)[0][1] * 100.0) for model in ensemble_models]
+    prob_score = float(np.mean(ensemble_probs))
+    
+    recurrence_risk_str = "HIGH" if prob_score >= 50.0 else "LOW"
+    
+    # SHAP
+    shap_values = shap_explainer.shap_values(master_vector)
+    if isinstance(shap_values, list):
+        shap_vals_target = shap_values[1][0]
+    else:
+        shap_vals_target = shap_values[0]
+        
+    explainable_ai_weights = {feature_columns[i]: round(float(shap_vals_target[i]), 4) for i in range(len(feature_columns))}
+    cnn_agg_weight = sum([abs(explainable_ai_weights[f'cnn_feat_{i}']) for i in range(128)])
+    display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
+    display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
+    
+    return {
+        "probability": round(prob_score, 2),
+        "recurrence_risk": recurrence_risk_str,
+        "explainable_ai_weights": display_weights
+    }
+
 # ==========================================
 # API Endpoints: Dashboard & Database Pages
 # ==========================================
