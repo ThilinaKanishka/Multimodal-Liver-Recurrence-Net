@@ -1123,14 +1123,28 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-1">
                             {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ALERT" : "LONGITUDINAL PROGNOSIS"}
                           </span>
-                          <h2 className={`font-black tracking-wide text-2xl md:text-3xl uppercase drop-shadow-md flex items-center gap-3 ${
+                          <h2 className={`font-black tracking-wide text-2xl md:text-3xl uppercase flex items-center gap-3 ${
                             result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"
                           }`}>
-                            <span>{result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}</span>
+                            <span className="relative inline-block">
+                                <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
+                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
+                                </span>
+                                <span className="relative drop-shadow-md">
+                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
+                                </span>
+                            </span>
                             {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
                               <>
                                 <span className="opacity-40 font-normal">|</span>
-                                <span>{result.probability}%</span>
+                                <span className="relative inline-block">
+                                   <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
+                                       {result.probability}%
+                                   </span>
+                                   <span className="relative drop-shadow-md">
+                                       {result.probability}%
+                                   </span>
+                                </span>
                               </>
                             )}
                           </h2>
@@ -1152,11 +1166,16 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
                               <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Predicted Timeline
                             </span>
-                            <div className="flex items-baseline gap-1.5">
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md">{result.estimated_recurrence_min_months}</span>
-                               <span className="text-amber-500/50 font-black text-lg">-</span>
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md">{result.estimated_recurrence_max_months}</span>
-                               <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest">Months</span>
+                            <div className="flex items-baseline gap-1.5 relative">
+                               <div className="absolute inset-0 animate-pulse blur-[8px] opacity-70 text-amber-500 font-mono font-black text-2xl md:text-3xl flex items-baseline gap-1.5 pointer-events-none">
+                                 <span>{result.estimated_recurrence_min_months}</span>
+                                 <span>-</span>
+                                 <span>{result.estimated_recurrence_max_months}</span>
+                               </div>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_min_months}</span>
+                               <span className="text-amber-500/50 font-black text-lg relative">-</span>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_max_months}</span>
+                               <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest relative">Months</span>
                             </div>
                           </div>
                         )}
