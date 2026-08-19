@@ -1540,6 +1540,13 @@ async def logout_user(payload: LogoutPayload):
     await users_collection.update_one({"id": payload.id}, {"$set": {"is_logged_in": False}})
     return {"message": "Logged out"}
 
+@app.get("/api/v1/users/{user_id}/status")
+async def get_user_status(user_id: str):
+    user = await users_collection.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"status": user.get("status", "Active")}
+
 @app.post("/api/skip-reset")
 async def skip_reset(payload: dict):
     if "id" not in payload:
