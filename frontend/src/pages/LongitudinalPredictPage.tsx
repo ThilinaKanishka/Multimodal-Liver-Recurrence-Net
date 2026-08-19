@@ -72,6 +72,8 @@ export interface PredictionResult {
     dicom_3d_matrix?: string;
     tumor_target?: { found: boolean; x: number; y: number; z: number };
   };
+  estimated_recurrence_min_months?: number;
+  estimated_recurrence_max_months?: number;
 }
 
 const InputField = ({ label, name, value, type="number", unit="", step="1", onChange, autoFilled }: any) => (
@@ -1101,9 +1103,16 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                   }`}>
                     <div className="flex items-center gap-3">
                       {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                      <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
-                          {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `LONGITUDINAL PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
-                      </span>
+                      <div className="flex flex-col">
+                          <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
+                              {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `LONGITUDINAL PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
+                          </span>
+                          {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                              <span className="font-mono font-bold text-[10px] tracking-wider text-amber-500/90 mt-0.5">
+                                  ESTIMATED RECURRENCE TIME: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
+                              </span>
+                          )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <button 
@@ -1287,6 +1296,11 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
               <div className="text-2xl font-black uppercase tracking-wide">
                 {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%)
               </div>
+              {result.estimated_recurrence_min_months !== undefined && (
+                <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
+                  ESTIMATED TIME TO RECURRENCE: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
+                </div>
+              )}
               <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
                  <span>Ref ID: {result.inference_id?.substring(0, 18)}...</span>
                  <span>Network Status: SECURE</span>
