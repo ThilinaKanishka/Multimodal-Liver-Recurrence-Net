@@ -14,7 +14,7 @@ import joblib
 
 # Load the dataset from the data folder
 df = pd.read_csv('data/liver_cancer_recurrence_dataset (2).csv')
-
+ 
 # Remove unnecessary ID and target columns from features
 drop_cols = ['patient_id', 'recurrence_within_2yr', 'time_to_recurrence_months', 'recurrence_probability']
 X_raw = df.drop(columns=drop_cols)
@@ -151,3 +151,23 @@ for epoch in range(epochs):
 # Export network weights for production environment deployment
 torch.save(model.state_dict(), 'advanced_liver_model_weights.pth')
 print("Deep learning model weights successfully exported to 'advanced_liver_model_weights.pth'")
+
+# ==========================================
+# 6. SURVIVAL TIME-TO-RECURRENCE MODEL
+# ==========================================
+print("Training Survival Time-to-Recurrence Model...")
+try:
+    from xgboost import XGBRegressor
+    # Use the full scaled features and the time_to_recurrence target
+    y_survival = df['time_to_recurrence_months'].values
+    survival_model = XGBRegressor(n_estimators=100, max_depth=4, learning_rate=0.05, random_state=42)
+    # Train on the same scaled features as PyTorch
+    survival_model.fit(X_train_scaled, y_survival[y_train.index] if hasattr(y_train, 'index') else y_survival[:len(X_train_scaled)])
+except Exception as e:
+    print(f"Exception during targeted training, falling back to whole dataset: {e}")
+    # If the index fails or something else, train on the whole dataset
+    survival_model = XGBRegressor(n_estimators=100, max_depth=4, learning_rate=0.05, random_state=42)
+    survival_model.fit(scaler.transform(X_encoded), df['time_to_recurrence_months'].values)
+
+joblib.dump(survival_model, 'survival_time_model.pkl')
+print("Survival model weights successfully exported to 'survival_time_model.pkl'")
