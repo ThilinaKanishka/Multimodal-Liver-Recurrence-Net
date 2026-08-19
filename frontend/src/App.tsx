@@ -483,6 +483,9 @@ function App() {
     return localStorage.getItem("hepatoai_theme") || "theme-radiology-dark";
   });
 
+  const [isRevoked, setIsRevoked] = useState(false);
+  const [revokeCountdown, setRevokeCountdown] = useState(5);
+
   const handleToggleCdss = (val: boolean) => {
     setCdssEnabled(val);
     localStorage.setItem("hepatoai_cdss_enabled", val.toString());
@@ -535,6 +538,41 @@ function App() {
       window.removeEventListener('scroll', resetTimeout);
     };
   }, [currentUser]);
+
+  // Real-time status check for auto-logout
+  useEffect(() => {
+    if (!currentUser || currentUser.level === 'IT Admin' || isRevoked) return;
+    
+    const checkStatus = async () => {
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/api/v1/users/${currentUser.id}/status`);
+        if (res.data.status !== "Active") {
+          console.warn("Account revoked or suspended.");
+          setIsRevoked(true);
+        }
+      } catch (err) {
+        console.error("Failed to check user status", err);
+      }
+    };
+    
+    const intervalId = setInterval(checkStatus, 3000);
+    return () => clearInterval(intervalId);
+  }, [currentUser, isRevoked]);
+
+  useEffect(() => {
+    if (!isRevoked) return;
+    if (revokeCountdown <= 0) {
+      setCurrentUser(null);
+      setIsRevoked(false);
+      setRevokeCountdown(5);
+      setActivePage("login");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRevokeCountdown(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isRevoked, revokeCountdown]);
 
   const handlePatientClick = (id: string) => {
     setSelectedPatientId(id);
@@ -620,6 +658,18 @@ function App() {
         <div>© 2026 SLIIT Faculty of Computing - AI Labs. All rights reserved.</div>
       </div>
     </div>
+      
+      {isRevoked && (
+        <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <ShieldAlert className="w-24 h-24 text-rose-500 mb-6 animate-pulse" />
+          <h1 className="text-3xl font-black text-white uppercase tracking-widest mb-4">Account Suspended</h1>
+          <p className="text-slate-300 text-lg max-w-md mb-8">
+            Your account access has been revoked by an Administrator. You will be automatically logged out.
+          </p>
+          <div className="text-6xl font-mono font-black text-rose-500 mb-4">{revokeCountdown}</div>
+          <p className="text-slate-500 font-mono text-sm uppercase tracking-[0.2em]">Seconds until logout</p>
+        </div>
+      )}
     </>
   );
 }
