@@ -60,6 +60,7 @@ export interface PredictionResult {
   ai_insights: string[];
   clinical_text_report?: string;
   ui_rendering_state?: "STATE_NORMAL" | "STATE_DRIFT_WARNING" | "STATE_ABSTAIN_LOCK";
+  model_certainty_score?: number;
   explainable_ai_weights?: Record<string, number>;
   confidence_interval?: [number, number];
   system_integrity?: { data_drift_detected: boolean; confidence_status: string };
@@ -1152,6 +1153,18 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                             <div className="flex items-center mt-2">
                               <div className="h-1.5 w-48 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
                                  <div className={`h-full ${result.recurrence_risk === "HIGH" ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`} style={{ width: `${result.probability}%` }}></div>
+                              </div>
+                            </div>
+                          )}
+                          {result.model_certainty_score !== undefined && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1.5 ${
+                                result.model_certainty_score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                                result.model_certainty_score >= 50 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                              }`}>
+                                <Activity className="w-3 h-3" />
+                                Model Certainty: {result.model_certainty_score}%
                               </div>
                             </div>
                           )}

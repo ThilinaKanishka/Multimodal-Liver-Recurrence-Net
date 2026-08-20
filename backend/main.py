@@ -827,6 +827,9 @@ async def predict_recurrence(
     p_norm = prob_score / 100.0
     entropy = - (p_norm * np.log2(p_norm + 1e-9) + (1 - p_norm) * np.log2(1 - p_norm + 1e-9))
     
+    # Calculate Model Certainty Score based on Entropy (0% to 100%)
+    model_certainty_score = round(max(0.0, (1.0 - entropy)) * 100.0, 1)
+    
     # Drift
     cnn_drift = abs(cnn_features[0] - training_distributions['cnn_feat_0_mean']) / (training_distributions['cnn_feat_0_std'] + 1e-9) > 3.0
     data_drift_detected = bool(cnn_drift)
@@ -910,6 +913,7 @@ async def predict_recurrence(
             "recurrence_risk": recurrence_risk_str,
             "probability": round(prob_score, 2)
         },
+        "model_certainty_score": model_certainty_score,
         "interpretability_layer": {
             "gradcam_engine": "ACTIVE" if gradcam_base64 else "INACTIVE",
             "heatmap_spatial_shape": heatmap_shape,
