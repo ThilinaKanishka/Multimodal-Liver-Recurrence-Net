@@ -1366,7 +1366,13 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
              <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-sm font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
              <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">DOB (Age) / Sex</span><span className="text-xs font-medium">{patientInfo.dob} ({patientInfo.age}y) | {patientInfo.sex}</span></div>
              
-             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span><span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1 flex justify-between items-start">
+               <div>
+                 <span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span>
+                 <span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span>
+               </div>
+               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://pacs.hepatoai.local/patient/${patientInfo.mrn}`} alt="Secure PACS" className="w-9 h-9 border border-slate-300 p-0.5 rounded-sm opacity-90 mix-blend-multiply" />
+             </div>
              <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">{patientInfo.attending !== "---" ? `Dr. ${patientInfo.attending}` : "Unknown Physician"}</span></div>
              <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">{user ? `Dr. ${user.name}, ${user.level || 'MD'}` : "Unknown Radiologist"}</span></div>
           </div>
@@ -1615,7 +1621,8 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                ) : (
                   <div className="border-b border-black mb-2 border-dashed w-full h-8"></div>
                )}
-               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">Physician Signature</span>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">{user ? `Dr. ${user.name}` : "Physician Signature"}</span>
+               <span className="text-[7px] font-mono text-slate-500 mt-1 block">Digitally Signed & Verified on: {new Date().toISOString().replace('T', ' ').split('.')[0]}</span>
             </div>
           </div>
         </div>
