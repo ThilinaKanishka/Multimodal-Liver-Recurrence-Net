@@ -848,15 +848,32 @@ async def predict_recurrence(
     display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
 
     # Generate Clinical Narrative Summary
+    feature_mapping = {
+        "3d Cnn Global Embedding": "Hypervascular tumor patterns detected via 3D CNN",
+        "Mvi Pathology": "Microvascular Invasion (MVI) positive indicators",
+        "Tumor Size Cm": "significant primary tumor diameter",
+        "Afp Ngml": "elevated Alpha-fetoprotein (AFP) levels",
+        "Alp Iul": "elevated Alkaline Phosphatase (ALP)",
+        "Bilirubin Mgdl": "abnormal Bilirubin levels",
+        "Bclc Stage": "advanced BCLC staging",
+        "Cirrhosis Present": "underlying liver cirrhosis",
+        "Age": "patient age factor",
+        "Gender": "patient demographic profile",
+        "Obesity": "patient obesity profile",
+        "Diabetes": "comorbid diabetes",
+        "Alcohol History": "history of alcohol consumption"
+    }
+
     sorted_features = sorted(display_weights.items(), key=lambda x: x[1], reverse=True)
-    positive_features = [f[0].replace('_', ' ').title() for f in sorted_features if f[1] > 0]
+    positive_features_raw = [f[0].replace('_', ' ').title() for f in sorted_features if f[1] > 0]
+    positive_features = [feature_mapping.get(f, f) for f in positive_features_raw]
     
     if len(positive_features) >= 3:
-        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]} and critical features in {positive_features[1]}. {positive_features[2]} also contributed slightly."
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}. {positive_features[2]} also contributed slightly."
     elif len(positive_features) == 2:
-        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]} and critical features in {positive_features[1]}."
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}."
     elif len(positive_features) == 1:
-        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]}."
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]}."
     else:
         clinical_narrative_summary = "No significant positive driving features were identified in the current model assessment."
 

@@ -60,7 +60,7 @@ export interface PredictionResult {
   clinical_text_report?: string;
   ui_rendering_state?: "STATE_NORMAL" | "STATE_DRIFT_WARNING" | "STATE_ABSTAIN_LOCK";
   model_certainty_score?: number;
- main
+  clinical_narrative_summary?: string;
   explainable_ai_weights?: Record<string, number>;
   confidence_interval?: [number, number];
   system_integrity?: { data_drift_detected: boolean; confidence_status: string };
@@ -1327,7 +1327,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
             <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${result.recurrence_risk === 'HIGH' ? 'bg-rose-50 border-rose-600 text-rose-900' : 'bg-emerald-50 border-emerald-600 text-emerald-900'}`}>
               <h2 className="text-xs font-bold uppercase tracking-widest mb-2 opacity-80">Primary AI Inference Result</h2>
               <div className="text-2xl font-black uppercase tracking-wide">
-                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%)
+                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%{result.confidence_interval ? ` (95% CI: ${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%)` : ''})
               </div>
               {result.estimated_recurrence_min_months !== undefined && (
                 <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
@@ -1453,7 +1453,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                  </div>
                  <div className="mt-4 pt-3 border-t border-slate-200 bg-blue-50/50 p-2 rounded border border-blue-100">
                    <span className="text-blue-900 font-bold text-[10px] uppercase block mb-1">Executive Impression & Recommendation</span>
-                   <p className="text-slate-700 text-[11px] font-medium leading-normal">1. Close surveillance recommended for localized Grad-CAM activation cluster.<br />2. Recommend repeat multiphasic abdominal CT in 6 months.</p>
+                   <p className="text-slate-700 text-[11px] font-medium leading-normal whitespace-pre-line">
+                     {(result?.probability ?? 0) > 70 ? (
+                         "1. Due to high recurrence probability, an ultrasound-guided biopsy is recommended per AASLD guidelines.\n2. Multidisciplinary tumor board review required.\n3. Consider adjusting follow-up interval to 3 months."
+                     ) : (result?.probability ?? 0) > 40 ? (
+                         "1. Moderate recurrence probability detected.\n2. Recommend repeat multiphasic abdominal CT in 6 months.\n3. Close surveillance of AFP levels."
+                     ) : (
+                         "1. Low recurrence probability.\n2. Routine clinical follow-up in 12 months.\n3. Maintain standard of care surveillance."
+                     )}
+                   </p>
                  </div>
                </div>
              </div>
