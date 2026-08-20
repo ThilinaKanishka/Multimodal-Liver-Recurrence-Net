@@ -200,6 +200,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const [cdssReport, setCdssReport] = useState<any>(null);
   const [generatingCdss, setGeneratingCdss] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateCdss = async () => {
     if (!result) return;
@@ -455,7 +456,12 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       setResult(res.data);
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
-      setTimeout(() => setPipelineStep("IDLE"), 2000);
+      setTimeout(() => {
+        setPipelineStep("IDLE");
+        setTimeout(() => {
+          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }, 2000);
     }
   };
 
@@ -1099,7 +1105,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
           {/* FULL WIDTH RESULTS AREA */}
           {result ? (
               <>
-                <div className="w-full bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '850px' }}>
+                <div ref={resultsRef} className="w-full bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '850px' }}>
                   <div className="relative overflow-hidden bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
                     <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
                       result.recurrence_risk === "HIGH" 

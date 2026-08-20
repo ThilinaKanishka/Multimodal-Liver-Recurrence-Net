@@ -197,6 +197,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [simData, setSimData] = useState<any>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateCdss = async () => {
     if (!result) return;
@@ -449,7 +450,12 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       });
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
-      setTimeout(() => setPipelineStep("IDLE"), 2000);
+      setTimeout(() => {
+        setPipelineStep("IDLE");
+        setTimeout(() => {
+          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }, 2000);
     }
   };
 
@@ -1061,7 +1067,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           {/* FULL WIDTH RESULTS AREA */}
           {result ? (
               <>
-                <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
+                <div ref={resultsRef} className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
                   <div className="relative overflow-hidden bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
                     <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
                       result.recurrence_risk === "HIGH" 
