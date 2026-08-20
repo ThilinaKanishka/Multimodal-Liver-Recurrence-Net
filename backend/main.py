@@ -844,6 +844,19 @@ async def predict_recurrence(
     display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
     display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
 
+    # Generate Clinical Narrative Summary
+    sorted_features = sorted(display_weights.items(), key=lambda x: x[1], reverse=True)
+    positive_features = [f[0].replace('_', ' ').title() for f in sorted_features if f[1] > 0]
+    
+    if len(positive_features) >= 3:
+        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]} and critical features in {positive_features[1]}. {positive_features[2]} also contributed slightly."
+    elif len(positive_features) == 2:
+        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]} and critical features in {positive_features[1]}."
+    elif len(positive_features) == 1:
+        clinical_narrative_summary = f"The prognosis is primarily driven by the patient's positive {positive_features[0]}."
+    else:
+        clinical_narrative_summary = "No significant positive driving features were identified in the current model assessment."
+
     if prob_std > 12.0 or entropy > 0.95:
         confidence_status = "LOW_CONFIDENCE_ABSTAIN"
         recurrence_risk_str = "ABSTAIN"
@@ -932,7 +945,8 @@ async def predict_recurrence(
         "clinical_text_report": raw_text,
         "ui_rendering_state": ui_rendering_state,
         "inference_id": inference_id,
-        "pseudo_anonymous_id": pseudo_id
+        "pseudo_anonymous_id": pseudo_id,
+        "clinical_narrative_summary": clinical_narrative_summary
     }
 
 class SimulateRiskPayload(BaseModel):

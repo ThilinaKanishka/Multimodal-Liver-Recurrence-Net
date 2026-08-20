@@ -59,6 +59,8 @@ export interface PredictionResult {
   ai_insights: string[];
   clinical_text_report?: string;
   ui_rendering_state?: "STATE_NORMAL" | "STATE_DRIFT_WARNING" | "STATE_ABSTAIN_LOCK";
+  model_certainty_score?: number;
+  clinical_narrative_summary?: string;
   explainable_ai_weights?: Record<string, number>;
   confidence_interval?: [number, number];
   system_integrity?: { data_drift_detected: boolean; confidence_status: string };
@@ -1160,6 +1162,18 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       </div>
                     </div>
                   </div>
+
+                  {result.clinical_narrative_summary && (
+                    <div className="bg-[#0f172a] border-b border-white/5 p-4 md:px-8">
+                       <div className="flex items-start gap-3 bg-[#1e293b]/40 rounded-lg p-4 border border-[#334155]/50 shadow-inner">
+                         <Activity className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+                         <div>
+                           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Automated Clinical Assessment</h3>
+                           <p className="text-sm text-slate-200 leading-relaxed font-light">{result.clinical_narrative_summary}</p>
+                         </div>
+                       </div>
+                    </div>
+                  )}
 
                   <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
                       {/* MPR Viewer Area */}
