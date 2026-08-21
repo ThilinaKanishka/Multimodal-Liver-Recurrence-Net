@@ -438,6 +438,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
       setPipelineStep("IDLE");
     } else {
+      sessionStorage.setItem("active_patient_session", "true");
       setResult(res.data);
       setSimData({
         tumor_size_cm: formData.tumor_size_cm || 5.0,
@@ -474,6 +475,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   };
 
   const handleResetWorkspace = () => {
+    sessionStorage.removeItem("active_patient_session");
     setFormData({
       tumor_size_cm: "",
       afp_ngml: "",
