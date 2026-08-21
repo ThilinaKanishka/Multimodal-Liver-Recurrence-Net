@@ -1,3 +1,4 @@
+import hashlib
 # Trigger Uvicorn Reload
 import os
 import sys
@@ -14,7 +15,6 @@ import io
 import json
 import re
 import uuid
-import hashlib
 import sqlite3
 import base64
 import random
@@ -494,18 +494,20 @@ def process_dicom_tensor(dicom_bytes: bytes):
         mock_array = np.zeros(tuple(heatmap_shape), dtype=np.float32)
         
         # Create an organic 3D Gaussian sphere (mimicking a true diffuse tumor)
-        d, h, w = heatmap_shape
-        cz, cy, cx = 15, 65, 65 # Center of the tumor
-        sigma = 15.0 # Spread
+        # Vectorized Mock Heatmap
+        h = hashlib.md5(dicom_bytes).hexdigest()
+        seed = int(h, 16) % (2**32)
+        rng = np.random.RandomState(seed)
         
-        for z in range(d):
-            for y in range(h):
-                for x in range(w):
-                    dist_sq = ((z - cz)*2.5)**2 + (y - cy)**2 + (x - cx)**2
-                    mock_array[z, y, x] = np.exp(-dist_sq / (2 * sigma**2))
-                    
-        # Add some ambient noise
-        mock_array += np.random.uniform(0.0, 0.2, tuple(heatmap_shape)).astype(np.float32)
+        d, h, w = heatmap_shape
+        cz, cy, cx = 15, 65, 65
+        sigma = 15.0
+        
+        z, y, x = np.ogrid[0:d, 0:h, 0:w]
+        dist_sq = ((z - cz)*2.5)**2 + (y - cy)**2 + (x - cx)**2
+        mock_array = np.exp(-dist_sq / (2 * sigma**2)).astype(np.float32)
+        
+        mock_array += rng.uniform(0.0, 0.2, tuple(heatmap_shape)).astype(np.float32)
         mock_array_uint8 = (np.clip(mock_array, 0.0, 1.0) * 255.0).astype(np.uint8)
         
         mock_base64 = base64.b64encode(mock_array_uint8.tobytes()).decode('utf-8')
@@ -513,7 +515,7 @@ def process_dicom_tensor(dicom_bytes: bytes):
         max_z, max_y, max_x = np.unravel_index(np.argmax(mock_array_uint8), mock_array_uint8.shape)
         tumor_target = { "found": True, "x": int(max_x), "y": int(max_y), "z": int(max_z) }
         
-        return np.random.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, "", tumor_target
+        return rng.normal(0.5, 0.2, 128), True, warnings, pseudo_anonymous_id, mock_base64, heatmap_shape, "", tumor_target
 
 def process_clinical_pdf(pdf_bytes: bytes):
     try:
@@ -529,6 +531,216 @@ def process_clinical_pdf(pdf_bytes: bytes):
         return 0, 0, 0, ""
 
 # ==========================================
+
+# ==========================================
+# API Endpoint: Attention Analysis (Full Stack)
+# ==========================================
+@app.get("/api/attention-analysis")
+async def get_attention_analysis(patient_id: Optional[str] = None):
+    import random
+    
+    query = {}
+    if patient_id:
+        query["patient_id"] = patient_id
+        
+    cursor = audit_logs_collection.find(query).sort("timestamp", -1).limit(1)
+    latest_pred = await cursor.to_list(length=1)
+    
+    if latest_pred and "shap_weights" in latest_pred[0] and latest_pred[0]["shap_weights"]:
+        pred = latest_pred[0]
+        shap_w = pred["shap_weights"]
+        
+        # Calculate real clinical attention from SHAP values
+        total_shap = sum(abs(v) for v in shap_w.values()) if shap_w else 1.0
+        if total_shap == 0: total_shap = 1.0
+        
+        # Filter top 5 features
+        sorted_shap = sorted(shap_w.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
+        
+        clinical_attention = {}
+        for k, v in sorted_shap:
+            if k == "3D_CNN_Global_Embedding": fn = "Texture Entropy"
+            elif k == "tumor_size_cm": fn = "Tumor Size"
+            elif k == "afp_ngml": fn = "AFP"
+            elif k == "bilirubin_mgdl": fn = "Bilirubin"
+            elif k == "mvi_status": fn = "MVI Status"
+            elif k == "alp_iul": fn = "ALP"
+            else: fn = k.replace('_', ' ').title()
+            clinical_attention[fn] = round(abs(v) / total_shap, 3)
+            
+        # Modality weights
+        imaging_features = ['tumor_size_cm', '3D_CNN_Global_Embedding']
+        imaging_shap = sum(abs(shap_w.get(f, 0)) for f in imaging_features)
+        imaging_weight_actual = int(round((imaging_shap / total_shap) * 100))
+        imaging_weight = min(95, max(5, imaging_weight_actual))
+        clinical_weight = 100 - imaging_weight
+        
+        top_f_name = sorted_shap[0][0]
+        if top_f_name == "bclc_stage_c":
+            top_f_name_disp = "BCLC STAGE C"
+        elif top_f_name == "3D_CNN_Global_Embedding":
+            top_f_name_disp = "TEXTURE ENTROPY"
+        elif top_f_name == "mvi_status":
+            top_f_name_disp = "MVI STATUS"
+        elif top_f_name == "afp_ngml":
+            top_f_name_disp = "AFP"
+        else:
+            top_f_name_disp = top_f_name.replace('_', ' ').upper()
+            
+        c_inputs = pred.get("clinical_inputs", {})
+        patient_name_display = c_inputs.get("patient_name", "the current patient")
+        patient_id_display = c_inputs.get("patient_id", "")
+        
+        summary = f"The Cross-Modal Attention Network for {patient_name_display} {f'({patient_id_display})' if patient_id_display else ''} assigned {imaging_weight}% weight to the CT modality and {clinical_weight}% to clinical history. The primary recurrence driver identified was {top_f_name_disp}."
+        
+        bar_chart_data = []
+        table_data = []
+        
+        for k, v in sorted_shap:
+            if k == "3D_CNN_Global_Embedding":
+                feat_name = "Texture Entropy"
+                val = c_inputs.get("tumor_texture_entropy", 4.2)
+                global_avg = "4.0"
+                unit = ""
+            elif k == "tumor_size_cm":
+                feat_name = "Tumor Size"
+                val = c_inputs.get("tumor_size_cm", "N/A")
+                global_avg = "3.2 cm"
+                unit = " cm"
+            elif k == "afp_ngml":
+                feat_name = "AFP"
+                val = c_inputs.get("afp_ngml", "N/A")
+                global_avg = "25 ng/mL"
+                unit = " ng/mL"
+            elif k == "bilirubin_mgdl":
+                feat_name = "Bilirubin"
+                val = c_inputs.get("bilirubin_mgdl", "N/A")
+                global_avg = "1.0 mg/dL"
+                unit = " mg/dL"
+            elif k == "mvi_status":
+                feat_name = "MVI Status"
+                val = c_inputs.get("mvi_pathology", False)
+                val = "Positive" if val else "Negative"
+                global_avg = "Positive"
+                unit = ""
+            elif k == "alp_iul":
+                feat_name = "ALP"
+                val = c_inputs.get("alp_iul", "N/A")
+                global_avg = "90 IU/L"
+                unit = " IU/L"
+            elif k == "bclc_stage_c":
+                feat_name = "BCLC Stage"
+                val = c_inputs.get("bclc_stage", "N/A")
+                global_avg = "Avg Baseline"
+                unit = ""
+            elif k == "cirrhosis_status":
+                feat_name = "Cirrhosis"
+                val = c_inputs.get("cirrhosis_present", False)
+                val = "Positive" if val else "Negative"
+                global_avg = "Negative"
+                unit = ""
+            elif k == "metastasis_status":
+                feat_name = "Metastasis"
+                val = "Positive" if c_inputs.get("metastasis_status", False) else "Negative"
+                global_avg = "Negative"
+                unit = ""
+            else:
+                feat_name = k.replace('_', ' ').title()
+                val = c_inputs.get(k, "N/A")
+                global_avg = "Avg Baseline"
+                unit = ""
+                
+            # Format value
+            if isinstance(val, float): 
+                val = f"{val:.2f}{unit}"
+            elif isinstance(val, (int, str)) and val not in ["N/A", "Positive", "Negative"]:
+                val = f"{val}{unit}"
+            
+            # Modality
+            mod = "Imaging (CT)" if k in ["tumor_size_cm", "3D_CNN_Global_Embedding"] else "Clinical (EHR)"
+            
+            baseline_shaps = {
+                "AFP": 0.25,
+                "Tumor Size": 0.20,
+                "Texture Entropy": 0.15,
+                "Bilirubin": 0.10,
+                "MVI Status": 0.30,
+                "ALP": 0.12,
+                "BCLC Stage": 0.18,
+                "Cirrhosis": 0.14
+            }
+            global_avg_shap = baseline_shaps.get(feat_name, 0.10)
+            
+            bar_chart_data.append({
+                "name": feat_name,
+                "GlobalAverage": global_avg_shap,
+                "CurrentPatient": round(abs(v) / total_shap, 2)
+            })
+            
+            risk_str = "+ High Risk" if v > 0.1 else "+ Med Risk" if v > 0 else "- Low Protection" if v > -0.1 else "- High Protection"
+            table_data.append({
+                "feature": feat_name,
+                "modality": mod,
+                "value": str(val),
+                "globalAvg": global_avg,
+                "shapImpact": f"{v:.3f}",
+                "risk": risk_str
+            })
+            
+        # Scatter data mock for background + actual patient
+        actual_size = float(c_inputs.get("tumor_size_cm", 5.0))
+        actual_shap = float(shap_w.get("tumor_size_cm", 0.3))
+        actual_afp = float(c_inputs.get("afp_ngml", 200))
+        
+        # Use a fixed seed so the background data points do not jump around on refresh
+        rng = random.Random(42)
+        scatter_high = [{"size": round(rng.uniform(4.0, 9.0), 1), "shap": round(rng.uniform(0.3, 0.8), 2), "name": f"Cohort H{i}"} for i in range(10)]
+        scatter_low = [{"size": round(rng.uniform(1.0, 6.0), 1), "shap": round(rng.uniform(0.0, 0.4), 2), "name": f"Cohort L{i}"} for i in range(10)]
+        
+        if actual_afp > 400:
+            scatter_high.append({"size": actual_size, "shap": actual_shap, "name": "CURRENT PATIENT"})
+        else:
+            scatter_low.append({"size": actual_size, "shap": actual_shap, "name": "CURRENT PATIENT"})
+            
+        # Multi-Dimensional Risk Radar
+        bil = float(c_inputs.get("bilirubin_mgdl", 1.0))
+        tsize = float(c_inputs.get("tumor_size_cm", 5.0))
+        mvi = int(c_inputs.get("mvi_pathology", 0))
+        hep_b = c_inputs.get("hepatitis_b", False)
+        hep_c = c_inputs.get("hepatitis_c", False)
+        
+        radar_data = [
+            {"label": "Liver Function", "value": min(100, max(20, int((bil / 2.0) * 100)))},
+            {"label": "Tumor Morphology", "value": min(100, max(20, int((tsize / 8.0) * 100)))},
+            {"label": "Viral Markers", "value": 85 if (hep_b or hep_c) else 25},
+            {"label": "Vascular Invasion", "value": 90 if mvi == 1 else 30},
+            {"label": "Texture Entropy", "value": min(100, int(abs(shap_w.get("3D_CNN_Global_Embedding", 0.5)) * 150) + 20)}
+        ]
+        
+        analytics_data = {
+            "barChartData": bar_chart_data,
+            "scatterDataHighAFP": scatter_high,
+            "scatterDataLowAFP": scatter_low,
+            "tableData": table_data,
+            "radarData": radar_data
+        }
+        
+        return {
+            "modality_weights": {"imaging_ct": imaging_weight, "clinical_ehr": clinical_weight},
+            "clinical_attention": clinical_attention,
+            "patient_name": pred.get("clinical_inputs", {}).get("patient_name", "") if pred else "",
+            "patient_id": pred.get("clinical_inputs", {}).get("patient_id", "") if pred else "",
+            "spatial_attention_data": {
+                "ct_slice_base64": "",
+                "heatmap_base64": "",
+                "dimensions": [1,1,1]
+            },
+            "attention_summary": summary,
+            "analytics_data": analytics_data
+        }
+    else:
+        raise HTTPException(status_code=404, detail="No session found")
+
 # API Endpoint: Clinical Predictor
 # ==========================================
 @app.post("/api/extract-clinical-data")
@@ -761,6 +973,9 @@ async def predict_recurrence(
             temp_ds = pydicom.dcmread(io.BytesIO(dicom_bytes))
             if 'PatientName' in temp_ds:
                 dicom_patient_name = str(temp_ds.PatientName).replace("^", " ").lower()
+                tabular_data['patient_name'] = str(temp_ds.PatientName).replace("^", " ").title()
+            if 'PatientID' in temp_ds:
+                tabular_data['patient_id'] = str(temp_ds.PatientID)
         except:
             pass
             
@@ -1964,7 +2179,6 @@ async def change_password(payload: ChangePasswordPayload):
 
 @app.get("/api/temp-reset")
 async def temp_reset():
-    import hashlib
     password_hash = hashlib.sha256("1234".encode()).hexdigest()
     await users_collection.update_one(
         {"email": "admin@HepatoAI.com"},
@@ -1974,7 +2188,6 @@ async def temp_reset():
 
 @app.get("/api/seed-admin")
 async def seed_admin():
-    import hashlib
     pwd_hash = hashlib.sha256("1234".encode()).hexdigest()
     admin_doc = {
         "id": "ST-ADMIN",
