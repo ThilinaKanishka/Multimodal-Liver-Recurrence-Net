@@ -641,10 +641,10 @@ function App() {
         <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
         <div className="flex-1 overflow-auto bg-[#030712] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
-          <div className={activePage === "activity" ? "block h-full w-full" : "hidden"}>
+          <div className={activePage === "activity" ? "block min-h-full w-full" : "hidden"}>
             <PredictPage onViewHistory={handlePatientClick} user={currentUser} cdssEnabled={cdssEnabled} />
           </div>
-          <div className={activePage === "longitudinal" ? "block h-full w-full" : "hidden"}>
+          <div className={activePage === "longitudinal" ? "block min-h-full w-full" : "hidden"}>
             <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} cdssEnabled={cdssEnabled} />
           </div>
           {renderPage()}
