@@ -140,8 +140,16 @@ export const AttentionDashboard = () => {
   ];
   
   const [loading, setLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(true);
 
   useEffect(() => {
+    const sessionActive = sessionStorage.getItem("active_patient_session") === "true";
+    if (!sessionActive) {
+      setHasSession(false);
+      setLoading(false);
+      return;
+    }
+    
     const fetchData = async () => {
       try {
         const response = await axios.get('http://127.0.0.1:8000/api/attention-analysis');
@@ -178,6 +186,21 @@ export const AttentionDashboard = () => {
       <div className="flex-1 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col items-center justify-center">
         <Loader className="w-10 h-10 text-[#9d00ff] animate-spin mb-4" />
         <p className="text-sm font-mono tracking-widest uppercase text-[#9d00ff]">Extracting Attention Layers...</p>
+      </div>
+    );
+  }
+
+  if (!hasSession) {
+    return (
+      <div className="flex-1 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col items-center justify-center p-8">
+        <div className="bg-[#111827] border border-[#1e293b] p-10 rounded-2xl flex flex-col items-center justify-center shadow-2xl max-w-lg w-full">
+            <Target className="w-20 h-20 text-[#2a364a] mb-6" />
+            <h2 className="text-xl font-black tracking-widest uppercase text-slate-400 mb-4 text-center">No Active Patient Session</h2>
+            <p className="text-[11px] font-mono text-slate-500 text-center leading-relaxed">
+              Diagnostic attention matrices and feature attributions are isolated to the active encounter. <br/><br/>
+              <strong className="text-indigo-400">Please upload patient records and initialize the diagnostic pipeline in the Predict Workspace</strong> to generate real-time SHAP explanations.
+            </p>
+        </div>
       </div>
     );
   }

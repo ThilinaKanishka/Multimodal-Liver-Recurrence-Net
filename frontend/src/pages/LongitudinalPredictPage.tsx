@@ -453,6 +453,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
       setPipelineStep("IDLE");
     } else {
+      sessionStorage.setItem("active_patient_session", "true");
       setResult(res.data);
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
@@ -480,6 +481,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   };
 
   const handleResetWorkspace = () => {
+    sessionStorage.removeItem("active_patient_session");
     setFormData({
       tumor_size_cm: "",
       afp_ngml: "",
