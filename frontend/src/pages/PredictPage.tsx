@@ -59,6 +59,8 @@ export interface PredictionResult {
   ai_insights: string[];
   clinical_text_report?: string;
   ui_rendering_state?: "STATE_NORMAL" | "STATE_DRIFT_WARNING" | "STATE_ABSTAIN_LOCK";
+  model_certainty_score?: number;
+  clinical_narrative_summary?: string;
   explainable_ai_weights?: Record<string, number>;
   confidence_interval?: [number, number];
   system_integrity?: { data_drift_detected: boolean; confidence_status: string };
@@ -71,6 +73,8 @@ export interface PredictionResult {
     dicom_3d_matrix?: string;
     tumor_target?: { found: boolean; x: number; y: number; z: number };
   };
+  estimated_recurrence_min_months?: number;
+  estimated_recurrence_max_months?: number;
 }
 
 const InputField = ({ label, name, value, type="number", unit="", step="1", onChange, autoFilled }: any) => (
@@ -190,7 +194,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
   const [cdssReport, setCdssReport] = useState<any>(null);
   const [generatingCdss, setGeneratingCdss] = useState<boolean>(false);
+  const [simData, setSimData] = useState<any>(null);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateCdss = async () => {
     if (!result) return;
@@ -213,6 +220,27 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       alert("Failed to generate CDSS Report.");
     } finally {
       setGeneratingCdss(false);
+    }
+  };
+
+  const handleSimulate = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", simData);
+      setResult(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recurrence_risk: res.data.recurrence_risk,
+          probability: res.data.probability,
+          explainable_ai_weights: res.data.explainable_ai_weights
+        };
+      });
+    } catch(err) {
+      console.error(err);
+      alert("Failed to run simulation.");
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -411,9 +439,23 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       setPipelineStep("IDLE");
     } else {
       setResult(res.data);
+      setSimData({
+        tumor_size_cm: formData.tumor_size_cm || 5.0,
+        afp_ngml: formData.afp_ngml || 20.0,
+        alp_iul: formData.alp_iul || 100.0,
+        bilirubin_mgdl: formData.bilirubin_mgdl || 1.0,
+        bclc_stage: formData.bclc_stage || "A",
+        mvi_pathology: formData.mvi_pathology || false,
+        cirrhosis_present: formData.cirrhosis_present || false
+      });
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
-      setTimeout(() => setPipelineStep("IDLE"), 2000);
+      setTimeout(() => {
+        setPipelineStep("IDLE");
+        setTimeout(() => {
+          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }, 2000);
     }
   };
 
@@ -465,6 +507,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setAutoFilled(false);
     setHistoryInfo(null);
     setResult(null);
+    setSimData(null);
     setErrorMessage(null);
     setPipelineStep("IDLE");
     setProgress(0);
@@ -1024,30 +1067,131 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           {/* FULL WIDTH RESULTS AREA */}
           {result ? (
               <>
-                <div className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
-                  <div className={`px-4 py-2 border-b flex justify-between items-center flex-shrink-0 ${
-                    result.recurrence_risk === "HIGH" ? "bg-rose-950/40 border-rose-900/50" : "bg-emerald-950/40 border-emerald-900/50"
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                      <span className={`font-mono font-bold tracking-wider text-sm ${result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"}`}>
-                          {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ABSTAINED: DIAGNOSTIC UNCERTAINTY" : `PROGNOSIS: ${result.recurrence_risk} RISK (${result.probability}%)`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        type="button" 
-                        onClick={handleDownloadPdf}
-                        className="bg-[#1e293b] hover:bg-[#2a364a] text-slate-300 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-wider transition-colors border border-[#334155]"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        EXPORT PDF
-                      </button>
-                      <div className="font-mono text-[10px] text-slate-500 bg-[#0a0e17] px-2 py-1 rounded border border-[#2a364a]">
-                        ID: {result.pseudo_anonymous_id}
+                <div ref={resultsRef} className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
+                  <div className="relative overflow-hidden bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
+                    <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
+                      result.recurrence_risk === "HIGH" 
+                        ? "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-900/40 via-rose-600/10 to-transparent" 
+                        : "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900/40 via-emerald-600/10 to-transparent"
+                    }`}></div>
+                    
+                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 p-4 md:px-8 md:py-6 bg-[#0a0f18]/60 backdrop-blur-3xl">
+                      {/* Left Side: Diagnosis */}
+                      <div className="flex items-center gap-6 w-full md:w-auto">
+                        {/* Icon with glowing ring */}
+                        <div className="relative flex-shrink-0">
+                          <div className={`absolute -inset-1 rounded-full blur-md opacity-60 animate-pulse ${
+                            result.recurrence_risk === "HIGH" ? "bg-rose-500" : "bg-emerald-500"
+                          }`}></div>
+                          <div className="relative w-14 h-14 bg-[#0a0f18] rounded-full border-2 border-white/10 flex items-center justify-center shadow-inner">
+                            {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-6 h-6 text-rose-500" /> : <CheckCircle className="w-6 h-6 text-emerald-500" />}
+                          </div>
+                        </div>
+                        
+                        {/* Text block */}
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-1">
+                            {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ALERT" : "PRIMARY PROGNOSIS"}
+                          </span>
+                          <h2 className={`font-black tracking-wide text-2xl md:text-3xl uppercase flex items-center gap-3 ${
+                            result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"
+                          }`}>
+                            <span className="relative inline-block">
+                                <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
+                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
+                                </span>
+                                <span className="relative drop-shadow-md">
+                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
+                                </span>
+                            </span>
+                            {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                              <>
+                                <span className="opacity-40 font-normal">|</span>
+                                <span className="relative inline-block">
+                                   <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
+                                       {result.probability}%
+                                   </span>
+                                   <span className="relative drop-shadow-md">
+                                       {result.probability}%
+                                   </span>
+                                </span>
+                              </>
+                            )}
+                          </h2>
+                          {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                            <div className="flex items-center mt-2">
+                              <div className="h-1.5 w-48 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                 <div className={`h-full ${result.recurrence_risk === "HIGH" ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`} style={{ width: `${result.probability}%` }}></div>
+                              </div>
+                            </div>
+                          )}
+                          {result.model_certainty_score !== undefined && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1.5 ${
+                                result.model_certainty_score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                                result.model_certainty_score >= 50 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                              }`}>
+                                <Activity className="w-3 h-3" />
+                                Model Certainty: {result.model_certainty_score}%
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Right Side: Timeline & Actions */}
+                      <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
+                        {/* Timeline box */}
+                        {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                          <div className="flex flex-col items-end border-r border-white/10 pr-6">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Predicted Timeline
+                            </span>
+                            <div className="flex items-baseline gap-1.5 relative">
+                               <div className="absolute inset-0 animate-pulse blur-[8px] opacity-70 text-amber-500 font-mono font-black text-2xl md:text-3xl flex items-baseline gap-1.5 pointer-events-none">
+                                 <span>{result.estimated_recurrence_min_months}</span>
+                                 <span>-</span>
+                                 <span>{result.estimated_recurrence_max_months}</span>
+                               </div>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_min_months}</span>
+                               <span className="text-amber-500/50 font-black text-lg relative">-</span>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_max_months}</span>
+                               <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest relative">Months</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Actions */}
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          <button 
+                            type="button" 
+                            onClick={handleDownloadPdf}
+                            className="group relative overflow-hidden bg-[#1e293b]/80 hover:bg-[#2a364a] text-slate-200 px-5 py-2.5 rounded-lg border border-[#334155] flex items-center justify-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase transition-all w-full shadow-lg hover:shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:border-indigo-500/50"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                            <Download className="w-4 h-4 text-indigo-400" />
+                            EXPORT PDF
+                          </button>
+                          <div className="text-[9px] font-mono text-slate-500 flex items-center justify-center gap-1 bg-black/40 py-1 rounded border border-white/5">
+                            ID: <span className="text-slate-400 font-bold truncate max-w-[120px]">{result.pseudo_anonymous_id}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {result.clinical_narrative_summary && (
+                    <div className="bg-[#0f172a] border-b border-white/5 p-4 md:px-8">
+                       <div className="flex items-start gap-3 bg-[#1e293b]/40 rounded-lg p-4 border border-[#334155]/50 shadow-inner">
+                         <Activity className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+                         <div>
+                           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Automated Clinical Assessment</h3>
+                           <p className="text-sm text-slate-200 leading-relaxed font-light">{result.clinical_narrative_summary}</p>
+                         </div>
+                       </div>
+                    </div>
+                  )}
 
                   <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
                       {/* MPR Viewer Area */}
@@ -1093,6 +1237,30 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                             </div>
                           </div>
                         )}
+
+                        {/* Interactive What-If Analysis */}
+                        <div className="mt-4 border-t border-[#1e293b] pt-4">
+                          <h4 className="text-[11px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5" /> What-If Simulation
+                          </h4>
+                          <div className="space-y-3">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
+                              <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">AFP (ng/ml): {simData?.afp_ngml}</label>
+                              <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <button 
+                              onClick={(e) => { e.preventDefault(); handleSimulate(); }}
+                              disabled={isSimulating}
+                              className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded transition-colors"
+                            >
+                              {isSimulating ? "Simulating..." : "Simulate Outcome"}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                   </div>
                 </div>
@@ -1141,7 +1309,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
              <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-sm font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
              <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">DOB (Age) / Sex</span><span className="text-xs font-medium">{patientInfo.dob} ({patientInfo.age}y) | {patientInfo.sex}</span></div>
              
-             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span><span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span></div>
+             <div className="border-t border-slate-200 pt-3 mt-1 flex justify-between items-start">
+               <div>
+                 <span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span>
+                 <span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span>
+               </div>
+               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://pacs.hepatoai.local/patient/${patientInfo.mrn}`} alt="Secure PACS" className="w-9 h-9 border border-slate-300 p-0.5 rounded-sm opacity-90 mix-blend-multiply" />
+             </div>
              <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">{patientInfo.attending !== "---" ? `Dr. ${patientInfo.attending}` : "Unknown Physician"}</span></div>
              <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">{user ? `Dr. ${user.name}, ${user.level || 'MD'}` : "Unknown Radiologist"}</span></div>
           </div>
@@ -1165,8 +1339,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
             <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${result.recurrence_risk === 'HIGH' ? 'bg-rose-50 border-rose-600 text-rose-900' : 'bg-emerald-50 border-emerald-600 text-emerald-900'}`}>
               <h2 className="text-xs font-bold uppercase tracking-widest mb-2 opacity-80">Primary AI Inference Result</h2>
               <div className="text-2xl font-black uppercase tracking-wide">
-                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%)
+                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%{result.confidence_interval ? ` (95% CI: ${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%)` : ''})
               </div>
+              {result.estimated_recurrence_min_months !== undefined && (
+                <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
+                  ESTIMATED TIME TO RECURRENCE: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
+                </div>
+              )}
               <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
                  <span>Ref ID: {result.inference_id?.substring(0, 18)}...</span>
                  <span>Network Status: SECURE</span>
@@ -1286,7 +1465,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                  </div>
                  <div className="mt-4 pt-3 border-t border-slate-200 bg-blue-50/50 p-2 rounded border border-blue-100">
                    <span className="text-blue-900 font-bold text-[10px] uppercase block mb-1">Executive Impression & Recommendation</span>
-                   <p className="text-slate-700 text-[11px] font-medium leading-normal">1. Close surveillance recommended for localized Grad-CAM activation cluster.<br />2. Recommend repeat multiphasic abdominal CT in 6 months.</p>
+                   <p className="text-slate-700 text-[11px] font-medium leading-normal whitespace-pre-line">
+                     {(result?.probability ?? 0) > 70 ? (
+                         "1. Due to high recurrence probability, an ultrasound-guided biopsy is recommended per AASLD guidelines.\n2. Multidisciplinary tumor board review required.\n3. Consider adjusting follow-up interval to 3 months."
+                     ) : (result?.probability ?? 0) > 40 ? (
+                         "1. Moderate recurrence probability detected.\n2. Recommend repeat multiphasic abdominal CT in 6 months.\n3. Close surveillance of AFP levels."
+                     ) : (
+                         "1. Low recurrence probability.\n2. Routine clinical follow-up in 12 months.\n3. Maintain standard of care surveillance."
+                     )}
+                   </p>
                  </div>
                </div>
              </div>
@@ -1319,7 +1506,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                ) : (
                   <div className="border-b border-black mb-2 border-dashed w-full h-8"></div>
                )}
-               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">Physician Signature</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">{user ? `Dr. ${user.name}` : "Physician Signature"}</span>
+                <span className="text-[7px] font-mono text-slate-500 mt-1 block">Digitally Signed & Verified on: {new Date().toISOString().replace('T', ' ').split('.')[0]}</span>
             </div>
           </div>
         </div>

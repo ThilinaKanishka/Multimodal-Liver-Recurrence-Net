@@ -104,6 +104,25 @@ except ImportError:
     TORCH_AVAILABLE = False
     print("Warning: PyTorch not installed. 3D-CNN will use simulated 128-D projections.")
 
+import joblib
+try:
+    survival_model = joblib.load('../survival_time_model.pkl')
+    survival_scaler = joblib.load('../input_scaler.pkl')
+    survival_feature_names = joblib.load('../processed_feature_names.pkl')
+    SURVIVAL_ENABLED = True
+    print("✅ Survival Time Model successfully loaded from disk.")
+except Exception as e:
+    # Try looking in the current directory if running locally
+    try:
+        survival_model = joblib.load('survival_time_model.pkl')
+        survival_scaler = joblib.load('input_scaler.pkl')
+        survival_feature_names = joblib.load('processed_feature_names.pkl')
+        SURVIVAL_ENABLED = True
+        print("✅ Survival Time Model successfully loaded from disk.")
+    except Exception as e2:
+        print(f"Warning: Could not load survival time model: {e2}")
+        SURVIVAL_ENABLED = False
+
 # ==========================================
 # PHASE 05: 3D-CNN Feature Extractor (PyTorch)
 # ==========================================
@@ -808,6 +827,9 @@ async def predict_recurrence(
     p_norm = prob_score / 100.0
     entropy = - (p_norm * np.log2(p_norm + 1e-9) + (1 - p_norm) * np.log2(1 - p_norm + 1e-9))
     
+    # Calculate Model Certainty Score based on Entropy (0% to 100%)
+    model_certainty_score = round(max(0.0, (1.0 - entropy)) * 100.0, 1)
+    
     # Drift
     cnn_drift = abs(cnn_features[0] - training_distributions['cnn_feat_0_mean']) / (training_distributions['cnn_feat_0_std'] + 1e-9) > 3.0
     data_drift_detected = bool(cnn_drift)
@@ -824,6 +846,36 @@ async def predict_recurrence(
     cnn_agg_weight = sum([abs(explainable_ai_weights[f'cnn_feat_{i}']) for i in range(128)])
     display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
     display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
+
+    # Generate Clinical Narrative Summary
+    feature_mapping = {
+        "3d Cnn Global Embedding": "Hypervascular tumor patterns detected via 3D CNN",
+        "Mvi Pathology": "Microvascular Invasion (MVI) positive indicators",
+        "Tumor Size Cm": "significant primary tumor diameter",
+        "Afp Ngml": "elevated Alpha-fetoprotein (AFP) levels",
+        "Alp Iul": "elevated Alkaline Phosphatase (ALP)",
+        "Bilirubin Mgdl": "abnormal Bilirubin levels",
+        "Bclc Stage": "advanced BCLC staging",
+        "Cirrhosis Present": "underlying liver cirrhosis",
+        "Age": "patient age factor",
+        "Gender": "patient demographic profile",
+        "Obesity": "patient obesity profile",
+        "Diabetes": "comorbid diabetes",
+        "Alcohol History": "history of alcohol consumption"
+    }
+
+    sorted_features = sorted(display_weights.items(), key=lambda x: x[1], reverse=True)
+    positive_features_raw = [f[0].replace('_', ' ').title() for f in sorted_features if f[1] > 0]
+    positive_features = [feature_mapping.get(f, f) for f in positive_features_raw]
+    
+    if len(positive_features) >= 3:
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}. {positive_features[2]} also contributed slightly."
+    elif len(positive_features) == 2:
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}."
+    elif len(positive_features) == 1:
+        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]}."
+    else:
+        clinical_narrative_summary = "No significant positive driving features were identified in the current model assessment."
 
     if prob_std > 12.0 or entropy > 0.95:
         confidence_status = "LOW_CONFIDENCE_ABSTAIN"
@@ -859,6 +911,28 @@ async def predict_recurrence(
         ai_insights.append("NLP/Clinical Core: Confirmed Microvascular Invasion (MVI).")
         
     ai_insights.append("XAI Analyzer: Tumor Size and Texture contributed significantly with SHAP bounds [-1.4135, -0.5449].")
+    
+    # Calculate Time-to-Recurrence
+    estimated_recurrence_min_months = 10.0
+    estimated_recurrence_max_months = 14.0
+    
+    if SURVIVAL_ENABLED:
+        try:
+            surv_dict = {}
+            for col in survival_feature_names:
+                surv_dict[col] = master_dict.get(col, 0.0)
+            
+            surv_df = pd.DataFrame([surv_dict], columns=survival_feature_names)
+            surv_scaled = survival_scaler.transform(surv_df)
+            surv_pred = float(survival_model.predict(surv_scaled)[0])
+            
+            estimated_recurrence_min_months = max(0.0, round(surv_pred - 2.0, 1))
+            estimated_recurrence_max_months = round(surv_pred + 2.0, 1)
+            ai_insights.append(f"Survival Analysis: Predicted time-to-recurrence {round(surv_pred, 1)} months.")
+        except Exception as e:
+            print(f"Survival prediction error: {e}")
+            ai_insights.append(f"Survival Analysis: Failed ({e})")
+            
     inference_id = str(uuid.uuid4())
     await log_inference_to_ledger(inference_id, pseudo_id, tabular_data, display_weights, prob_score, recurrence_risk_str, ui_rendering_state, doctor_id)
 
@@ -869,6 +943,7 @@ async def predict_recurrence(
             "recurrence_risk": recurrence_risk_str,
             "probability": round(prob_score, 2)
         },
+        "model_certainty_score": model_certainty_score,
         "interpretability_layer": {
             "gradcam_engine": "ACTIVE" if gradcam_base64 else "INACTIVE",
             "heatmap_spatial_shape": heatmap_shape,
@@ -876,6 +951,9 @@ async def predict_recurrence(
             "dicom_3d_matrix": dicom_base64,
             "tumor_target": tumor_target
         },
+        
+        "estimated_recurrence_min_months": estimated_recurrence_min_months,
+        "estimated_recurrence_max_months": estimated_recurrence_max_months,
         
         # Legacy mappings retained for seamless frontend integration
         "recurrence_risk": recurrence_risk_str,
@@ -888,7 +966,65 @@ async def predict_recurrence(
         "clinical_text_report": raw_text,
         "ui_rendering_state": ui_rendering_state,
         "inference_id": inference_id,
-        "pseudo_anonymous_id": pseudo_id
+        "pseudo_anonymous_id": pseudo_id,
+        "clinical_narrative_summary": clinical_narrative_summary
+    }
+
+class SimulateRiskPayload(BaseModel):
+    tumor_size_cm: float = 5.0
+    afp_ngml: float = 20.0
+    alp_iul: float = 100.0
+    bilirubin_mgdl: float = 1.0
+    bclc_stage: str = "A"
+    mvi_pathology: bool = False
+    cirrhosis_present: bool = False
+
+@app.post("/api/v1/simulate_risk")
+async def simulate_risk(payload: SimulateRiskPayload):
+    bclc_stage_c = 1 if payload.bclc_stage == "C" else 0
+    mvi_status = 1 if payload.mvi_pathology else 0
+    cirrhosis_status = 1 if payload.cirrhosis_present else 0
+    metastasis_status = 0
+    
+    # We can mock cnn_features like in predict_recurrence for the simulation
+    cnn_features = np.random.normal(0.5, 0.2, 128)
+    
+    master_dict = {
+        'tumor_size_cm': payload.tumor_size_cm,
+        'afp_ngml': payload.afp_ngml,
+        'alp_iul': payload.alp_iul,
+        'bilirubin_mgdl': payload.bilirubin_mgdl,
+        'mvi_status': mvi_status,
+        'cirrhosis_status': cirrhosis_status,
+        'metastasis_status': metastasis_status,
+        'bclc_stage_c': bclc_stage_c
+    }
+    for i in range(128):
+        master_dict[f'cnn_feat_{i}'] = cnn_features[i]
+        
+    master_vector = pd.DataFrame([master_dict], columns=feature_columns)
+    
+    ensemble_probs = [float(model.predict_proba(master_vector)[0][1] * 100.0) for model in ensemble_models]
+    prob_score = float(np.mean(ensemble_probs))
+    
+    recurrence_risk_str = "HIGH" if prob_score >= 50.0 else "LOW"
+    
+    # SHAP
+    shap_values = shap_explainer.shap_values(master_vector)
+    if isinstance(shap_values, list):
+        shap_vals_target = shap_values[1][0]
+    else:
+        shap_vals_target = shap_values[0]
+        
+    explainable_ai_weights = {feature_columns[i]: round(float(shap_vals_target[i]), 4) for i in range(len(feature_columns))}
+    cnn_agg_weight = sum([abs(explainable_ai_weights[f'cnn_feat_{i}']) for i in range(128)])
+    display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
+    display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
+    
+    return {
+        "probability": round(prob_score, 2),
+        "recurrence_risk": recurrence_risk_str,
+        "explainable_ai_weights": display_weights
     }
 
 # ==========================================
@@ -1539,6 +1675,13 @@ class LogoutPayload(BaseModel):
 async def logout_user(payload: LogoutPayload):
     await users_collection.update_one({"id": payload.id}, {"$set": {"is_logged_in": False}})
     return {"message": "Logged out"}
+
+@app.get("/api/v1/users/{user_id}/status")
+async def get_user_status(user_id: str):
+    user = await users_collection.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"status": user.get("status", "Active")}
 
 @app.post("/api/skip-reset")
 async def skip_reset(payload: dict):
