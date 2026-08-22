@@ -453,6 +453,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
       setPipelineStep("IDLE");
     } else {
+      sessionStorage.setItem("active_patient_session", "true");
       setResult(res.data);
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
@@ -480,6 +481,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   };
 
   const handleResetWorkspace = () => {
+    sessionStorage.removeItem("active_patient_session");
     setFormData({
       tumor_size_cm: "",
       afp_ngml: "",
@@ -600,7 +602,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
         <form onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10">
           
           {/* TOP INPUT ROW */}
-          <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch">
+          <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch flex-shrink-0">
             {/* LEFT COLUMN: Data Sources */}
             <div className="w-full xl:w-[420px] flex flex-col gap-6 flex-shrink-0">
               
