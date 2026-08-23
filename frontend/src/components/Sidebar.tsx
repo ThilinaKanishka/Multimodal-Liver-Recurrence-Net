@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split, ChevronLeft, ChevronRight, MessageSquare, Layers } from "lucide-react";
+import { Activity, LayoutDashboard, Users, Database, Search, Settings, Hexagon, LogOut, Split, ChevronLeft, ChevronRight, MessageSquare, Layers, Cpu } from "lucide-react";
 import { getGravatarUrl } from "../utils/gravatar";
 
 interface SidebarProps {
@@ -129,6 +129,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
         <div className={getIconClass("attention")} onClick={() => setActivePage("attention")} title="Attention & Fusion Analysis">
           <Layers className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Attention</span>}
+        </div>
+        <div className={getIconClass("feature_extraction")} onClick={() => setActivePage("feature_extraction")} title="Advanced Feature Extraction">
+          <Cpu className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Features</span>}
         </div>
         <div className={getIconClass("search")} onClick={() => setActivePage("search")} title="Patient Ledger & History">
           <Search className="w-5 h-5 flex-shrink-0" />
