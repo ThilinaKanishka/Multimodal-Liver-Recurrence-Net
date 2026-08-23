@@ -12,6 +12,7 @@ import SecuritySettingsTab from "./components/SecuritySettingsTab";
 import PatientSearchPage from "./pages/PatientSearchPage";
 import DoctorBillingPage from "./pages/DoctorBillingPage";
 import { AttentionDashboard } from "./pages/AttentionDashboard";
+import FeatureExtractionStudio from "./pages/FeatureExtractionStudio";
 
 import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye } from "lucide-react";
 
@@ -589,6 +590,7 @@ function App() {
       case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
       case "support": return <DoctorMessages user={currentUser} />;
       case "attention": return <AttentionDashboard />;
+      case "feature_extraction": return <FeatureExtractionStudio />;
       default: return null;
     }
   };
