@@ -169,13 +169,13 @@ const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: 
             <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#0f1522] to-transparent z-10 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#0f1522] to-transparent z-10 pointer-events-none"></div>
             
-            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent px-6 py-2">
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-[#0f1522]/90 backdrop-blur-xl z-20 shadow-md">
+                <thead className="sticky top-0 bg-black/40 border-b border-white/10 z-20 shadow-md">
                   <tr>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white/10">Timestamp</th>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white/10">Patient Identifier</th>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-white/10">AI Prognosis</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Timestamp</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Patient Identifier</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">AI Prognosis</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -191,17 +191,17 @@ const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: 
                   ) : (
                     stats.recent_alerts.map((alert: any) => (
                       <tr key={alert._id} className="hover:bg-white/5 transition-colors group">
-                        <td className="py-4 px-2 text-[10px] font-mono text-slate-400 group-hover:text-[#00e5ff] transition-colors font-bold">
+                        <td className="py-4 px-6 text-xs font-mono text-slate-400 group-hover:text-[#00e5ff] transition-colors font-bold">
                           {new Date(alert.timestamp).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-4 px-2">
-                          <span className="text-[10px] font-mono text-[#00e5ff] font-bold bg-[#00e5ff]/5 px-2.5 py-1 rounded border border-[#00e5ff]/20">
+                        <td className="py-4 px-6 text-center">
+                          <span className="text-xs font-mono text-[#00e5ff] font-bold bg-[#00e5ff]/5 px-4 py-2 rounded-lg border border-[#00e5ff]/20">
                             {alert.pseudo_anonymous_id || 'UNKNOWN'}
                           </span>
                         </td>
-                        <td className="py-4 px-2 text-center">
-                          <div className={`inline-flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-[0.2em] border shadow-inner ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055]/10 text-[#ff0055] border-[#ff0055]/30 shadow-[0_0_10px_rgba(255,0,85,0.15)]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00]/10 text-[#ffaa00] border-[#ffaa00]/30 shadow-[0_0_10px_rgba(255,170,0,0.15)]' : 'bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/30 shadow-[0_0_10px_rgba(0,255,157,0.15)]'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055] shadow-[0_0_5px_#ff0055]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00] shadow-[0_0_5px_#ffaa00]' : 'bg-[#00ff9d] shadow-[0_0_5px_#00ff9d]'}`}></span>
+                        <td className="py-4 px-6 text-right">
+                          <div className={`inline-flex items-center gap-2 text-[10px] px-4 py-2 rounded-lg font-black uppercase tracking-[0.2em] border shadow-inner ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055]/10 text-[#ff0055] border-[#ff0055]/30 shadow-[0_0_10px_rgba(255,0,85,0.15)]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00]/10 text-[#ffaa00] border-[#ffaa00]/30 shadow-[0_0_10px_rgba(255,170,0,0.15)]' : 'bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/30 shadow-[0_0_10px_rgba(0,255,157,0.15)]'}`}>
+                            <span className={`w-2 h-2 rounded-full ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055] shadow-[0_0_5px_#ff0055]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00] shadow-[0_0_5px_#ffaa00]' : 'bg-[#00ff9d] shadow-[0_0_5px_#00ff9d]'}`}></span>
                             {alert.recurrence_risk} <span className="opacity-60 ml-1">({roundProb(alert.probability)}%)</span>
                           </div>
                         </td>
