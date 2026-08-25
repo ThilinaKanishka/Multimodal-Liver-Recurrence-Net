@@ -6,12 +6,21 @@ const FeatureExtractionStudio = () => {
   const [histogram, setHistogram] = useState([]);
   const [glcm, setGlcm] = useState(() => Array.from({ length: 64 }, () => 0));
   const [isUploading, setIsUploading] = useState(false);
-  const [isPdfUploading, setIsPdfUploading] = useState(false);
+  const [isPdfUploading, setIsPdfUploading] = useState(false); // Can be kept for compatibility if needed, though we will use the modal
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanComplete, setIsScanComplete] = useState(false);
   const [scanText, setScanText] = useState("");
   const [dataStream, setDataStream] = useState([]);
+  
+  // PDF Modal States
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfScanProgress, setPdfScanProgress] = useState(0);
+  const [isPdfScanComplete, setIsPdfScanComplete] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+
   const fileInputRef = useRef(null);
   const pdfInputRef = useRef(null);
 
@@ -34,9 +43,29 @@ const FeatureExtractionStudio = () => {
     if (!file) return;
     event.target.value = null;
     
+    setPdfFileName(file.name);
+    setPdfFile(URL.createObjectURL(file));
+    setShowPdfModal(true);
+    setIsPdfScanComplete(false);
+    setShowPdfPreview(false);
+    setPdfScanProgress(0);
     setIsPdfUploading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsPdfUploading(false);
+    
+    const totalDuration = 3000;
+    const interval = 30;
+    let currentProgress = 0;
+    
+    const progressTimer = setInterval(() => {
+      currentProgress += (interval / totalDuration) * 100;
+      if (currentProgress > 100) currentProgress = 100;
+      setPdfScanProgress(Math.floor(currentProgress));
+      
+      if (currentProgress >= 100) {
+        clearInterval(progressTimer);
+        setIsPdfScanComplete(true);
+        setIsPdfUploading(false);
+      }
+    }, interval);
   };
 
   const handleFileUpload = async (event) => {
@@ -556,6 +585,114 @@ const FeatureExtractionStudio = () => {
 
         </div>
       </div>
+
+      {/* PDF Scanning Modal */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => { if(isPdfScanComplete) setShowPdfModal(false); }} />
+          
+          <div className="relative w-full max-w-3xl bg-[#0a0f18] border border-purple-500/30 rounded-2xl shadow-[0_0_50px_rgba(168,85,247,0.2)] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-500">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/40">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                  <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-white font-bold uppercase tracking-widest text-sm">NLP Document Parser</h3>
+                  <p className="text-[10px] text-gray-500 font-mono">{pdfFileName}</p>
+                </div>
+              </div>
+              {isPdfScanComplete && (
+                <button onClick={() => setShowPdfModal(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="p-8 flex flex-col items-center justify-center min-h-[400px] relative">
+               {!showPdfPreview ? (
+                 <>
+                   {/* Scanning Animation */}
+                   <div className="relative w-32 h-40 border-2 border-purple-500/30 rounded-lg bg-purple-900/10 flex items-center justify-center overflow-hidden mb-8 shadow-inner">
+                      {/* Document lines mock */}
+                      <div className="w-full h-full p-4 flex flex-col gap-3 opacity-30">
+                        <div className="w-full h-2 bg-purple-400 rounded"></div>
+                        <div className="w-3/4 h-2 bg-purple-400 rounded"></div>
+                        <div className="w-5/6 h-2 bg-purple-400 rounded"></div>
+                        <div className="w-full h-2 bg-purple-400 rounded"></div>
+                        <div className="w-2/3 h-2 bg-purple-400 rounded"></div>
+                      </div>
+
+                      {/* Laser Scanner */}
+                      {!isPdfScanComplete && (
+                        <div 
+                          className="absolute left-0 w-full h-[2px] bg-purple-400 shadow-[0_0_15px_rgba(168,85,247,1)]" 
+                          style={{ top: `${pdfScanProgress}%`, transition: 'top 0.1s linear' }}
+                        >
+                          <div className="absolute top-0 left-0 w-full h-10 bg-gradient-to-t from-purple-500/40 to-transparent -translate-y-full" />
+                        </div>
+                      )}
+                      
+                      {isPdfScanComplete && (
+                        <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center backdrop-blur-sm animate-in fade-in">
+                          <svg className="w-12 h-12 text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      )}
+                   </div>
+
+                   {/* Progress Info */}
+                   {!isPdfScanComplete ? (
+                     <div className="w-full max-w-md flex flex-col gap-2 text-center">
+                       <span className="text-3xl font-black font-mono text-white tracking-widest">{pdfScanProgress}%</span>
+                       <span className="text-[10px] uppercase tracking-[0.2em] text-purple-400 animate-pulse">Extracting Clinical Entities...</span>
+                       <div className="w-full h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
+                         <div className="h-full bg-gradient-to-r from-purple-600 to-purple-400 shadow-[0_0_10px_#a855f7]" style={{ width: `${pdfScanProgress}%` }} />
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
+                       <div className="text-center">
+                         <h4 className="text-xl font-bold text-white uppercase tracking-widest mb-1">Extraction Successful</h4>
+                         <p className="text-xs text-gray-400 font-mono">14 Clinical Entities Identified & Processed</p>
+                       </div>
+                       
+                       <div className="flex gap-4">
+                         <button 
+                           onClick={() => setShowPdfPreview(true)}
+                           className="px-6 py-3 bg-purple-600/20 text-purple-300 border border-purple-500/50 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-purple-600/40 transition-all flex items-center gap-2"
+                         >
+                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                           Preview Document
+                         </button>
+                         <button 
+                           onClick={() => setShowPdfModal(false)}
+                           className="px-6 py-3 bg-cyan-600/20 text-cyan-300 border border-cyan-500/50 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-cyan-600/40 transition-all"
+                         >
+                           Close & Continue
+                         </button>
+                       </div>
+                     </div>
+                   )}
+                 </>
+               ) : (
+                 <div className="w-full h-[60vh] flex flex-col gap-4 animate-in zoom-in-95 duration-300">
+                    <div className="flex justify-between items-center px-2">
+                      <span className="text-xs text-gray-500 font-mono">{pdfFileName}</span>
+                      <button onClick={() => setShowPdfPreview(false)} className="text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Back to Summary
+                      </button>
+                    </div>
+                    <iframe src={pdfFile} className="w-full flex-1 rounded-xl border border-gray-800 bg-white" title="PDF Preview" />
+                 </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
