@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
              <Hexagon className="w-7 h-7 text-[#00e5ff]" />
           </div>
           {!isCollapsed && (
-            <span className="text-2xl font-black tracking-[0.1em] text-white uppercase truncate drop-shadow-md">
+            <span className="text-xl font-black tracking-[0.1em] text-white uppercase whitespace-nowrap drop-shadow-md">
               Hepato<span className="text-[#00e5ff] drop-shadow-[0_0_10px_#00e5ff]">AI</span>
             </span>
           )}
