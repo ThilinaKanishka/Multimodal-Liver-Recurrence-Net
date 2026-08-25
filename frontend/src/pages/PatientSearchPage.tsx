@@ -173,30 +173,50 @@ export default function PatientSearchPage({ onBack }: PatientSearchPageProps) {
             <p className="text-slate-500">No patients found matching your search.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPatients.map((patient, idx) => (
-              <div 
-                key={idx} 
-                onClick={() => loadPatientHistory(patient.pseudo_id)}
-                className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:shadow-[0_8px_40px_rgba(0,229,255,0.15)] hover:border-[#00e5ff]/30 transition-all cursor-pointer group"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-slate-400 shadow-inner group-hover:bg-[#00e5ff]/10 group-hover:text-[#00e5ff] group-hover:border-[#00e5ff]/30 transition-all">
-                    <User className="w-5 h-5 group-hover:drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]" />
-                  </div>
-                  <span className="text-[9px] font-black tracking-widest text-[#00ff9d] bg-[#00ff9d]/10 px-2.5 py-1 rounded-md border border-[#00ff9d]/30 uppercase">
-                    {patient.total_scans} Records
-                  </span>
-                </div>
-                <h3 className="text-[13px] text-white font-black uppercase tracking-[0.1em] mb-1 truncate" title={patient.pseudo_id}>
-                  {patient.pseudo_id}
-                </h3>
-                <div className="flex items-center gap-2 text-[9px] text-slate-500 uppercase font-bold tracking-widest mt-4 pt-4 border-t border-white/10 group-hover:border-[#00e5ff]/20 transition-colors">
-                  <Calendar className="w-3 h-3 text-[#00e5ff]" />
-                  Last Scan: <span className="text-slate-300">{new Date(patient.last_scan).toLocaleDateString()}</span>
-                </div>
-              </div>
-            ))}
+          <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-black/20 border-b border-white/10">
+                <tr>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Patient ID</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Total Encounters</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Last Scan Date</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredPatients.map((patient, idx) => (
+                  <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-slate-400 shadow-inner group-hover:bg-[#00e5ff]/10 group-hover:text-[#00e5ff] group-hover:border-[#00e5ff]/30 transition-all">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm text-white font-bold tracking-wider">{patient.pseudo_id}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-[10px] font-black tracking-widest text-[#00ff9d] bg-[#00ff9d]/10 px-3 py-1.5 rounded-lg border border-[#00ff9d]/30 uppercase">
+                        {patient.total_scans} Records
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2 text-xs text-slate-300 font-mono">
+                        <Calendar className="w-4 h-4 text-[#00e5ff]" />
+                        {new Date(patient.last_scan).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <button 
+                        onClick={() => loadPatientHistory(patient.pseudo_id)}
+                        className="text-[10px] bg-[#00e5ff]/10 text-[#00e5ff] hover:bg-[#00e5ff] hover:text-white px-4 py-2 rounded border border-[#00e5ff]/30 hover:border-[#00e5ff] uppercase font-black tracking-widest transition-all shadow-sm"
+                      >
+                        View History
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
