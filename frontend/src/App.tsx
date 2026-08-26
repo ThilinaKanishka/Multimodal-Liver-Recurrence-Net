@@ -224,7 +224,7 @@ const roundProb = (p: number) => (p * 100).toFixed(1);
 
 
 
-const SettingsPage = ({ cdssEnabled, onToggleCdss, activeTheme, onSetTheme }: { cdssEnabled: boolean; onToggleCdss: (val: boolean) => void; activeTheme: string; onSetTheme: (theme: string) => void }) => (
+const SettingsPage = ({ activeTheme, onSetTheme }: { activeTheme: string; onSetTheme: (theme: string) => void }) => (
   <div className="flex-1 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col overflow-hidden relative z-0">
     {/* Dynamic Background Effects matching Workspace */}
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -288,15 +288,7 @@ const SettingsPage = ({ cdssEnabled, onToggleCdss, activeTheme, onSetTheme }: { 
                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.1em] flex items-center gap-2"><Cloud className="w-4 h-4 text-emerald-400" /> Interpretability Layer</span>
                 <span className="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/30 shadow-[0_0_10px_rgba(52,211,153,0.2)] tracking-widest">Grad-CAM 3D</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-black/40 rounded-xl border border-white/10">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.1em] flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-400" /> Gen-AI CDSS Reporting
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={cdssEnabled} onChange={(e) => onToggleCdss(e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black border border-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00e5ff] peer-checked:border-[#00e5ff] shadow-inner drop-shadow-[0_0_5px_rgba(0,229,255,0.4)]"></div>
-                </label>
-              </div>
+
            </div>
         </div>
       </div>
@@ -476,22 +468,12 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   
-  const [cdssEnabled, setCdssEnabled] = useState(() => {
-    const saved = localStorage.getItem("hepatoai_cdss_enabled");
-    return saved !== null ? saved === 'true' : true;
-  });
-
   const [activeTheme, setActiveTheme] = useState(() => {
     return localStorage.getItem("hepatoai_theme") || "theme-radiology-dark";
   });
 
   const [isRevoked, setIsRevoked] = useState(false);
   const [revokeCountdown, setRevokeCountdown] = useState(5);
-
-  const handleToggleCdss = (val: boolean) => {
-    setCdssEnabled(val);
-    localStorage.setItem("hepatoai_cdss_enabled", val.toString());
-  };
 
   const handleSetTheme = (theme: string) => {
     setActiveTheme(theme);
@@ -587,7 +569,7 @@ function App() {
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("dashboard")} /> : <DashboardPage user={currentUser} onViewPatientDirectory={() => setActivePage("search")} onViewBilling={() => setActivePage("billing")} />;
       case "search": return <PatientSearchPage onBack={() => setActivePage("dashboard")} />;
       case "billing": return <DoctorBillingPage user={currentUser} onBack={() => setActivePage("dashboard")} />;
-      case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
+      case "settings": return <SettingsPage activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
       case "support": return <DoctorMessages user={currentUser} />;
       case "attention": return <AttentionDashboard />;
       case "feature_extraction": return <FeatureExtractionStudio />;
@@ -644,10 +626,10 @@ function App() {
         <div className="flex-1 overflow-auto bg-[#030712] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block min-h-full w-full" : "hidden"}>
-            <PredictPage onViewHistory={handlePatientClick} user={currentUser} cdssEnabled={cdssEnabled} />
+            <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
           </div>
           <div className={activePage === "longitudinal" ? "block min-h-full w-full" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} cdssEnabled={cdssEnabled} />
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
           </div>
           {renderPage()}
         </div>
