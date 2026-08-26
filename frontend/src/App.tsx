@@ -12,6 +12,7 @@ import SecuritySettingsTab from "./components/SecuritySettingsTab";
 import PatientSearchPage from "./pages/PatientSearchPage";
 import DoctorBillingPage from "./pages/DoctorBillingPage";
 import { AttentionDashboard } from "./pages/AttentionDashboard";
+import FeatureExtractionStudio from "./pages/FeatureExtractionStudio";
 
 import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye } from "lucide-react";
 
@@ -168,13 +169,13 @@ const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: 
             <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#0f1522] to-transparent z-10 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#0f1522] to-transparent z-10 pointer-events-none"></div>
             
-            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent px-6 py-2">
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-[#0f1522]/90 backdrop-blur-xl z-20 shadow-md">
+                <thead className="sticky top-0 bg-black/40 border-b border-white/10 z-20 shadow-md">
                   <tr>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white/10">Timestamp</th>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white/10">Patient Identifier</th>
-                    <th className="py-4 px-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b border-white/10">AI Prognosis</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Timestamp</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Patient Identifier</th>
+                    <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">AI Prognosis</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -190,17 +191,17 @@ const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: 
                   ) : (
                     stats.recent_alerts.map((alert: any) => (
                       <tr key={alert._id} className="hover:bg-white/5 transition-colors group">
-                        <td className="py-4 px-2 text-[10px] font-mono text-slate-400 group-hover:text-[#00e5ff] transition-colors font-bold">
+                        <td className="py-4 px-6 text-xs font-mono text-slate-400 group-hover:text-[#00e5ff] transition-colors font-bold">
                           {new Date(alert.timestamp).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-4 px-2">
-                          <span className="text-[10px] font-mono text-[#00e5ff] font-bold bg-[#00e5ff]/5 px-2.5 py-1 rounded border border-[#00e5ff]/20">
+                        <td className="py-4 px-6 text-center">
+                          <span className="text-xs font-mono text-[#00e5ff] font-bold bg-[#00e5ff]/5 px-4 py-2 rounded-lg border border-[#00e5ff]/20">
                             {alert.pseudo_anonymous_id || 'UNKNOWN'}
                           </span>
                         </td>
-                        <td className="py-4 px-2 text-center">
-                          <div className={`inline-flex items-center gap-2 text-[9px] px-3 py-1.5 rounded-lg font-black uppercase tracking-[0.2em] border shadow-inner ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055]/10 text-[#ff0055] border-[#ff0055]/30 shadow-[0_0_10px_rgba(255,0,85,0.15)]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00]/10 text-[#ffaa00] border-[#ffaa00]/30 shadow-[0_0_10px_rgba(255,170,0,0.15)]' : 'bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/30 shadow-[0_0_10px_rgba(0,255,157,0.15)]'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055] shadow-[0_0_5px_#ff0055]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00] shadow-[0_0_5px_#ffaa00]' : 'bg-[#00ff9d] shadow-[0_0_5px_#00ff9d]'}`}></span>
+                        <td className="py-4 px-6 text-right">
+                          <div className={`inline-flex items-center gap-2 text-[10px] px-4 py-2 rounded-lg font-black uppercase tracking-[0.2em] border shadow-inner ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055]/10 text-[#ff0055] border-[#ff0055]/30 shadow-[0_0_10px_rgba(255,0,85,0.15)]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00]/10 text-[#ffaa00] border-[#ffaa00]/30 shadow-[0_0_10px_rgba(255,170,0,0.15)]' : 'bg-[#00ff9d]/10 text-[#00ff9d] border-[#00ff9d]/30 shadow-[0_0_10px_rgba(0,255,157,0.15)]'}`}>
+                            <span className={`w-2 h-2 rounded-full ${alert.recurrence_risk === 'HIGH' ? 'bg-[#ff0055] shadow-[0_0_5px_#ff0055]' : alert.recurrence_risk === 'MEDIUM' ? 'bg-[#ffaa00] shadow-[0_0_5px_#ffaa00]' : 'bg-[#00ff9d] shadow-[0_0_5px_#00ff9d]'}`}></span>
                             {alert.recurrence_risk} <span className="opacity-60 ml-1">({roundProb(alert.probability)}%)</span>
                           </div>
                         </td>
@@ -223,7 +224,7 @@ const roundProb = (p: number) => (p * 100).toFixed(1);
 
 
 
-const SettingsPage = ({ cdssEnabled, onToggleCdss, activeTheme, onSetTheme }: { cdssEnabled: boolean; onToggleCdss: (val: boolean) => void; activeTheme: string; onSetTheme: (theme: string) => void }) => (
+const SettingsPage = ({ activeTheme, onSetTheme }: { activeTheme: string; onSetTheme: (theme: string) => void }) => (
   <div className="flex-1 bg-[#0a0f18] text-slate-300 font-sans h-screen flex flex-col overflow-hidden relative z-0">
     {/* Dynamic Background Effects matching Workspace */}
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -287,15 +288,7 @@ const SettingsPage = ({ cdssEnabled, onToggleCdss, activeTheme, onSetTheme }: { 
                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.1em] flex items-center gap-2"><Cloud className="w-4 h-4 text-emerald-400" /> Interpretability Layer</span>
                 <span className="text-[9px] font-mono font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/30 shadow-[0_0_10px_rgba(52,211,153,0.2)] tracking-widest">Grad-CAM 3D</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-black/40 rounded-xl border border-white/10">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.1em] flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-400" /> Gen-AI CDSS Reporting
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={cdssEnabled} onChange={(e) => onToggleCdss(e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black border border-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00e5ff] peer-checked:border-[#00e5ff] shadow-inner drop-shadow-[0_0_5px_rgba(0,229,255,0.4)]"></div>
-                </label>
-              </div>
+
            </div>
         </div>
       </div>
@@ -475,22 +468,12 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   
-  const [cdssEnabled, setCdssEnabled] = useState(() => {
-    const saved = localStorage.getItem("hepatoai_cdss_enabled");
-    return saved !== null ? saved === 'true' : true;
-  });
-
   const [activeTheme, setActiveTheme] = useState(() => {
     return localStorage.getItem("hepatoai_theme") || "theme-radiology-dark";
   });
 
   const [isRevoked, setIsRevoked] = useState(false);
   const [revokeCountdown, setRevokeCountdown] = useState(5);
-
-  const handleToggleCdss = (val: boolean) => {
-    setCdssEnabled(val);
-    localStorage.setItem("hepatoai_cdss_enabled", val.toString());
-  };
 
   const handleSetTheme = (theme: string) => {
     setActiveTheme(theme);
@@ -586,9 +569,10 @@ function App() {
       case "patient_profile": return selectedPatientId ? <PatientProfilePage patientId={selectedPatientId} onBack={() => setActivePage("dashboard")} /> : <DashboardPage user={currentUser} onViewPatientDirectory={() => setActivePage("search")} onViewBilling={() => setActivePage("billing")} />;
       case "search": return <PatientSearchPage onBack={() => setActivePage("dashboard")} />;
       case "billing": return <DoctorBillingPage user={currentUser} onBack={() => setActivePage("dashboard")} />;
-      case "settings": return <SettingsPage cdssEnabled={cdssEnabled} onToggleCdss={handleToggleCdss} activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
+      case "settings": return <SettingsPage activeTheme={activeTheme} onSetTheme={handleSetTheme} />;
       case "support": return <DoctorMessages user={currentUser} />;
       case "attention": return <AttentionDashboard />;
+      case "feature_extraction": return <FeatureExtractionStudio />;
       default: return null;
     }
   };
@@ -642,10 +626,10 @@ function App() {
         <div className="flex-1 overflow-auto bg-[#030712] relative">
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
           <div className={activePage === "activity" ? "block min-h-full w-full" : "hidden"}>
-            <PredictPage onViewHistory={handlePatientClick} user={currentUser} cdssEnabled={cdssEnabled} />
+            <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
           </div>
           <div className={activePage === "longitudinal" ? "block min-h-full w-full" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} cdssEnabled={cdssEnabled} />
+            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
           </div>
           {renderPage()}
         </div>

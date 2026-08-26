@@ -115,43 +115,52 @@ export default function DoctorBillingPage({ user, onBack }: DoctorBillingPagePro
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">No workload history found for your account yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {workload.map((dayLog, idx) => (
-              <div 
-                key={idx} 
-                className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 p-7 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:shadow-[0_8px_40px_rgba(0,255,157,0.15)] hover:border-[#00ff9d]/30 transition-all group overflow-hidden relative"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#00ff9d]/5 blur-[40px] pointer-events-none group-hover:bg-[#00ff9d]/10 transition-colors"></div>
-                <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-5 relative z-10">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-[#00ff9d] shadow-inner group-hover:bg-[#00ff9d]/10 group-hover:border-[#00ff9d]/30 transition-all">
-                      <Calendar className="w-5 h-5 drop-shadow-[0_0_5px_rgba(0,255,157,0.5)]" />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-white text-lg uppercase tracking-[0.1em]">{new Date(dayLog.date).toLocaleDateString('en-US', { weekday: 'long' })}</h3>
-                      <p className="text-[10px] font-mono font-bold tracking-widest text-slate-400 mt-1">{dayLog.date}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-5 relative z-10">
-                   <div className="bg-black/40 p-5 rounded-xl border border-white/10 flex flex-col justify-center shadow-inner relative overflow-hidden group/card hover:border-[#00e5ff]/30 transition-colors">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-[#00e5ff]/10 blur-[20px] pointer-events-none group-hover/card:bg-[#00e5ff]/20"></div>
-                      <span className="text-[9px] uppercase text-slate-400 font-black flex items-center gap-2 mb-2 tracking-[0.2em] relative z-10">
-                        <UserCheck className="w-3 h-3 text-[#00e5ff]" /> Unique Patients
+          <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-black/20 border-b border-white/10">
+                <tr>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Shift Day</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Unique Patients</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Total Inferences</th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {workload.map((dayLog, idx) => (
+                  <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-[#00ff9d] shadow-inner group-hover:bg-[#00ff9d]/10 group-hover:border-[#00ff9d]/30 transition-all">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-mono text-white font-bold tracking-wider">{dayLog.date}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-xs text-slate-300 font-bold uppercase tracking-widest">{new Date(dayLog.date).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <UserCheck className="w-4 h-4 text-[#00e5ff]" />
+                        <span className="text-lg font-black text-white font-mono">{dayLog.unique_patients_seen}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Activity className="w-4 h-4 text-[#00ff9d]" />
+                        <span className="text-lg font-black text-white font-mono">{dayLog.total_inferences}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <span className="text-[9px] bg-[#00ff9d]/10 text-[#00ff9d] border border-[#00ff9d]/30 px-3 py-1.5 rounded-lg font-black uppercase tracking-widest shadow-sm">
+                        Verified
                       </span>
-                      <span className="text-3xl font-black text-white font-mono relative z-10 drop-shadow-sm">{dayLog.unique_patients_seen}</span>
-                   </div>
-                   <div className="bg-black/40 p-5 rounded-xl border border-white/10 flex flex-col justify-center shadow-inner relative overflow-hidden group/card hover:border-[#00ff9d]/30 transition-colors">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-[#00ff9d]/10 blur-[20px] pointer-events-none group-hover/card:bg-[#00ff9d]/20"></div>
-                      <span className="text-[9px] uppercase text-slate-400 font-black flex items-center gap-2 mb-2 tracking-[0.2em] relative z-10">
-                        <Activity className="w-3 h-3 text-[#00ff9d]" /> Total Inferences
-                      </span>
-                      <span className="text-3xl font-black text-white font-mono relative z-10 drop-shadow-sm">{dayLog.total_inferences}</span>
-                   </div>
-                </div>
-              </div>
-            ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

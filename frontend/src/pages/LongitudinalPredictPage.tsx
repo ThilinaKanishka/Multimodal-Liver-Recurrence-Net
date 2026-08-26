@@ -146,7 +146,7 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void; onSwitchToWorkspace?: () => void, user?: any, cdssEnabled?: boolean }> = ({ onViewHistory, onSwitchToWorkspace, user, cdssEnabled = true }) => {
+export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) => void; onSwitchToWorkspace?: () => void, user?: any }> = ({ onViewHistory, onSwitchToWorkspace, user }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
     tumor_number: 1,
@@ -197,41 +197,11 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const [loadingText, setLoadingText] = useState<string>("");
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
   const [showBaselineModal, setShowBaselineModal] = useState<boolean>(false);
-  const [cdssReport, setCdssReport] = useState<any>(null);
-  const [generatingCdss, setGeneratingCdss] = useState<boolean>(false);
+
   const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const handleGenerateCdss = async () => {
-    if (!result) return;
-    setGeneratingCdss(true);
-    setCdssReport(null);
-    try {
-      const baselineRec = pastRecords.find(r => r._id === selectedBaselineId);
-      const baselineRiskStr = baselineRec 
-        ? `${(baselineRec.probability * 100).toFixed(1)}% (${baselineRec.recurrence_risk} RISK)`
-        : undefined;
 
-      const payload = {
-        patient_age: patientInfo.age,
-        patient_gender: patientInfo.sex,
-        medical_history: formData.clinical_text_report || "No explicit history provided.",
-        ai_predicted_risk: `${result.probability}% (${result.recurrence_risk} RISK)`,
-        is_longitudinal: true,
-        baseline_risk: baselineRiskStr
-      };
-      
-      const res = await axios.post("http://127.0.0.1:8000/api/v1/generate-cdss-report", payload, {
-        headers: { "Content-Type": "application/json" }
-      });
-      setCdssReport(res.data);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to generate CDSS Report.");
-    } finally {
-      setGeneratingCdss(false);
-    }
-  };
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
@@ -988,20 +958,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 <h2 className="text-[11px] uppercase tracking-wider text-slate-300 font-bold flex items-center gap-2">
                   <FileText className="w-3.5 h-3.5 text-amber-400" /> Clinical Report Log
                 </h2>
-                {cdssEnabled && (
-                  <button
-                    type="button"
-                    onClick={handleGenerateCdss}
-                    disabled={generatingCdss}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[10px] px-3 py-1 rounded shadow uppercase tracking-widest font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    {generatingCdss ? (
-                      <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> GENERATING AI REPORT...</>
-                    ) : (
-                      <><Stethoscope className="w-3.5 h-3.5" /> GENERATE GEN-AI CDSS REPORT</>
-                    )}
-                  </button>
-                )}
+
               </div>
               <div className="p-4 overflow-y-auto text-[11px] font-mono text-slate-400 leading-relaxed space-y-1">
                 {result.ai_insights.map((msg, i) => (
@@ -1013,93 +970,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                   </div>
                 )}
                 
-                {/* Gen AI CDSS Report Render */}
-                {cdssReport && (
-                  <div className="mt-5 border border-indigo-500/40 bg-black/40 backdrop-blur-sm rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="bg-gradient-to-r from-indigo-900/40 to-blue-900/20 px-5 py-3 border-b border-indigo-500/40 flex justify-between items-center">
-                      <h3 className="text-indigo-300 font-black uppercase tracking-widest text-xs flex items-center gap-2">
-                        <Hexagon className="w-4 h-4 text-indigo-400" /> Executive Clinical Summary
-                      </h3>
-                      <span className="text-[9px] font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">
-                        AI GENERATED
-                      </span>
-                    </div>
-                    
-                    <div className="p-5">
-                      <div className="text-slate-300 text-xs leading-relaxed mb-6 bg-[#131826] p-4 rounded-md border border-[#1e293b] shadow-inner">
-                        {cdssReport.clinical_summary}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        {/* Recommendations */}
-                        <div className="bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md p-4 shadow-sm">
-                          <h4 className="text-emerald-400 font-bold mb-3 uppercase tracking-wider text-[10px] flex items-center gap-2 border-b border-[#1e293b] pb-2">
-                            <Activity className="w-3.5 h-3.5" /> Recommended Actions
-                          </h4>
-                          <ul className="space-y-2 text-slate-300">
-                            {cdssReport.recommendations?.map((rec: string, i: number) => (
-                              <li key={i} className="flex items-start gap-2 text-[11px] leading-tight">
-                                <span className="text-emerald-500 mt-0.5">▸</span> {rec}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        
-                        <div className="flex flex-col gap-4">
-                          {/* Prognostic Drivers */}
-                          <div className="bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md p-4 shadow-sm flex-1">
-                            <h4 className="text-amber-400 font-bold mb-3 uppercase tracking-wider text-[10px] flex items-center gap-2 border-b border-[#1e293b] pb-2">
-                              <TrendingUp className="w-3.5 h-3.5" /> Key Prognostic Drivers
-                            </h4>
-                            <div className="space-y-2">
-                              {cdssReport.prognostic_drivers?.map((driver: any, i: number) => (
-                                <div key={i} className="flex justify-between items-center text-[10px] bg-black/40 backdrop-blur-sm px-2 py-1.5 rounded border border-[#1e293b]">
-                                  <span className="text-slate-300 font-medium truncate pr-2">{driver.factor}</span>
-                                  <span className={`font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-widest text-[8px] flex-shrink-0 ${
-                                    driver.impact === 'HIGH_RISK' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 
-                                    driver.impact === 'PROTECTIVE' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
-                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
-                                  }`}>
-                                    {driver.impact.replace('_', ' ')}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
 
-                          {/* Guidelines & Timeline */}
-                          <div className="grid grid-cols-2 gap-4">
-                             <div className="bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md p-3 shadow-sm">
-                                <h4 className="text-blue-400 font-bold mb-2 uppercase tracking-wider text-[9px] flex items-center gap-1.5">
-                                  <BookOpen className="w-3 h-3" /> Guidelines
-                                </h4>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {cdssReport.guidelines_referenced?.map((g: string, i: number) => (
-                                    <span key={i} className="text-[8px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20 px-1.5 py-0.5 rounded">
-                                      {g}
-                                    </span>
-                                  ))}
-                                </div>
-                             </div>
-                             <div className="bg-gradient-to-b from-[#0a0f18]/60 to-[#060b15]/80 backdrop-blur-xl border border-white/10 rounded-md p-3 shadow-sm">
-                                <h4 className="text-purple-400 font-bold mb-2 uppercase tracking-wider text-[9px] flex items-center gap-1.5">
-                                  <Clock className="w-3 h-3" /> Follow-up
-                                </h4>
-                                <p className="text-[10px] text-slate-300 font-medium leading-tight">
-                                  {cdssReport.follow_up_timeline}
-                                </p>
-                             </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="text-[9px] text-slate-500 uppercase flex items-start gap-2 bg-[#131826] p-3 rounded border border-rose-500/20 shadow-inner">
-                        <Info className="w-4 h-4 flex-shrink-0 text-rose-400" />
-                        <span className="leading-tight text-rose-200/70">{cdssReport.disclaimer}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
