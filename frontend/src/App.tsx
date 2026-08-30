@@ -623,15 +623,17 @@ function App() {
       <div className={`flex flex-col h-screen bg-[#030712] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden ${activeTheme}`}>
         <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
-        <div className="flex-1 overflow-auto bg-[#030712] relative">
+        <div className={`flex-1 bg-[#030712] relative ${activePage === "activity" || activePage === "longitudinal" ? "overflow-hidden" : "overflow-auto"}`}>
           {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
-          <div className={activePage === "activity" ? "block min-h-full w-full" : "hidden"}>
+          <div className={activePage === "activity" ? "absolute inset-0 flex flex-col" : "hidden"}>
             <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
           </div>
-          <div className={activePage === "longitudinal" ? "block min-h-full w-full" : "hidden"}>
+          <div className={activePage === "longitudinal" ? "absolute inset-0 flex flex-col" : "hidden"}>
             <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
           </div>
-          {renderPage()}
+          <div className={(activePage === "activity" || activePage === "longitudinal") ? "hidden" : "block"}>
+            {renderPage()}
+          </div>
         </div>
       </div>
       
