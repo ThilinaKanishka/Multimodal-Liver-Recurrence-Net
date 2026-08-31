@@ -532,20 +532,20 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       
       {/* TOP HEADER: Premium Glassmorphic Banner */}
       <div className="h-14 bg-[#0a0f18]/60 backdrop-blur-xl border-b border-white/10 flex items-center px-6 justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.5)] relative z-40">
-          <div className="flex items-center gap-5 text-xs">
-            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner">
-              <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">MRN</span>
-              <span className="font-mono text-[#00e5ff] font-black tracking-wider text-xs drop-shadow-[0_0_5px_rgba(0,229,255,0.3)]">{patientInfo.mrn}</span>
+          <div className="flex items-center gap-3 lg:gap-5 text-xs flex-1 min-w-0 overflow-hidden pr-4">
+            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner flex-shrink-0">
+              <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px] whitespace-nowrap">MRN</span>
+              <span className="font-mono text-[#00e5ff] font-black tracking-wider text-xs drop-shadow-[0_0_5px_rgba(0,229,255,0.3)] whitespace-nowrap">{patientInfo.mrn}</span>
             </div>
-            <span className="font-black text-slate-100 tracking-wider text-sm uppercase drop-shadow-md">{patientInfo.name}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-50"/> DOB: <span className="text-slate-300">{patientInfo.dob}</span> {patientInfo.age !== "-" ? <span className="bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-200">{patientInfo.age}Y</span> : ""}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-50"/> Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Stethoscope className="w-3.5 h-3.5 opacity-50"/> Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
+            <span className="font-black text-slate-100 tracking-wider text-sm uppercase drop-shadow-md truncate">{patientInfo.name}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden md:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden md:flex flex-shrink-0"><Clock className="w-3.5 h-3.5 opacity-50"/> DOB: <span className="text-slate-300">{patientInfo.dob}</span> {patientInfo.age !== "-" ? <span className="bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-200">{patientInfo.age}Y</span> : ""}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden xl:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden xl:flex flex-shrink-0"><Users className="w-3.5 h-3.5 opacity-50"/> Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden 2xl:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden 2xl:flex flex-shrink-0"><Stethoscope className="w-3.5 h-3.5 opacity-50"/> Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
              <button
                type="button"
                onClick={handleResetWorkspace}

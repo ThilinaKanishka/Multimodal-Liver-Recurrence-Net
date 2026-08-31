@@ -59,11 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
   };
 
   return (
-    <div className={`${isCollapsed ? 'w-[80px]' : 'w-[240px]'} transition-all duration-500 flex-shrink-0 bg-[#0a0f18]/90 backdrop-blur-3xl border-r border-white/10 flex flex-col items-center py-4 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.4)] sticky top-0 h-full pb-6 relative overflow-y-auto overflow-x-hidden scrollbar-none group/sidebar`}>
-      {/* Ambient Edge Glow */}
-      <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#00e5ff]/30 to-transparent"></div>
-      <div className="absolute top-[-10%] left-[-20%] w-[150%] h-[30%] bg-[#00e5ff]/5 blur-[60px] pointer-events-none"></div>
-      
+    <div className={`${isCollapsed ? 'w-[80px]' : 'w-[240px]'} transition-all duration-500 flex-shrink-0 z-30 sticky top-0 h-full relative`}>
       {/* Collapse Toggle Button */}
       <button 
         onClick={toggleSidebar}
@@ -71,6 +67,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
       >
         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
+
+      <div className={`w-full h-full bg-[#0a0f18]/90 backdrop-blur-3xl border-r border-white/10 flex flex-col items-center py-4 pb-6 shadow-[4px_0_24px_rgba(0,0,0,0.4)] relative overflow-y-auto overflow-x-hidden scrollbar-none group/sidebar`}>
+        {/* Ambient Edge Glow */}
+        <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#00e5ff]/30 to-transparent"></div>
+        <div className="absolute top-[-10%] left-[-20%] w-[150%] h-[30%] bg-[#00e5ff]/5 blur-[60px] pointer-events-none"></div>
 
       <div className={`w-full flex flex-col mb-4 pb-4 border-b border-white/10 relative ${isCollapsed ? 'px-2 items-center' : 'px-6'}`}>
         <div className={`flex items-center gap-3 mb-4 ${isCollapsed ? 'justify-center' : ''}`}>
@@ -201,6 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
           <LogOut className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Log Out</span>}
         </div>
+      </div>
       </div>
     </div>
   );
