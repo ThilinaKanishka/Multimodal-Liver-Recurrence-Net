@@ -603,7 +603,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           </div>
           
           {/* Controls Area inside Grid Bottom Right */}
-          <div id="mpr-controls-area" className="bg-[#0f141f] p-4 flex flex-col justify-center gap-4 border-t border-[#1e293b] min-h-0 overflow-y-auto">
+          <div id="mpr-controls-area" className="bg-[#0f141f] p-2 flex flex-col justify-center gap-2 border-t border-[#1e293b] min-h-0 overflow-y-auto">
             <div>
                <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
                  <span>X-Axis (Sagittal)</span>
@@ -628,7 +628,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                <input type="range" min="0" max={Depth - 1} value={coord.z} onChange={(e) => setCoord(prev => ({...prev, z: Number(e.target.value)}))} className="enterprise-slider" />
             </div>
 
-            <div className="mt-2 border-t border-[#1e293b] pt-4">
+            <div className="mt-1 border-t border-[#1e293b] pt-2">
                <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
                  <span>Heatmap Opacity</span>
                  <span className="text-amber-500">{Math.round(globalOpacity * 100)}%</span>
@@ -636,7 +636,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                <input type="range" min="0" max="1" step="0.01" value={globalOpacity} onChange={(e) => setGlobalOpacity(Number(e.target.value))} className="enterprise-slider opacity-slider" />
             </div>
             
-            <div className="mt-2 flex gap-2">
+            <div className="mt-1 flex gap-2 flex-shrink-0">
                <button onClick={() => { setZoomAxial(1.0); setZoomCoronal(1.0); setZoomSagittal(1.0); }} className="flex-1 py-1 text-[9px] font-bold tracking-wider text-slate-300 bg-[#1e293b] hover:bg-[#2a364a] border border-[#334155] rounded transition-colors uppercase">
                  Reset Zoom
                </button>
