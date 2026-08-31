@@ -200,6 +200,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
 
   const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
 
 
@@ -430,7 +431,11 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       setTimeout(() => {
         setPipelineStep("IDLE");
         setTimeout(() => {
-          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (formRef.current && resultsRef.current) {
+            const formTop = formRef.current.getBoundingClientRect().top;
+            const resultsTop = resultsRef.current.getBoundingClientRect().top;
+            formRef.current.scrollBy({ top: resultsTop - formTop, behavior: "smooth" });
+          }
         }, 100);
       }, 2000);
     }
@@ -494,7 +499,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-full relative">
+    <div className="flex-1 flex flex-col h-full relative overflow-hidden">
       <style>{`
         @keyframes slideDown {
           0% { transform: translateY(-100%); opacity: 0; }
@@ -522,7 +527,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
         screenFlash ? "opacity-15" : "opacity-0"
       }`} />
       {/* TOP HEADER: Premium Glassmorphic Banner */}
-      <div className="h-14 bg-[#0a0f18]/60 backdrop-blur-xl border-b border-white/10 flex items-center px-6 justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.5)] sticky top-0 z-40">
+      <div className="h-14 bg-[#0a0f18]/60 backdrop-blur-xl border-b border-white/10 flex items-center px-6 justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.5)] relative z-40">
           <div className="flex items-center gap-5 text-xs">
             <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner">
               <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">MRN</span>
@@ -569,7 +574,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
         </div>
 
         {/* MAIN WORKSTATION GRID */}
-        <form onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-scrollbar">
           
           {/* TOP INPUT ROW */}
           <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch flex-shrink-0">
@@ -802,10 +807,10 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 <div className="p-4 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-md border-t border-white/10 sticky bottom-0 z-20 rounded-b-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] mt-auto">
                   <button
                     type="submit"
-                    disabled={loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
+                    disabled={loading || extracting || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))}
                     className={`relative w-full h-14 rounded-xl flex items-center justify-center font-black text-xs uppercase tracking-[0.25em] transition-all duration-500 overflow-hidden group shadow-lg ${
-                      loading || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
-                        ? loading
+                      loading || extracting || (!imageFile && !pdfFile) || (errorMessage !== null && errorMessage.includes('PATIENT MISMATCH'))
+                        ? loading || extracting
                           ? "bg-black/50 border border-[#00e5ff] shadow-[0_0_30px_rgba(0,229,255,0.3),inset_0_0_20px_rgba(0,229,255,0.2)]"
                           : "bg-black/30 text-slate-600 cursor-not-allowed border border-white/5" 
                         : "bg-gradient-to-r from-blue-600 via-[#00e5ff] to-blue-600 bg-[length:200%_auto] hover:bg-[position:right_center] text-white border border-white/20 shadow-[0_0_25px_rgba(0,229,255,0.5)] hover:shadow-[0_0_40px_rgba(0,229,255,0.8)] hover:scale-[1.02] active:scale-[0.98]"
@@ -819,8 +824,8 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                       </>
                     )}
                     
-                    <div className={`relative z-10 flex items-center justify-center gap-3 h-full w-full transition-all duration-300 ${loading ? "text-[#00e5ff] drop-shadow-[0_0_10px_rgba(0,229,255,1)]" : "drop-shadow-md"}`}>
-                      {loading ? (
+                    <div className={`relative z-10 flex items-center justify-center gap-3 h-full w-full transition-all duration-300 ${(loading || extracting) ? "text-[#00e5ff] drop-shadow-[0_0_10px_rgba(0,229,255,1)]" : "drop-shadow-md"}`}>
+                      {(loading || extracting) ? (
                         <>
                           <div className="relative flex items-center justify-center w-6 h-6">
                             <svg className="absolute w-full h-full text-[#00e5ff] animate-[spin_1.5s_linear_infinite]" viewBox="0 0 24 24" fill="none">
