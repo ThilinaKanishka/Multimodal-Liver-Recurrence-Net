@@ -1097,7 +1097,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       </div>
                       
                       {/* SHAP & Metrics Sidebar */}
-                      <div className="w-full xl:w-[350px] p-4 flex flex-col gap-4 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
+                      <div className="w-full xl:w-[350px] p-3 flex flex-col gap-2 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
                         {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
                           <div className="p-3 bg-red-950/30 border border-red-500/30 rounded text-[10px] text-red-200">
                               <p className="font-bold text-red-400 mb-1 border-b border-red-500/20 pb-1">🛑 UNCERTAINTY BOUNDARY BREACHED</p>
@@ -1109,10 +1109,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
                         {result.explainable_ai_weights && (
                           <div>
-                            <h4 className="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider border-b border-[#1e293b] pb-2">SHAP Feature Importance</h4>
-                            <div className="space-y-2">
+                            <h4 className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider border-b border-[#1e293b] pb-1">SHAP Feature Importance</h4>
+                            <div className="space-y-1">
                               {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
-                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-3 py-2 rounded border border-[#1e293b] shadow-sm">
+                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-2 py-1 rounded border border-[#1e293b] shadow-sm">
                                   <span className="text-slate-300 font-mono truncate mr-2">{key.replace(/_/g, ' ')}</span>
                                   <span className={`font-mono font-bold ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                                     {value > 0 ? "+" : ""}{value}
@@ -1124,11 +1124,11 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                         )}
 
                         {/* Interactive What-If Analysis */}
-                        <div className="mt-4 border-t border-[#1e293b] pt-4">
-                          <h4 className="text-[11px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                        <div className="mt-6 border-t border-[#1e293b] pt-4">
+                          <h4 className="text-[11px] font-bold text-blue-400 mb-2 uppercase tracking-wider flex items-center gap-2">
                             <Activity className="w-3.5 h-3.5" /> What-If Simulation
                           </h4>
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             <div className="flex flex-col gap-1">
                               <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
                               <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
