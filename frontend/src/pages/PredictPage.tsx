@@ -532,20 +532,20 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       
       {/* TOP HEADER: Premium Glassmorphic Banner */}
       <div className="h-14 bg-[#0a0f18]/60 backdrop-blur-xl border-b border-white/10 flex items-center px-6 justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.5)] relative z-40">
-          <div className="flex items-center gap-5 text-xs">
-            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner">
-              <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">MRN</span>
-              <span className="font-mono text-[#00e5ff] font-black tracking-wider text-xs drop-shadow-[0_0_5px_rgba(0,229,255,0.3)]">{patientInfo.mrn}</span>
+          <div className="flex items-center gap-3 lg:gap-5 text-xs flex-1 min-w-0 overflow-hidden pr-4">
+            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 shadow-inner flex-shrink-0">
+              <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px] whitespace-nowrap">MRN</span>
+              <span className="font-mono text-[#00e5ff] font-black tracking-wider text-xs drop-shadow-[0_0_5px_rgba(0,229,255,0.3)] whitespace-nowrap">{patientInfo.mrn}</span>
             </div>
-            <span className="font-black text-slate-100 tracking-wider text-sm uppercase drop-shadow-md">{patientInfo.name}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-50"/> DOB: <span className="text-slate-300">{patientInfo.dob}</span> {patientInfo.age !== "-" ? <span className="bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-200">{patientInfo.age}Y</span> : ""}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-50"/> Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
-            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-2"><Stethoscope className="w-3.5 h-3.5 opacity-50"/> Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
+            <span className="font-black text-slate-100 tracking-wider text-sm uppercase drop-shadow-md truncate">{patientInfo.name}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden md:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden md:flex flex-shrink-0"><Clock className="w-3.5 h-3.5 opacity-50"/> DOB: <span className="text-slate-300">{patientInfo.dob}</span> {patientInfo.age !== "-" ? <span className="bg-slate-800/50 px-1.5 py-0.5 rounded text-slate-200">{patientInfo.age}Y</span> : ""}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden xl:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden xl:flex flex-shrink-0"><Users className="w-3.5 h-3.5 opacity-50"/> Sex: <span className="text-slate-200">{patientInfo.sex}</span></span>
+            <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 hidden 2xl:block"></span>
+            <span className="text-slate-400 font-mono text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 whitespace-nowrap hidden 2xl:flex flex-shrink-0"><Stethoscope className="w-3.5 h-3.5 opacity-50"/> Attending: <span className="text-slate-200">{patientInfo.attending}</span></span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
              <button
                type="button"
                onClick={handleResetWorkspace}
@@ -1097,7 +1097,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       </div>
                       
                       {/* SHAP & Metrics Sidebar */}
-                      <div className="w-full xl:w-[350px] p-4 flex flex-col gap-4 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
+                      <div className="w-full xl:w-[350px] p-3 flex flex-col gap-2 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
                         {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
                           <div className="p-3 bg-red-950/30 border border-red-500/30 rounded text-[10px] text-red-200">
                               <p className="font-bold text-red-400 mb-1 border-b border-red-500/20 pb-1">🛑 UNCERTAINTY BOUNDARY BREACHED</p>
@@ -1109,10 +1109,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
                         {result.explainable_ai_weights && (
                           <div>
-                            <h4 className="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider border-b border-[#1e293b] pb-2">SHAP Feature Importance</h4>
-                            <div className="space-y-2">
+                            <h4 className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider border-b border-[#1e293b] pb-1">SHAP Feature Importance</h4>
+                            <div className="space-y-1">
                               {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
-                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-3 py-2 rounded border border-[#1e293b] shadow-sm">
+                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-2 py-1 rounded border border-[#1e293b] shadow-sm">
                                   <span className="text-slate-300 font-mono truncate mr-2">{key.replace(/_/g, ' ')}</span>
                                   <span className={`font-mono font-bold ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                                     {value > 0 ? "+" : ""}{value}
@@ -1124,11 +1124,11 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                         )}
 
                         {/* Interactive What-If Analysis */}
-                        <div className="mt-4 border-t border-[#1e293b] pt-4">
-                          <h4 className="text-[11px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                        <div className="mt-6 border-t border-[#1e293b] pt-4">
+                          <h4 className="text-[11px] font-bold text-blue-400 mb-2 uppercase tracking-wider flex items-center gap-2">
                             <Activity className="w-3.5 h-3.5" /> What-If Simulation
                           </h4>
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             <div className="flex flex-col gap-1">
                               <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
                               <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
