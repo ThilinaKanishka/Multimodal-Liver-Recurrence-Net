@@ -43,13 +43,15 @@ class MultiModalFusionModel:
         X_train_balanced, y_train_balanced = smote.fit_resample(X_train, y_train)
 
         self.classifier.fit(X_train_balanced, y_train_balanced)
-
+    
+    # // prediction function
     def predict_risk(self, master_vector) -> tuple[float, bool]:
         if not ML_AVAILABLE:
             print("ML_AVAILABLE is False. Returning mock prediction.")
             return 85.0, True
 
         aligned_vector = master_vector.reindex(columns=self.feature_columns, fill_value=0)
+        # // Model Certainty
         scaled_vector = self.scaler.transform(aligned_vector)
         probability = self.classifier.predict_proba(scaled_vector)[0][1] * 100.0
         

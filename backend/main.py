@@ -1114,7 +1114,8 @@ async def predict_recurrence(
     # Drift
     cnn_drift = abs(cnn_features[0] - training_distributions['cnn_feat_0_mean']) / (training_distributions['cnn_feat_0_std'] + 1e-9) > 3.0
     data_drift_detected = bool(cnn_drift)
-
+    
+    # SHAP Feature Importance Values 
     # SHAP
     shap_values = shap_explainer.shap_values(master_vector)
     if isinstance(shap_values, list):
@@ -1250,7 +1251,7 @@ async def predict_recurrence(
         "pseudo_anonymous_id": pseudo_id,
         "clinical_narrative_summary": clinical_narrative_summary
     }
-
+# // What-If simulation
 class SimulateRiskPayload(BaseModel):
     tumor_size_cm: float = 5.0
     afp_ngml: float = 20.0
