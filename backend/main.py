@@ -275,6 +275,8 @@ def initialize_ai_core():
     f1_scores = []
     precisions = []
     recalls = []
+    all_val_probs = []
+    all_val_y = []
     
     for train_idx, val_idx in skf.split(X, y):
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
@@ -301,6 +303,9 @@ def initialize_ai_core():
         preds = ensemble_model.predict(X_val)
         probs_val = ensemble_model.predict_proba(X_val)[:, 1]
         
+        all_val_probs.extend(probs_val)
+        all_val_y.extend(y_val)
+        
         auc_scores.append(roc_auc_score(y_val, probs_val))
         f1_scores.append(f1_score(y_val, preds))
         precisions.append(precision_score(y_val, preds, zero_division=0))
@@ -312,6 +317,10 @@ def initialize_ai_core():
         "precision": np.mean(precisions),
         "recall": np.mean(recalls)
     }
+
+    from sklearn.linear_model import LogisticRegression
+    platt_scaler = LogisticRegression()
+    platt_scaler.fit(np.array(all_val_probs).reshape(-1, 1), all_val_y)
 
     X_balanced, y_balanced = smote.fit_resample(X, y)
     print("🧠 Training Final Enterprise Ensemble Fusion Engine...")
@@ -333,14 +342,15 @@ def initialize_ai_core():
     fitted_xgb = final_model.named_estimators_['xgb']
     explainer = shap.TreeExplainer(fitted_xgb)
     
-    return final_model, cv_ensemble_models, explainer, list(X.columns), cv_metrics, global_distribution_stats
+    return final_model, cv_ensemble_models, explainer, list(X.columns), cv_metrics, global_distribution_stats, platt_scaler
 
 if ML_LIBS_AVAILABLE:
-    fusion_core, ensemble_models, shap_explainer, feature_columns, model_performance_metrics, training_distributions = initialize_ai_core()
+    fusion_core, ensemble_models, shap_explainer, feature_columns, model_performance_metrics, training_distributions, platt_scaler = initialize_ai_core()
 else:
     fusion_core, ensemble_models, shap_explainer, feature_columns = None, [], None, []
     model_performance_metrics = {"auc_roc": 0.85, "f1_score": 0.82, "precision": 0.80, "recall": 0.84}
     training_distributions = {'cnn_feat_0_mean': 0.5, 'cnn_feat_0_std': 0.1}
+    platt_scaler = None
 
 # ==========================================
 # FastAPI Setup & Middleware
@@ -1097,19 +1107,36 @@ async def predict_recurrence(
         
     master_vector = pd.DataFrame([master_dict], columns=feature_columns)
     
-    # Uncertainty Estimation Layer
-    ensemble_probs = [float(model.predict_proba(master_vector)[0][1] * 100.0) for model in ensemble_models]
-    prob_score = float(np.mean(ensemble_probs))
-    prob_std = float(np.std(ensemble_probs))
+    # MC Dropout Uncertainty Estimation
+    mc_preds = []
+    if ML_LIBS_AVAILABLE:
+        for _ in range(100):
+            mask = np.random.binomial(1, 0.9, size=master_vector.shape)
+            dropped_vector = master_vector * mask / 0.9
+            mc_probs = [float(model.predict_proba(dropped_vector)[0][1]) for model in ensemble_models]
+            mc_preds.append(np.mean(mc_probs))
+    else:
+        mc_preds = [0.5] * 100
+
+    mu = float(np.mean(mc_preds))
+    sigma = float(np.std(mc_preds))
+    max_possible_sigma = 0.5
+    normalized_sigma = sigma / max_possible_sigma
+    mc_certainty = max(0.0, min(100.0, (1.0 - normalized_sigma) * 100.0))
     
+    if ML_LIBS_AVAILABLE and platt_scaler is not None:
+        calibrated_prob = float(platt_scaler.predict_proba([[mu]])[0][1])
+    else:
+        calibrated_prob = mu
+        
+    calibrated_certainty = max(calibrated_prob, 1.0 - calibrated_prob) * 100.0
+    model_certainty_score = round(max(0.0, min(100.0, calibrated_certainty)), 1)
+    
+    prob_score = calibrated_prob * 100.0
+    prob_std = sigma * 100.0
     ci_lower = round(max(0.0, prob_score - 1.96 * prob_std), 2)
     ci_upper = round(min(100.0, prob_score + 1.96 * prob_std), 2)
-    
-    p_norm = prob_score / 100.0
-    entropy = - (p_norm * np.log2(p_norm + 1e-9) + (1 - p_norm) * np.log2(1 - p_norm + 1e-9))
-    
-    # Calculate Model Certainty Score based on Entropy (0% to 100%)
-    model_certainty_score = round(max(0.0, (1.0 - entropy)) * 100.0, 1)
+    entropy = 0.0 # Legacy fallback
     
     # Drift
     cnn_drift = abs(cnn_features[0] - training_distributions['cnn_feat_0_mean']) / (training_distributions['cnn_feat_0_std'] + 1e-9) > 3.0

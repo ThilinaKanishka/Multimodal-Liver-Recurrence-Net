@@ -1011,15 +1011,36 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                             </div>
                           )}
                           {result.model_certainty_score !== undefined && (
-                            <div className="mt-3 flex items-center gap-2">
-                              <div className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1.5 ${
-                                result.model_certainty_score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
-                                result.model_certainty_score >= 50 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                                'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                              }`}>
-                                <Activity className="w-3 h-3" />
-                                Model Certainty: {result.model_certainty_score}%
+                            <div className="mt-3 flex flex-col gap-2">
+                              <div 
+                                className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 ${
+                                  result.model_certainty_score > 70 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                                  result.model_certainty_score >= 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                  'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                }`}
+                                title="Based on MC Dropout (n=100) with Platt calibration"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Activity className="w-3.5 h-3.5" />
+                                  <span className="whitespace-nowrap">Model Certainty: {Number(result.model_certainty_score).toFixed(1)}%</span>
+                                </div>
+                                <div className="w-full sm:w-32 md:w-48 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                  <div 
+                                    className={`h-full ${
+                                      result.model_certainty_score > 70 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' :
+                                      result.model_certainty_score >= 40 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
+                                      'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+                                    }`} 
+                                    style={{ width: `${Math.max(0, Math.min(100, result.model_certainty_score))}%` }}
+                                  ></div>
+                                </div>
                               </div>
+                              {result.model_certainty_score < 40 && (
+                                <div className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5 w-fit">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Low Confidence - Human Review Recommended
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
