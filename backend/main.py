@@ -191,7 +191,7 @@ async def log_inference_to_ledger(inference_id, pseudo_id, clinical_inputs, shap
 def initialize_ai_core():
     print("🚀 Initializing Clinical-Grade Enterprise Hybrid Dataset...")
     np.random.seed(42)
-    n_samples = 300
+    n_samples = 2500
     
     # Continuous Tabular
     tumor_size = np.random.normal(5.5, 2.5, n_samples)
@@ -248,10 +248,10 @@ def initialize_ai_core():
     if ENSEMBLE_AVAILABLE:
         print("⚙️ Executing Optuna Automated Hyperparameter Tuning...")
         def objective(trial):
-            xgb_lr = trial.suggest_float('xgb_lr', 0.01, 0.1)
-            xgb_depth = trial.suggest_int('xgb_depth', 3, 6)
+            xgb_lr = trial.suggest_float('xgb_lr', 0.01, 0.2)
+            xgb_depth = trial.suggest_int('xgb_depth', 3, 8)
             X_t, X_v, y_t, y_v = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-            model = xgb.XGBClassifier(n_estimators=50, max_depth=xgb_depth, learning_rate=xgb_lr, eval_metric='logloss')
+            model = xgb.XGBClassifier(n_estimators=100, max_depth=xgb_depth, learning_rate=xgb_lr, eval_metric='logloss')
             model.fit(X_t, y_t)
             try:
                 return roc_auc_score(y_v, model.predict_proba(X_v)[:, 1])
@@ -259,7 +259,7 @@ def initialize_ai_core():
                 return 0.5
             
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=3)
+        study.optimize(objective, n_trials=20)
         try:
             best_xgb_params.update({'max_depth': study.best_params.get('xgb_depth', 4), 'learning_rate': study.best_params.get('xgb_lr', 0.05)})
             print(f"✅ Optuna Optimization Complete. Best AUC: {study.best_value:.4f}")
@@ -1186,7 +1186,7 @@ async def predict_recurrence(
     else:
         clinical_narrative_summary = "No significant positive driving features were identified in the current model assessment."
 
-    if prob_std > 12.0 or entropy > 0.95:
+    if model_certainty_score < 40.0:
         confidence_status = "LOW_CONFIDENCE_ABSTAIN"
         recurrence_risk_str = "ABSTAIN"
         ui_rendering_state = "STATE_ABSTAIN_LOCK"
