@@ -14,7 +14,7 @@ import DoctorBillingPage from "./pages/DoctorBillingPage";
 import { AttentionDashboard } from "./pages/AttentionDashboard";
 import FeatureExtractionStudio from "./pages/FeatureExtractionStudio";
 
-import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye, RefreshCw, LogOut, Phone, Mail } from "lucide-react";
+import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye, RefreshCw, LogOut, Phone, Mail, Lock, Wrench } from "lucide-react";
 
 // Modern Placeholder Pages with medical workstation aesthetic
 const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: any, onViewPatientDirectory?: () => void, onViewBilling?: () => void }) => {
@@ -639,17 +639,33 @@ function App() {
           <div className="w-full bg-[#0a0f18]/80 backdrop-blur-2xl border border-white/5 p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center relative overflow-hidden animate-in fade-in zoom-in duration-700">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600 animate-pulse"></div>
             
-            <div className="relative flex justify-center items-center mb-10 mt-6">
-              {/* Radar / Ripple Animation Rings */}
-              <div className="absolute inset-0 bg-rose-500/20 rounded-full blur-md animate-ping opacity-75" style={{ animationDuration: '3s' }}></div>
-              <div className="absolute -inset-4 border border-rose-500/40 rounded-full animate-ping opacity-50" style={{ animationDuration: '3s', animationDelay: '0.5s' }}></div>
-              <div className="absolute -inset-8 border border-rose-500/10 rounded-full animate-ping opacity-25" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
-              <div className="absolute -inset-12 border-t border-rose-500/20 rounded-full animate-spin" style={{ animationDuration: '4s' }}></div>
+            {/* Mechanical Gears Under Construction Animation */}
+            <div className="relative w-40 h-40 flex justify-center items-center mb-10 mt-6 scale-90 md:scale-100">
+              {/* Soft background glow */}
+              <div className="absolute inset-0 bg-rose-600/10 rounded-full blur-[40px] animate-pulse" style={{ animationDuration: '3s' }}></div>
               
-              {/* Core Icon Container */}
-              <div className="relative z-10 p-6 bg-[#0a0f18] border border-rose-500/40 rounded-full shadow-[0_0_30px_rgba(244,63,94,0.4)] backdrop-blur-md overflow-hidden">
-                 <div className="absolute inset-0 bg-gradient-to-b from-rose-500/20 to-transparent animate-pulse"></div>
-                 <ShieldAlert className="w-14 h-14 text-rose-500 relative z-10 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]" />
+              {/* Outer dashed border to represent a blueprint/work area */}
+              <div className="absolute inset-0 border-2 border-dashed border-rose-500/20 rounded-full animate-spin" style={{ animationDuration: '30s' }}></div>
+              
+              {/* Complex Gear Mechanism Area */}
+              <div className="relative z-10 w-32 h-32 bg-[#0a0f18] rounded-full border border-rose-500/30 shadow-[inset_0_0_30px_rgba(244,63,94,0.15)] flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/10 to-transparent"></div>
+                
+                {/* Large Main Gear (Bottom Right) */}
+                <Settings className="absolute -bottom-2 -right-2 w-20 h-20 text-rose-500/50 animate-spin" style={{ animationDuration: '10s' }} strokeWidth={1.5} />
+                
+                {/* Medium Gear (Top Left) spinning in reverse to mesh with main gear */}
+                <Settings className="absolute top-2 left-2 w-14 h-14 text-orange-500/60 animate-spin" style={{ animationDuration: '7s', animationDirection: 'reverse' }} strokeWidth={2} />
+                
+                {/* Small Gear (Top Right) */}
+                <Settings className="absolute top-6 right-3 w-8 h-8 text-rose-400/70 animate-spin" style={{ animationDuration: '4s' }} strokeWidth={2.5} />
+                
+                {/* Center Core Glass overlay */}
+                <div className="absolute inset-8 bg-[#0a0f18]/80 backdrop-blur-sm border border-rose-500/40 rounded-full shadow-[0_0_20px_rgba(244,63,94,0.4)] flex items-center justify-center z-20">
+                   <div className="absolute inset-0 rounded-full bg-rose-500/20 animate-pulse"></div>
+                   {/* Fixing Wrench */}
+                   <Wrench className="w-6 h-6 text-rose-400 relative z-10 drop-shadow-[0_0_8px_rgba(244,63,94,1)] animate-bounce" style={{ animationDuration: '2s' }} />
+                </div>
               </div>
             </div>
             
