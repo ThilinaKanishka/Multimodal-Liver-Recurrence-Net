@@ -182,6 +182,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dicomFileCount, setDicomFileCount] = useState<number>(0);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [extracting, setExtracting] = useState<boolean>(false);
@@ -291,14 +292,38 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      if (file.name.toLowerCase().endsWith(".dcm")) {
-        setImagePreview("DICOM_PLACEHOLDER");
-      } else {
-        setImagePreview(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length > 0) {
+      const allFiles = Array.from(e.target.files);
+      // Filter to valid DICOM files (keep .dcm or extensionless files, exclude junk)
+      const dicomFiles = allFiles.filter(f =>
+        f.size > 128 &&
+        !f.name.startsWith('.') &&
+        !/\.(xml|txt|json|html|DS_Store|csv|pdf|png|jpg|jpeg)$/i.test(f.name)
+      );
+
+      if (dicomFiles.length === 0) {
+        // Fallback: maybe user selected a single non-dcm image
+        const file = allFiles[0];
+        setImageFile(file);
+        setDicomFileCount(1);
+        if (file.name.toLowerCase().endsWith(".dcm")) {
+          setImagePreview("DICOM_PLACEHOLDER");
+        } else {
+          setImagePreview(URL.createObjectURL(file));
+        }
+        return;
       }
+
+      // Sort by filename (numeric) to get a consistent representative slice
+      dicomFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+      // Use the first DICOM file as the representative file for the backend API
+      const representative = dicomFiles[0];
+      setImageFile(representative);
+      setDicomFileCount(dicomFiles.length);
+      setImagePreview("DICOM_PLACEHOLDER");
+
+      console.log(`[HepatoAI] Loaded ${dicomFiles.length} DICOM files from folder upload`);
     }
   };
 
@@ -484,6 +509,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
     });
     setImageFile(null);
     setImagePreview(null);
+    setDicomFileCount(0);
     setPdfFile(null);
     setLoading(false);
     setExtracting(false);
@@ -604,7 +630,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                          <div className="absolute top-0 left-0 w-full h-[2px] bg-[#00e5ff] shadow-[0_0_15px_#00e5ff,0_0_30px_#00e5ff] animate-[ping_2s_infinite]"></div>
                       </>
                     )}
-                    <input type="file" accept=".dcm,image/dicom,application/dicom,*/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} />
+                    <input type="file" accept=".dcm,image/dicom,application/dicom,*/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={loading} multiple {...({ webkitdirectory: 'true', directory: 'true' } as React.InputHTMLAttributes<HTMLInputElement>)} />
                     {imagePreview ? (
                       imagePreview === "DICOM_PLACEHOLDER" ? (
                         <div className={`flex flex-col items-center gap-3 transition-colors duration-500 relative z-10 ${pipelineStep === "STEP1" || pipelineStep === "STEP3" ? "text-[#00e5ff]" : "text-[#00b8d4]"}`}>
@@ -618,7 +644,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                           </div>
                           <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 shadow-lg backdrop-blur-md">
                             <CheckCircle className={`w-4 h-4 flex-shrink-0 ${pipelineStep === "STEP1" ? "animate-ping text-[#00e5ff]" : "text-[#00e5ff]"}`} />
-                            <span className="text-[11px] font-mono font-bold truncate max-w-[180px] text-white tracking-wider">{imageFile?.name || "DICOM Loaded"}</span>
+                            <span className="text-[11px] font-mono font-bold truncate max-w-[180px] text-white tracking-wider">{dicomFileCount > 1 ? `${dicomFileCount} DICOM slices loaded` : (imageFile?.name || "DICOM Loaded")}</span>
                           </div>
                           <span className={`text-[9px] font-black px-3 py-1 mt-1 rounded-md tracking-[0.2em] border transition-all ${pipelineStep === "STEP1" ? "bg-[#00e5ff]/20 text-[#00e5ff] border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.4)] animate-pulse" : "bg-cyan-950/60 text-cyan-300 border-cyan-800/50"}`}>
                             {pipelineStep === "STEP1" ? "EXTRACTING RADIOMICS..." : "3D VOLUME READY"}

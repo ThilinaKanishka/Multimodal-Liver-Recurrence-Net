@@ -69,7 +69,20 @@ const FeatureExtractionStudio = () => {
   };
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files?.[0];
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    // Support folder upload: filter to valid DICOM/image files
+    const allFiles = Array.from(files);
+    const validFiles = allFiles.filter(f =>
+      f.size > 128 &&
+      !f.name.startsWith('.') &&
+      !/\.(xml|txt|json|html|DS_Store|csv|pdf)$/i.test(f.name)
+    );
+    
+    // Sort and pick first file as representative for the API
+    validFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const file = validFiles[0] || allFiles[0];
     if (!file) return;
     event.target.value = null;
 
@@ -275,7 +288,7 @@ const FeatureExtractionStudio = () => {
               {!isPdfUploading && <div className="absolute inset-0 rounded-xl border border-purple-400/0 group-hover:border-purple-400/50 transition-colors duration-500" />}
             </button>
 
-            <input type="file" accept=".dcm,.png,.jpg,.jpeg" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+            <input type="file" accept=".dcm,.png,.jpg,.jpeg" className="hidden" ref={fileInputRef} onChange={handleFileUpload} multiple />
             <button 
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
