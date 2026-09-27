@@ -636,18 +636,28 @@ function App() {
             </div>
           </div>
 
-          <div className="w-full bg-[#0a0f18]/80 backdrop-blur-2xl border border-white/5 p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600"></div>
+          <div className="w-full bg-[#0a0f18]/80 backdrop-blur-2xl border border-white/5 p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center relative overflow-hidden animate-in fade-in zoom-in duration-700">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600 animate-pulse"></div>
             
-            <div className="p-5 bg-rose-500/5 border border-rose-500/20 rounded-full mb-6 shadow-[inset_0_0_20px_rgba(244,63,94,0.1)]">
-               <ShieldAlert className="w-12 h-12 text-rose-500 animate-pulse" />
+            <div className="relative flex justify-center items-center mb-10 mt-6">
+              {/* Radar / Ripple Animation Rings */}
+              <div className="absolute inset-0 bg-rose-500/20 rounded-full blur-md animate-ping opacity-75" style={{ animationDuration: '3s' }}></div>
+              <div className="absolute -inset-4 border border-rose-500/40 rounded-full animate-ping opacity-50" style={{ animationDuration: '3s', animationDelay: '0.5s' }}></div>
+              <div className="absolute -inset-8 border border-rose-500/10 rounded-full animate-ping opacity-25" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
+              <div className="absolute -inset-12 border-t border-rose-500/20 rounded-full animate-spin" style={{ animationDuration: '4s' }}></div>
+              
+              {/* Core Icon Container */}
+              <div className="relative z-10 p-6 bg-[#0a0f18] border border-rose-500/40 rounded-full shadow-[0_0_30px_rgba(244,63,94,0.4)] backdrop-blur-md overflow-hidden">
+                 <div className="absolute inset-0 bg-gradient-to-b from-rose-500/20 to-transparent animate-pulse"></div>
+                 <ShieldAlert className="w-14 h-14 text-rose-500 relative z-10 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]" />
+              </div>
             </div>
             
             <h1 className="text-3xl font-black uppercase tracking-widest text-white mb-4 drop-shadow-md text-center">
-              System Maintenance
+              Temporarily Unavailable
             </h1>
             <p className="text-slate-400 text-sm max-w-lg mb-8 leading-relaxed text-center">
-              The clinical diagnostic engine is temporarily offline for scheduled enterprise upgrades. All AI inference services and EHR syncs are paused to ensure data integrity.
+              The clinical intelligence center is currently undergoing scheduled enterprise maintenance. All AI diagnostic services and EHR syncs are paused to ensure data integrity.
             </p>
 
             <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-8">
