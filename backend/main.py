@@ -71,7 +71,7 @@ except ImportError:
     rotate = MockRotate()
 import pydicom
 import PyPDF2
-from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection, messages_collection
+from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection, messages_collection, system_settings_collection
 try:
     import fitz
 except ImportError:
@@ -2769,3 +2769,29 @@ Keep your tone professional, concise, and helpful.
     except Exception as e:
         print(f"Error in Copilot: {e}")
         raise HTTPException(status_code=500, detail="Failed to process copilot query")
+
+@app.get("/api/v1/system/status")
+async def get_system_status():
+    doc = await system_settings_collection.find_one({"id": "maintenance"})
+    if not doc:
+        return {"maintenance_mode": False, "estimated_time": None}
+    return {
+        "maintenance_mode": doc.get("maintenance_mode", False),
+        "estimated_time": doc.get("estimated_time")
+    }
+
+class MaintenancePayload(BaseModel):
+    maintenance_mode: bool
+    estimated_time: Optional[str] = None
+
+@app.post("/api/v1/system/maintenance")
+async def set_system_maintenance(payload: MaintenancePayload):
+    await system_settings_collection.update_one(
+        {"id": "maintenance"},
+        {"$set": {
+            "maintenance_mode": payload.maintenance_mode,
+            "estimated_time": payload.estimated_time
+        }},
+        upsert=True
+    )
+    return {"status": "SUCCESS", "maintenance_mode": payload.maintenance_mode, "estimated_time": payload.estimated_time}

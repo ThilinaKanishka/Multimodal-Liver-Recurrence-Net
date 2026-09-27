@@ -14,7 +14,7 @@ import DoctorBillingPage from "./pages/DoctorBillingPage";
 import { AttentionDashboard } from "./pages/AttentionDashboard";
 import FeatureExtractionStudio from "./pages/FeatureExtractionStudio";
 
-import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye } from "lucide-react";
+import { ArrowLeft, Activity, LayoutDashboard, Users, Database, Search, Settings, ShieldAlert, CheckCircle, FileText, Cpu, Server, Network, Cloud, Shield, CreditCard, Palette, Moon, Sun, Monitor, Eye, RefreshCw, LogOut, Phone, Mail } from "lucide-react";
 
 // Modern Placeholder Pages with medical workstation aesthetic
 const DashboardPage = ({ user, onViewPatientDirectory, onViewBilling }: { user: any, onViewPatientDirectory?: () => void, onViewBilling?: () => void }) => {
@@ -472,7 +472,10 @@ function App() {
     return localStorage.getItem("hepatoai_theme") || "theme-radiology-dark";
   });
 
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
   const [isRevoked, setIsRevoked] = useState(false);
+
   const [revokeCountdown, setRevokeCountdown] = useState(5);
 
   const handleSetTheme = (theme: string) => {
@@ -544,6 +547,19 @@ function App() {
   }, [currentUser, isRevoked]);
 
   useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/v1/system/status");
+        setMaintenanceMode(res.data.maintenance_mode);
+        setEstimatedTime(res.data.estimated_time);
+      } catch (err) {}
+    };
+    checkMaintenance();
+    const interval = setInterval(checkMaintenance, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (!isRevoked) return;
     if (revokeCountdown <= 0) {
       setCurrentUser(null);
@@ -593,6 +609,108 @@ function App() {
 
   if (activePage === "admin") {
     return <AdminDashboardPage onBack={() => setActivePage("login")} />;
+  }
+
+  if (maintenanceMode && currentUser && currentUser.level !== 'IT Admin') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#030712] text-white flex-col font-sans relative overflow-hidden py-12">
+        {/* Dynamic Background Effects */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-rose-500/5 blur-[120px] rounded-full animate-pulse-slow"></div>
+          <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-orange-500/5 blur-[150px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay"></div>
+        </div>
+        
+        <div className="z-10 w-full max-w-3xl flex flex-col items-center">
+          
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="p-1.5 bg-rose-500/10 border border-rose-500/30 rounded-lg shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+               <Activity className="w-6 h-6 text-rose-500" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold tracking-widest uppercase text-slate-100">
+                Hepato<span className="text-rose-500">AI</span>
+              </span>
+              <span className="text-[9px] font-mono text-slate-500 tracking-widest uppercase">Clinical Intelligence Center</span>
+            </div>
+          </div>
+
+          <div className="w-full bg-[#0a0f18]/80 backdrop-blur-2xl border border-white/5 p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600"></div>
+            
+            <div className="p-5 bg-rose-500/5 border border-rose-500/20 rounded-full mb-6 shadow-[inset_0_0_20px_rgba(244,63,94,0.1)]">
+               <ShieldAlert className="w-12 h-12 text-rose-500 animate-pulse" />
+            </div>
+            
+            <h1 className="text-3xl font-black uppercase tracking-widest text-white mb-4 drop-shadow-md text-center">
+              System Maintenance
+            </h1>
+            <p className="text-slate-400 text-sm max-w-lg mb-8 leading-relaxed text-center">
+              The clinical diagnostic engine is temporarily offline for scheduled enterprise upgrades. All AI inference services and EHR syncs are paused to ensure data integrity.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-8">
+              <div className="bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">Estimated Availability</span>
+                {estimatedTime ? (
+                  <span className="text-sm font-mono text-rose-400 font-bold">{estimatedTime}</span>
+                ) : (
+                  <span className="text-sm font-mono text-slate-300 font-bold">Pending Update</span>
+                )}
+              </div>
+              <div className="bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">Incident Ticket</span>
+                <span className="text-sm font-mono text-slate-300 font-bold tracking-widest">INC-{new Date().getFullYear()}{new Date().getMonth()+1}{new Date().getDate()}-82</span>
+              </div>
+            </div>
+
+            {/* Sub-system Status */}
+            <div className="w-full max-w-md bg-[#131826]/80 rounded-xl border border-[#1e293b] p-5 mb-8">
+               <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 border-b border-[#1e293b] pb-2">Sub-System Status</h3>
+               <div className="space-y-3">
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs font-mono text-slate-300">Auth Gateway</span>
+                   <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>
+                 </div>
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs font-mono text-slate-300">Clinical Database</span>
+                   <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div> Syncing</span>
+                 </div>
+                 <div className="flex items-center justify-between">
+                   <span className="text-xs font-mono text-slate-300">AI Inference Engine</span>
+                   <span className="text-[9px] font-bold uppercase tracking-widest text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div> Offline</span>
+                 </div>
+               </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-6 py-2.5 bg-rose-600/10 border border-rose-500/30 text-rose-400 hover:bg-rose-600/20 hover:border-rose-500/50 rounded font-bold uppercase tracking-widest text-[10px] transition-all flex items-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Check Status
+              </button>
+              <button 
+                onClick={() => { setCurrentUser(null); setActivePage("login"); }}
+                className="px-6 py-2.5 bg-transparent border border-white/10 text-slate-300 hover:bg-white/5 rounded font-bold uppercase tracking-widest text-[10px] transition-colors flex items-center gap-2"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign Out
+              </button>
+            </div>
+          </div>
+          
+          {/* Footer Contact */}
+          <div className="mt-8 text-center flex flex-col items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">IT Helpdesk Support</span>
+            <div className="flex gap-4 text-xs font-mono text-slate-400">
+              <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> +1 (800) 555-0199</span>
+              <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> sysadmin@hepatoai.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Protect all other routes: if no currentUser, force login
