@@ -1819,41 +1819,62 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
             </div>
 
             {/* Enterprise Maintenance Mode */}
-            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-rose-500/50' : 'bg-white border-gray-200 hover:border-rose-400'}`}>
+            <div className={`border rounded-lg shadow-md p-6 flex flex-col transition-colors duration-300 relative overflow-hidden group ${theme === 'DARK' ? 'bg-[#252841] border-gray-700 hover:border-rose-500/50' : 'bg-white border-gray-200 hover:border-rose-400'} ${maintenanceMode ? 'ring-1 ring-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.15)]' : ''}`}>
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 blur-[40px] pointer-events-none group-hover:bg-rose-500/10 transition-colors"></div>
-              <div className={`flex justify-between items-center mb-6 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+              
+              <div className={`flex justify-between items-center mb-4 border-b pb-3 relative z-10 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-rose-500/10 rounded-lg border border-rose-500/20"><ShieldAlert className="w-5 h-5 text-rose-400" /></div>
+                  <div className="p-2 bg-rose-500/10 rounded-lg border border-rose-500/20"><ShieldAlert className={`w-5 h-5 ${maintenanceMode ? 'text-rose-500 animate-pulse' : 'text-rose-400'}`} /></div>
                   <div>
-                    <h2 className={`text-sm font-black uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Enterprise Maintenance</h2>
-                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Doctor Side Availability</p>
+                    <h2 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
+                      Enterprise Maintenance
+                    </h2>
+                    <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Global System Availability</p>
                   </div>
                 </div>
+                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border flex items-center gap-1.5 ${maintenanceMode ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${maintenanceMode ? 'bg-rose-500 animate-pulse shadow-[0_0_5px_#f43f5e]' : 'bg-emerald-500 shadow-[0_0_5px_#10b981]'}`}></div> 
+                  {maintenanceMode ? 'STATUS: OFFLINE' : 'STATUS: LIVE'}
+                </span>
               </div>
-              <div className="flex flex-col gap-4 flex-1 relative z-10 justify-center items-center mt-4">
+
+              <div className="flex flex-col gap-4 flex-1 relative z-10">
                  {!maintenanceMode && (
-                   <div className="w-full flex flex-col gap-1 mb-2">
+                   <div className={`w-full flex flex-col gap-1 p-3 rounded-lg border ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700/50' : 'bg-gray-50 border-gray-200'}`}>
                      <label className={`text-[9px] font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Estimated Available Time</label>
-                     <input type="text" placeholder="e.g. 10:00 AM (Optional)" value={estimatedTime} onChange={e => setEstimatedTime(e.target.value)} className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#1a1c2c] text-slate-300 focus:border-rose-500/50' : 'bg-slate-50 border-gray-300 text-slate-800 focus:border-rose-400'}`} />
+                     <input type="text" placeholder="e.g. 10:00 AM (Optional)" value={estimatedTime} onChange={e => setEstimatedTime(e.target.value)} className={`w-full border rounded px-3 py-2 text-xs font-mono focus:outline-none transition-all shadow-inner ${theme === 'DARK' ? 'bg-[#131826] border-[#252841] text-slate-300 focus:border-rose-500/50' : 'bg-white border-gray-300 text-slate-800 focus:border-rose-400'}`} />
+                     <p className="text-[9px] font-mono text-slate-500 mt-1">Will be shown to doctors on the offline screen.</p>
                    </div>
                  )}
-                 <button 
-                   onClick={async () => {
-                      const newStatus = !maintenanceMode;
-                      try {
-                         await axios.post("http://127.0.0.1:8000/api/v1/system/maintenance", { maintenance_mode: newStatus, estimated_time: estimatedTime });
-                         setMaintenanceMode(newStatus);
-                      } catch (e) {
-                         console.error(e);
-                      }
-                   }}
-                   className={`w-full py-3 rounded font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${maintenanceMode ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/50' : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/50'}`}
-                 >
-                   {maintenanceMode ? 'Reactivate Doctor Access' : 'Enable Maintenance Mode'}
-                 </button>
-                 <p className="text-[10px] text-center font-mono px-4 mt-2 font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-500'}">
-                   {maintenanceMode ? 'System is currently locked down.' : 'Clicking this will immediately lock out all doctors.'}
-                 </p>
+
+                 <div className={`mt-2 border rounded-lg p-4 ${theme === 'DARK' ? 'bg-rose-950/10 border-rose-900/30' : 'bg-rose-50 border-rose-100'}`}>
+                   <h3 className={`text-[10px] font-black uppercase tracking-widest mb-1 ${theme === 'DARK' ? 'text-rose-400' : 'text-rose-600'}`}>Danger Zone</h3>
+                   <p className={`text-[10px] font-mono mb-4 leading-relaxed ${theme === 'DARK' ? 'text-slate-400' : 'text-slate-600'}`}>
+                     {maintenanceMode 
+                        ? 'System is currently locked. Doctors cannot access diagnostic services.' 
+                        : 'Warning: Enabling this will disconnect all active clinicians immediately. Diagnostic services will be paused.'}
+                   </p>
+                   
+                   <button 
+                     onClick={async () => {
+                        const confirmMsg = maintenanceMode 
+                          ? "Are you sure you want to RESTORE doctor access? The system will be back online." 
+                          : "CRITICAL ACTION: Are you sure you want to TAKE THE SYSTEM OFFLINE? All doctors will be locked out.";
+                        if (!window.confirm(confirmMsg)) return;
+
+                        const newStatus = !maintenanceMode;
+                        try {
+                           await axios.post("http://127.0.0.1:8000/api/v1/system/maintenance", { maintenance_mode: newStatus, estimated_time: estimatedTime });
+                           setMaintenanceMode(newStatus);
+                        } catch (e) {
+                           console.error(e);
+                        }
+                     }}
+                     className={`w-full py-3 rounded font-black text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${maintenanceMode ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/50' : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/50'}`}
+                   >
+                     {maintenanceMode ? 'Restore System Online' : 'Take System Offline'}
+                   </button>
+                 </div>
               </div>
             </div>
 
