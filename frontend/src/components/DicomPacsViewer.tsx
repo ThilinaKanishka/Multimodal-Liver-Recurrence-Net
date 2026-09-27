@@ -417,7 +417,7 @@ const ZoomRow: React.FC<ZoomRowProps> = ({ label, zoom, onZoom }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export const DicomPacsViewer: React.FC = () => {
+export const DicomPacsViewer: React.FC<{ initialFiles?: File[]; onClose?: () => void }> = ({ initialFiles, onClose }) => {
   // ── Volume state ──
   const [volume, setVolume] = useState<Volume | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -546,6 +546,12 @@ export const DicomPacsViewer: React.FC = () => {
     noKeyboard: false,
   });
 
+  useEffect(() => {
+    if (initialFiles && initialFiles.length > 0 && !volume && !isLoading) {
+      onDrop(initialFiles);
+    }
+  }, [initialFiles, onDrop, volume, isLoading]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -629,6 +635,14 @@ export const DicomPacsViewer: React.FC = () => {
                 <span className="hidden sm:inline">Reset</span>
               </button>
             </>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition-all shadow-sm"
+            >
+              Close
+            </button>
           )}
         </div>
       </header>
