@@ -22,13 +22,15 @@ import {
   BookOpen,
   Clock,
   TrendingUp,
-  Info
+  Info,
+  Box
 } from "lucide-react";
 import axios from "axios";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
+import { DicomPacsViewer } from "../components/DicomPacsViewer";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -183,6 +185,8 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dicomFileCount, setDicomFileCount] = useState<number>(0);
+  const [allDicomFiles, setAllDicomFiles] = useState<File[]>([]);
+  const [showViewerModal, setShowViewerModal] = useState<boolean>(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [extracting, setExtracting] = useState<boolean>(false);
@@ -321,6 +325,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       const representative = dicomFiles[0];
       setImageFile(representative);
       setDicomFileCount(dicomFiles.length);
+      setAllDicomFiles(dicomFiles);
       setImagePreview("DICOM_PLACEHOLDER");
 
       console.log(`[HepatoAI] Loaded ${dicomFiles.length} DICOM files from folder upload`);
@@ -510,6 +515,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
     setImageFile(null);
     setImagePreview(null);
     setDicomFileCount(0);
+    setAllDicomFiles([]);
     setPdfFile(null);
     setLoading(false);
     setExtracting(false);
@@ -610,12 +616,27 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
               {/* Panel: Diagnostic Input */}
               <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden h-full group"
                 ><div className="absolute inset-0 bg-gradient-to-br from-[#00e5ff]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-                <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 flex items-center justify-between z-10 relative">
+                <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-3 border-b border-white/10 flex items-center justify-between z-10 relative">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#00e5ff] to-blue-600 shadow-[0_0_10px_#00e5ff]"></div>
                   <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
                     <Database className="w-4 h-4 text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]" />
                     1. Diagnostic Pipeline
                   </h2>
+                  {dicomFileCount > 1 && pipelineStep !== "STEP1" && pipelineStep !== "STEP3" && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowViewerModal(true); }}
+                      className="group relative flex items-center justify-center h-8 px-4 overflow-hidden rounded-md bg-[#00e5ff]/10 border border-[#00e5ff]/30 hover:border-[#00e5ff] transition-all shadow-[0_0_10px_rgba(0,229,255,0.1)] hover:shadow-[0_0_15px_rgba(0,229,255,0.3)] cursor-pointer"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00e5ff]/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+                      <div className="flex items-center gap-2 relative z-10">
+                        <Box className="w-3.5 h-3.5 text-[#00e5ff] group-hover:rotate-12 transition-transform duration-300" />
+                        <span className="text-[9px] font-black text-white tracking-[0.15em] uppercase group-hover:text-[#00e5ff] transition-colors duration-300">
+                          OPEN PACS
+                        </span>
+                      </div>
+                    </button>
+                  )}
                 </div>
                 <div className="p-4 flex flex-col gap-4 flex-1 justify-start max-h-[calc(100vh-260px)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent relative z-10">
                   <div className={`border-2 rounded-xl p-4 min-h-[160px] flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group/drop cursor-pointer overflow-hidden ${
@@ -1667,6 +1688,15 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                 Confirm Baseline Selection
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3D MPR Viewer Modal */}
+      {showViewerModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
+          <div className="w-full h-full max-w-[95vw] max-h-[95vh] flex flex-col relative rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-gray-900">
+             <DicomPacsViewer initialFiles={allDicomFiles} onClose={() => setShowViewerModal(false)} />
           </div>
         </div>
       )}
