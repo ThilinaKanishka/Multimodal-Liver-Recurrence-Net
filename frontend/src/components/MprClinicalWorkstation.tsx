@@ -1,4 +1,44 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+/**
+ * MprClinicalWorkstation.tsx
+ * ══════════════════════════════════════════════════════════════════════════════
+ * HepatoAI — Full PACS-Style MPR Viewer (rebuilt from scratch)
+ *
+ * OPERATING MODES (auto-detected from props):
+ *  A. DICOM Upload Mode  — doctor uploads a folder of .dcm files; the component
+ *     parses them with dicom-parser, sorts by ImagePositionPatient[2] (Z), builds
+ *     a 3D HU volume, and renders real Axial / Coronal / Sagittal views.
+ *
+ *  B. AI-Result Mode     — parent passes base64Matrix (Grad-CAM) + optional
+ *     dicomBase64Matrix (backend CT bytes) + dimensions. The 3D volume is decoded
+ *     from those buffers and displayed with heatmap overlay.
+ *
+ *  C. Mock Mode          — base64Matrix === "MOCK" → synthetic procedural anatomy
+ *     used in patient history cards (App.tsx).
+ *
+ * PRESERVED PROP INTERFACE (unchanged):
+ *   base64Matrix        : string
+ *   dicomBase64Matrix?  : string
+ *   dimensions          : [Depth, Height, Width]
+ *   tumorTarget?        : { found, x, y, z }
+ *   patientInfo?        : { name, id }
+ *   longitudinalMode?   : 'baseline' | 'followup'
+ *
+ * REQUIRED PACKAGES (already installed):
+ *   dicom-parser   react-dropzone   lucide-react   tailwindcss
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+import React, {
+  useCallback, useEffect, useMemo, useRef, useState,
+} from 'react';
+import { useDropzone } from 'react-dropzone';
+import dicomParser from 'dicom-parser';
+import {
+  Activity, CloudUpload, Contrast, Crosshair, Loader2,
+  Maximize2, Move, RefreshCw, ScanLine, Target, ZoomIn, ZoomOut,
+} from 'lucide-react';
+
+// ─── Prop Interface (must match all callers) ──────────────────────────────────
 
 interface MprClinicalWorkstationProps {
   base64Matrix: string;
@@ -9,7 +49,828 @@ interface MprClinicalWorkstationProps {
   longitudinalMode?: 'baseline' | 'followup';
 }
 
-type LUTType = 'Jet' | 'Viridis' | 'Magma' | 'Plasma';
+// ─── Internal Types ───────────────────────────────────────────────────────────
+
+type WLPreset = { label: string; wc: number; ww: number };
+type LUTType  = 'Jet' | 'Viridis' | 'Magma' | 'Plasma';
+type Plane    = 'Axial' | 'Coronal' | 'Sagittal';
+interface Coord { x: number; y: number; z: number }
+interface PanOffset { x: number; y: number }
+
+interface DicomMeta {
+  instanceNumber: number;
+  imagePositionZ: number | null;
+  rows: number;
+  cols: number;
+  pixelSpacingRow: number;
+  pixelSpacingCol: number;
+  sliceThickness: number;
+  rescaleSlope: number;
+  rescaleIntercept: number;
+  windowCenter: number;
+  windowWidth: number;
+  bitsAllocated: number;
+  pixelRepresentation: number;
+  dataOffset: number;
+  dataLength: number;
+  byteArray: Uint8Array;
+  filename: string;
+}
+
+// ─── DICOM Parsing Helpers ────────────────────────────────────────────────────
+
+function parseDicomMeta(buffer: ArrayBuffer, filename: string): DicomMeta | null {
+  try {
+    const byteArray = new Uint8Array(buffer);
+    const ds = dicomParser.parseDicom(byteArray);
+
+    const pixelEl = ds.elements.x7fe00010;
+    if (!pixelEl) return null; // No pixel data → skip
+
+    // (0020,0013) Instance Number
+    const instanceStr = ds.string('x00200013');
+    const instanceNumber = instanceStr ? parseInt(instanceStr, 10) : 0;
+
+    // (0020,0032) ImagePositionPatient → Z is index [2]
+    let imagePositionZ: number | null = null;
+    try {
+      const ippStr = ds.string('x00200032');
+      if (ippStr) {
+        const parts = ippStr.split('\\');
+        if (parts.length >= 3) imagePositionZ = parseFloat(parts[2]);
+      }
+    } catch { /* not present */ }
+
+    const rows  = ds.uint16('x00280010') ?? 512;
+    const cols  = ds.uint16('x00280011') ?? 512;
+    const bitsAllocated       = ds.uint16('x00280100') ?? 16;
+    const pixelRepresentation = ds.uint16('x00280103') ?? 0;
+
+    // (0028,0030) PixelSpacing: "rowSpacing\colSpacing" in mm
+    let pixelSpacingRow = 1.0, pixelSpacingCol = 1.0;
+    try {
+      const psStr = ds.string('x00280030');
+      if (psStr) {
+        const parts = psStr.split('\\');
+        if (parts.length >= 2) {
+          pixelSpacingRow = parseFloat(parts[0]);
+          pixelSpacingCol = parseFloat(parts[1]);
+        } else if (parts.length === 1) {
+          pixelSpacingRow = pixelSpacingCol = parseFloat(parts[0]);
+        }
+      }
+    } catch { /* not present */ }
+
+    // (0018,0050) SliceThickness
+    let sliceThickness = 1.0;
+    try {
+      const st = ds.string('x00180050');
+      if (st) sliceThickness = parseFloat(st);
+    } catch { /* ok */ }
+
+    // (0028,1052/1053) Rescale
+    const rescaleInterceptStr = ds.string('x00281052');
+    const rescaleSlopeStr     = ds.string('x00281053');
+    const rescaleIntercept    = rescaleInterceptStr ? parseFloat(rescaleInterceptStr) : 0;
+    const rescaleSlope        = rescaleSlopeStr     ? parseFloat(rescaleSlopeStr)     : 1;
+
+    // (0028,1050/1051) Window Center / Width (may be multi-value)
+    let windowCenter = 40, windowWidth = 400;
+    try {
+      const wcStr = ds.string('x00281050'); if (wcStr) windowCenter = parseFloat(wcStr.split('\\')[0]);
+      const wwStr = ds.string('x00281051'); if (wwStr) windowWidth  = parseFloat(wwStr.split('\\')[0]);
+    } catch { /* not present */ }
+
+    return {
+      instanceNumber, imagePositionZ, rows, cols,
+      pixelSpacingRow, pixelSpacingCol, sliceThickness,
+      rescaleSlope, rescaleIntercept, windowCenter, windowWidth,
+      bitsAllocated, pixelRepresentation,
+      dataOffset: pixelEl.dataOffset,
+      dataLength: pixelEl.length,
+      byteArray, filename,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Decode raw pixel bytes → Float32Array of HU values */
+function decodePixels(meta: DicomMeta): Float32Array {
+  const { rows, cols, bitsAllocated, pixelRepresentation,
+          rescaleSlope, rescaleIntercept, dataOffset, dataLength, byteArray } = meta;
+  const n = rows * cols;
+  const hu = new Float32Array(n);
+
+  if (bitsAllocated === 8) {
+    for (let i = 0; i < n; i++) {
+      hu[i] = byteArray[dataOffset + i] * rescaleSlope + rescaleIntercept;
+    }
+  } else if (bitsAllocated === 16) {
+    // Use DataView for correct endianness (DICOM is always little-endian)
+    const dv = new DataView(byteArray.buffer, byteArray.byteOffset + dataOffset,
+      Math.min(dataLength, n * 2));
+    const isSigned = pixelRepresentation === 1;
+    for (let i = 0; i < n; i++) {
+      const offset = i * 2;
+      if (offset + 2 > dv.byteLength) break;
+      const raw = isSigned ? dv.getInt16(offset, true) : dv.getUint16(offset, true);
+      hu[i] = raw * rescaleSlope + rescaleIntercept;
+    }
+  }
+  return hu;
+}
+
+// ─── Window / Level ───────────────────────────────────────────────────────────
+
+const WL_PRESETS: WLPreset[] = [
+  { label: 'LIVER',        wc: 30,   ww: 150  },
+  { label: 'SOFT TISSUE',  wc: 40,   ww: 400  },
+  { label: 'BONE',         wc: 400,  ww: 2000 },
+  { label: 'LUNG',         wc: -600, ww: 1500 },
+  { label: 'BRAIN',        wc: 40,   ww: 80   },
+];
+
+/** Map a HU value → [0, 255] gray byte using DICOM standard W/L formula */
+function applyWL(hu: number, wc: number, ww: number): number {
+  // DICOM PS3.3 C.11.2.1.2: standard linear VOI LUT
+  const val = ((hu - (wc - 0.5)) / (ww - 1)) + 0.5;
+  if (val <= 0) return 0;
+  if (val >= 1) return 255;
+  return Math.round(val * 255);
+}
+
+// ─── Heatmap / LUT ───────────────────────────────────────────────────────────
+
+function lutColor(v: number, lut: LUTType): [number, number, number] {
+  v = Math.max(0, Math.min(1, v));
+  switch (lut) {
+    case 'Jet':
+      if (v >= 0.75) { const t = (v - 0.75) * 4; return [255, Math.round(255 * (1 - t)), 0]; }
+      if (v >= 0.5)  { const t = (v - 0.5)  * 4; return [Math.round(255 * t), 255, 0]; }
+      if (v >= 0.25) { const t = (v - 0.25) * 4; return [0, 255, Math.round(255 * (1 - t))]; }
+      return [0, Math.round(255 * v * 4), 255];
+    case 'Viridis': return [Math.round(v * 253), Math.round(v * 231), Math.round(36 + v * 219)];
+    case 'Magma':   return [Math.round(v * 252), Math.round(v * 78 * v), Math.round(164 - v * 100)];
+    case 'Plasma':  return [Math.round(v * 240), Math.round(v * 120 * v), Math.round(33 + v * 220)];
+    default:        return [0, 0, 0];
+  }
+}
+
+// ─── Synthetic CT Anatomy (Mock Mode) ────────────────────────────────────────
+
+function generateMockHU(
+  mapX: number, mapY: number, mapZ: number,
+  Width: number, Height: number, Depth: number,
+  tumorTarget?: { found: boolean; x: number; y: number; z: number },
+  longitudinalMode?: string,
+): number {
+  const cx = Width / 2.0, cy = Height / 2.0, cz = Depth / 2.0;
+  const nx = (mapX - cx) / cx, ny = (mapY - cy) / cy, nz = (mapZ - cz) / cz;
+  const warp1 = Math.sin(ny * 8 + nz * 4) * Math.cos(nx * 8) * 0.08;
+  const warp2 = Math.sin(nx * 12) * Math.sin(ny * 12) * 0.03;
+  const wnx = nx + warp1, wny = ny + warp2, wnz = nz + warp1 * 0.5;
+
+  const bodyShape = (wnx * wnx) / 0.8 + (wny * wny) / 0.6 + (wnz * wnz) / 0.9;
+  if (bodyShape > 1.0) return -1000; // Air
+
+  let huVal = 35 + Math.sin(mapX * 0.8) * Math.cos(mapY * 0.8) * 12;
+
+  // Spine
+  const spineShape = (wnx * wnx) / 0.03 + Math.pow(wny - 0.5, 2) / 0.06;
+  if (spineShape < 1.0) { huVal = spineShape < 0.4 ? 200 + Math.random() * 40 : 700 + Math.random() * 150; }
+
+  // Liver
+  const liverShape = Math.pow(wnx + 0.3, 2) / 0.35 + Math.pow(wny + 0.05, 2) / 0.25 + (wnz * wnz) / 0.5;
+  if (liverShape < 1.0) {
+    huVal = -30 + Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
+    if (Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15) > 0.8) huVal -= 45;
+    // Tumor void
+    if (tumorTarget?.found) {
+      const dx = mapX - tumorTarget.x, dy = mapY - tumorTarget.y, dz = mapZ - tumorTarget.z;
+      const d = Math.sqrt(dz * dz * 2 + dy * dy + dx * dx);
+      const r = longitudinalMode === 'baseline' ? 18 : longitudinalMode === 'followup' ? 8 : 14;
+      if (d < r) { huVal = d > r - 2 ? 120 + Math.random() * 30 : -80 + Math.random() * 15; }
+    }
+  }
+
+  // Aorta / IVC
+  const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2));
+  const ivcDist   = Math.sqrt(Math.pow(wnx - 0.10, 2) + Math.pow(wny - 0.20, 2));
+  if (aortaDist < 0.05 || ivcDist < 0.06) huVal = 120 + Math.random() * 15;
+
+  // Stomach (air)
+  const stomachShape = Math.pow(wnx - 0.4, 2) / 0.1 + Math.pow(wny + 0.1, 2) / 0.15 + Math.pow(wnz - 0.1, 2) / 0.2;
+  if (stomachShape < 1.0) huVal = stomachShape > 0.7 ? 20 + Math.sin(mapX * 3) * 20 : -900;
+
+  // Subcutaneous fat at body edge
+  if (bodyShape > 0.85) huVal = bodyShape > 0.98 ? 50 : -120 + Math.random() * 15;
+
+  return huVal;
+}
+
+// ─── Helper: get source image dimensions for each plane ──────────────────────
+
+function getPlaneSourceDims(plane: Plane, depth: number, rows: number, cols: number) {
+  switch (plane) {
+    case 'Axial':    return { srcW: cols,  srcH: rows  }; // XY
+    case 'Coronal':  return { srcW: cols,  srcH: depth }; // XZ
+    case 'Sagittal': return { srcW: rows,  srcH: depth }; // YZ
+  }
+}
+
+// ─── Single MPR Canvas Panel ──────────────────────────────────────────────────
+
+interface MprPanelProps {
+  plane: Plane;
+  volume: Float32Array;
+  depth: number; rows: number; cols: number;
+  coord: Coord;
+  wc: number; ww: number;
+  heatmapVolume: Float32Array | null;
+  heatmapOpacity: number;
+  lut: LUTType;
+  tumorTarget?: { found: boolean; x: number; y: number; z: number };
+  zoom: number;
+  pan: PanOffset;
+  onZoomChange: (z: number) => void;
+  onPanChange: (p: PanOffset) => void;
+  onCoordChange: (c: Partial<Coord>) => void;
+  isMockMode: boolean;
+  longitudinalMode?: string;
+}
+
+const CANVAS_SIZE = 512; // Internal canvas resolution
+
+const MprPanel: React.FC<MprPanelProps> = ({
+  plane, volume, depth, rows, cols,
+  coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
+  tumorTarget, zoom, pan, onZoomChange, onPanChange, onCoordChange,
+  isMockMode, longitudinalMode,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDraggingRef = useRef(false);
+  const lastMouseRef = useRef<{ x: number; y: number } | null>(null);
+  const animFrameRef = useRef<number>(0);
+
+  const { srcW, srcH } = getPlaneSourceDims(plane, depth, rows, cols);
+
+  // ── Compute the visible viewport in source coordinates ──
+  const getViewport = useCallback(() => {
+    const viewW = srcW / zoom;
+    const viewH = srcH / zoom;
+
+    // Pan offset is in source-pixel units, centered on the crosshair
+    let crossSrcX: number, crossSrcY: number;
+    if (plane === 'Axial')         { crossSrcX = coord.x; crossSrcY = coord.y; }
+    else if (plane === 'Coronal')  { crossSrcX = coord.x; crossSrcY = coord.z; }
+    else /* Sagittal */            { crossSrcX = coord.y; crossSrcY = coord.z; }
+
+    let panX = crossSrcX - viewW / 2 + pan.x;
+    let panY = crossSrcY - viewH / 2 + pan.y;
+    panX = Math.max(0, Math.min(srcW - viewW, panX));
+    panY = Math.max(0, Math.min(srcH - viewH, panY));
+
+    return { viewW, viewH, panX, panY };
+  }, [srcW, srcH, zoom, plane, coord, pan]);
+
+  // ── Render the slice to canvas ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Cancel any pending animation frame
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+    animFrameRef.current = requestAnimationFrame(() => {
+      canvas.width  = CANVAS_SIZE;
+      canvas.height = CANVAS_SIZE;
+
+      // Create the source-size image
+      const imgData = ctx.createImageData(srcW, srcH);
+      const d = imgData.data;
+
+      for (let py = 0; py < srcH; py++) {
+        for (let px = 0; px < srcW; px++) {
+          let mapX: number, mapY: number, mapZ: number;
+
+          if (plane === 'Axial') {
+            // Axial (XY): image(px=X col, py=Y row), fixed Z
+            mapX = px; mapY = py; mapZ = coord.z;
+          } else if (plane === 'Coronal') {
+            // Coronal (XZ): image(px=X col, py=Z depth), fixed Y
+            mapX = px; mapY = coord.y; mapZ = py;
+          } else {
+            // Sagittal (YZ): image(px=Y row, py=Z depth), fixed X
+            mapX = coord.x; mapY = px; mapZ = py;
+          }
+
+          mapX = Math.max(0, Math.min(cols  - 1, mapX));
+          mapY = Math.max(0, Math.min(rows  - 1, mapY));
+          mapZ = Math.max(0, Math.min(depth - 1, mapZ));
+
+          // volume layout: volume[z * rows * cols + y * cols + x]
+          const flatIdx = mapZ * rows * cols + mapY * cols + mapX;
+
+          // ── CT pixel ──
+          let hu: number;
+          if (isMockMode) {
+            hu = generateMockHU(mapX, mapY, mapZ, cols, rows, depth, tumorTarget, longitudinalMode);
+          } else {
+            hu = volume[flatIdx] ?? 0;
+          }
+          const gray = applyWL(hu, wc, ww);
+
+          // ── Heatmap overlay ──
+          let r = gray, g = gray, b = gray;
+          if (heatmapVolume && heatmapVolume.length > 0 && heatmapOpacity > 0) {
+            const hv = heatmapVolume[flatIdx] ?? 0;
+            if (hv > 0.05) {
+              const [hr, hg, hb] = lutColor(hv, lut);
+              const a = heatmapOpacity;
+              r = Math.round(gray * (1 - a) + hr * a);
+              g = Math.round(gray * (1 - a) + hg * a);
+              b = Math.round(gray * (1 - a) + hb * a);
+            }
+          }
+
+          const i = (py * srcW + px) * 4;
+          d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
+        }
+      }
+
+      // ── Blit to canvas with zoom/pan ──
+      const off = new OffscreenCanvas(srcW, srcH);
+      const offCtx = off.getContext('2d')!;
+      offCtx.putImageData(imgData, 0, 0);
+
+      const { viewW, viewH, panX, panY } = getViewport();
+
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      ctx.imageSmoothingEnabled = zoom < 3;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(off, panX, panY, viewW, viewH, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+      // ── Cyan crosshair ──
+      let crossSrcX: number, crossSrcY: number;
+      if (plane === 'Axial')         { crossSrcX = coord.x; crossSrcY = coord.y; }
+      else if (plane === 'Coronal')  { crossSrcX = coord.x; crossSrcY = coord.z; }
+      else /* Sagittal */            { crossSrcX = coord.y; crossSrcY = coord.z; }
+
+      const cxPx = ((crossSrcX - panX) / viewW) * CANVAS_SIZE;
+      const cyPx = ((crossSrcY - panY) / viewH) * CANVAS_SIZE;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 220, 255, 0.75)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cxPx, 0);    ctx.lineTo(cxPx, CANVAS_SIZE);
+      ctx.moveTo(0, cyPx);    ctx.lineTo(CANVAS_SIZE, cyPx);
+      ctx.stroke();
+      ctx.restore();
+
+      // ── Tumor marker (yellow circle + label + yellow crosshair) ──
+      if (tumorTarget?.found) {
+        let tSrcX: number, tSrcY: number, perpDist: number;
+        if (plane === 'Axial') {
+          tSrcX = tumorTarget.x; tSrcY = tumorTarget.y;
+          perpDist = Math.abs(coord.z - tumorTarget.z);
+        } else if (plane === 'Coronal') {
+          tSrcX = tumorTarget.x; tSrcY = tumorTarget.z;
+          perpDist = Math.abs(coord.y - tumorTarget.y);
+        } else {
+          tSrcX = tumorTarget.y; tSrcY = tumorTarget.z;
+          perpDist = Math.abs(coord.x - tumorTarget.x);
+        }
+
+        // Always draw the marker (visible even when heatmap is off)
+        const tPxX = ((tSrcX - panX) / viewW) * CANVAS_SIZE;
+        const tPxY = ((tSrcY - panY) / viewH) * CANVAS_SIZE;
+        const baseRadius = longitudinalMode === 'baseline' ? 18 : longitudinalMode === 'followup' ? 8 : 14;
+        // Scale radius with zoom
+        const canvasRadius = (baseRadius / viewW) * CANVAS_SIZE;
+
+        // Yellow crosshair at tumor center (separate from cyan)
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        ctx.lineWidth = 0.5;
+        ctx.setLineDash([3, 6]);
+        ctx.beginPath();
+        ctx.moveTo(tPxX, 0);    ctx.lineTo(tPxX, CANVAS_SIZE);
+        ctx.moveTo(0, tPxY);    ctx.lineTo(CANVAS_SIZE, tPxY);
+        ctx.stroke();
+        ctx.restore();
+
+        // Only draw circle when within a sensible range of the perpendicular axis
+        const maxPerpDist = Math.max(5, baseRadius);
+        if (perpDist <= maxPerpDist) {
+          const fadeAlpha = perpDist <= 3 ? 1.0 : 1.0 - ((perpDist - 3) / (maxPerpDist - 3));
+
+          ctx.save();
+          ctx.globalAlpha = fadeAlpha;
+          // Glow
+          ctx.shadowColor = 'rgba(255, 220, 0, 0.7)';
+          ctx.shadowBlur = 12;
+          // Circle
+          ctx.strokeStyle = '#FFD700';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.arc(tPxX, tPxY, canvasRadius, 0, Math.PI * 2);
+          ctx.stroke();
+          // Label
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = '#FFD700';
+          ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+          ctx.fillText('TUMOR', tPxX + canvasRadius + 5, tPxY - 4);
+          // Center dot
+          ctx.beginPath();
+          ctx.arc(tPxX, tPxY, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    });
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [volume, depth, rows, cols, coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
+      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getViewport]);
+
+  // ── Click → update crosshair in other views ──
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDraggingRef.current) return; // Don't update on drag end
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect  = canvas.getBoundingClientRect();
+    const fracX = (e.clientX - rect.left) / rect.width;
+    const fracY = (e.clientY - rect.top)  / rect.height;
+
+    const { viewW, viewH, panX, panY } = getViewport();
+    const imgX = Math.round(panX + fracX * viewW);
+    const imgY = Math.round(panY + fracY * viewH);
+
+    if (plane === 'Axial') {
+      onCoordChange({
+        x: Math.max(0, Math.min(cols  - 1, imgX)),
+        y: Math.max(0, Math.min(rows  - 1, imgY)),
+      });
+    } else if (plane === 'Coronal') {
+      onCoordChange({
+        x: Math.max(0, Math.min(cols  - 1, imgX)),
+        z: Math.max(0, Math.min(depth - 1, imgY)),
+      });
+    } else { // Sagittal
+      onCoordChange({
+        y: Math.max(0, Math.min(rows  - 1, imgX)),
+        z: Math.max(0, Math.min(depth - 1, imgY)),
+      });
+    }
+  }, [getViewport, plane, onCoordChange, cols, rows, depth]);
+
+  // ── Mouse drag for panning ──
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current = false;
+    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!lastMouseRef.current) return;
+      const dx = ev.clientX - lastMouseRef.current.x;
+      const dy = ev.clientY - lastMouseRef.current.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) isDraggingRef.current = true;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      // Convert screen-pixel delta to source-pixel delta
+      const { viewW, viewH } = getViewport();
+      const srcDx = -(dx / rect.width) * viewW;
+      const srcDy = -(dy / rect.height) * viewH;
+
+      onPanChange({ x: pan.x + srcDx, y: pan.y + srcDy });
+      lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
+    };
+
+    const onMouseUp = () => {
+      lastMouseRef.current = null;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [pan, getViewport, onPanChange]);
+
+  // ── Mouse wheel: Ctrl+scroll = zoom, plain scroll = advance slice ──
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const newZoom = Math.max(0.5, Math.min(5, zoom - e.deltaY * 0.003));
+      onZoomChange(newZoom);
+    } else {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 1 : -1;
+      if      (plane === 'Axial')    onCoordChange({ z: Math.max(0, Math.min(depth - 1, coord.z + delta)) });
+      else if (plane === 'Coronal')  onCoordChange({ y: Math.max(0, Math.min(rows  - 1, coord.y + delta)) });
+      else                           onCoordChange({ x: Math.max(0, Math.min(cols  - 1, coord.x + delta)) });
+    }
+  }, [zoom, plane, coord, depth, rows, cols, onZoomChange, onCoordChange]);
+
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
+
+  // ── Double-click → reset zoom/pan for this view ──
+  const handleDoubleClick = useCallback(() => {
+    onZoomChange(1);
+    onPanChange({ x: 0, y: 0 });
+  }, [onZoomChange, onPanChange]);
+
+  // Panel accent colors
+  const accentMap: Record<Plane, { text: string; border: string; bg: string }> = {
+    Axial:    { text: 'text-sky-400',     border: 'border-sky-500/40',     bg: 'bg-sky-500/10' },
+    Coronal:  { text: 'text-emerald-400', border: 'border-emerald-500/40', bg: 'bg-emerald-500/10' },
+    Sagittal: { text: 'text-amber-400',   border: 'border-amber-500/40',   bg: 'bg-amber-500/10' },
+  };
+  const accent = accentMap[plane];
+
+  const sliceLabel =
+    plane === 'Axial'    ? `Z: ${coord.z + 1} / ${depth}` :
+    plane === 'Coronal'  ? `Y: ${coord.y + 1} / ${rows}`  :
+                           `X: ${coord.x + 1} / ${cols}`;
+
+  const planeSuffix: Record<Plane, string> = { Axial: 'XY', Coronal: 'XZ', Sagittal: 'YZ' };
+
+  // Capture element IDs for PDF export
+  const captureId = `${plane.toLowerCase()}-view-capture${longitudinalMode ? `-${longitudinalMode}` : ''}`;
+
+  return (
+    <div id={captureId} className={`relative bg-black border ${accent.border} rounded-lg overflow-hidden flex flex-col group min-h-0`}>
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#0a0e17]/90 border-b border-white/5 select-none flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <ScanLine className={`w-3 h-3 ${accent.text}`} />
+          <span className={`text-[10px] font-bold tracking-widest uppercase ${accent.text}`}>
+            {plane}
+          </span>
+          <span className={`text-[8px] ${accent.text} opacity-50 font-mono`}>({planeSuffix[plane]})</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[9px] text-white/50 font-mono font-medium">{sliceLabel}</span>
+          <span className="text-[9px] text-white/30 font-mono">{zoom.toFixed(1)}×</span>
+          <span className="text-[9px] text-white/30 font-mono">W:{ww} L:{wc}</span>
+        </div>
+      </div>
+      {/* Canvas */}
+      <canvas
+        ref={canvasRef}
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
+        className="w-full flex-1 cursor-crosshair block min-h-0"
+        style={{ imageRendering: zoom >= 3 ? 'pixelated' : 'auto' }}
+      />
+      {/* Hover zoom buttons */}
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        <button onClick={() => onZoomChange(Math.min(5, zoom + 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
+          <ZoomIn className="w-2.5 h-2.5" />
+        </button>
+        <button onClick={() => onZoomChange(Math.max(0.5, zoom - 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
+          <ZoomOut className="w-2.5 h-2.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── DICOM Upload Panel ───────────────────────────────────────────────────────
+
+interface DicomUploadResult {
+  volume: Float32Array;
+  depth: number; rows: number; cols: number;
+  defaultWC: number; defaultWW: number;
+}
+
+interface DicomUploadPanelProps {
+  onVolumeReady: (r: DicomUploadResult) => void;
+}
+
+const DicomUploadPanel: React.FC<DicomUploadPanelProps> = ({ onVolumeReady }) => {
+  const [isLoading, setIsLoading]   = useState(false);
+  const [progress, setProgress]     = useState(0);
+  const [fileCount, setFileCount]   = useState(0);
+  const [error, setError]           = useState<string | null>(null);
+  const [statusMsg, setStatusMsg]   = useState('');
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    setError(null);
+
+    // Filter out OS junk files; accept files with .dcm extension OR no extension (common for DICOM)
+    const dicomFiles = acceptedFiles.filter(f =>
+      f.size > 128 &&
+      !f.name.startsWith('.') &&
+      !/\.(xml|txt|json|html|DS_Store|csv|pdf|png|jpg|jpeg)$/i.test(f.name)
+    );
+
+    if (dicomFiles.length === 0) {
+      setError('No valid DICOM files found in the selected folder.');
+      return;
+    }
+    if (dicomFiles.length < 10) {
+      setError(`Not enough slices for MPR (need 10+, got ${dicomFiles.length}).`);
+      return;
+    }
+
+    setFileCount(dicomFiles.length);
+    setIsLoading(true);
+    setProgress(0);
+    setStatusMsg('Reading DICOM files…');
+
+    try {
+      // ── Parse all files in batches of 20 ──
+      const BATCH = 20;
+      const metas: DicomMeta[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < dicomFiles.length; i += BATCH) {
+        const batch = dicomFiles.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(f => f.arrayBuffer().then(
+            buf => parseDicomMeta(buf, f.name),
+            () => null // File read error
+          ))
+        );
+        results.forEach((m, idx) => {
+          if (m) metas.push(m);
+          else errors.push(batch[idx]?.name ?? `file-${i + idx}`);
+        });
+        const pct = Math.round(((i + batch.length) / dicomFiles.length) * 70);
+        setProgress(pct);
+        setStatusMsg(`Parsed ${Math.min(i + batch.length, dicomFiles.length)} / ${dicomFiles.length} slices…`);
+      }
+
+      if (metas.length === 0) {
+        throw new Error('DICOM has no pixel data — could not decode any slices.');
+      }
+
+      setStatusMsg('Sorting slices by Z-position…');
+      setProgress(72);
+
+      // ── Sort by ImagePositionPatient[2] (Z), fall back to InstanceNumber, then filename ──
+      const hasIPP = metas.every(m => m.imagePositionZ !== null);
+      if (hasIPP) {
+        metas.sort((a, b) => (a.imagePositionZ ?? 0) - (b.imagePositionZ ?? 0));
+      } else {
+        const hasInstance = metas.every(m => m.instanceNumber > 0);
+        if (hasInstance) {
+          metas.sort((a, b) => a.instanceNumber - b.instanceNumber);
+        } else {
+          metas.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
+        }
+      }
+
+      // ── Validate uniform geometry ──
+      const refRows = metas[0].rows;
+      const refCols = metas[0].cols;
+      const uniform = metas.filter(m => m.rows === refRows && m.cols === refCols);
+      if (uniform.length !== metas.length) {
+        throw new Error(`Slices have inconsistent dimensions — only ${uniform.length}/${metas.length} match ${refCols}×${refRows}.`);
+      }
+      if (uniform.length < 10) {
+        throw new Error(`Not enough slices for MPR (need 10+, got ${uniform.length}).`);
+      }
+
+      setStatusMsg('Building 3D volume…');
+      setProgress(80);
+
+      // ── Assemble 3D volume (Z × Y × X flat layout) ──
+      const volumeDepth = uniform.length;
+      const volumeRows  = refRows;
+      const volumeCols  = refCols;
+      const volume = new Float32Array(volumeDepth * volumeRows * volumeCols);
+
+      for (let z = 0; z < volumeDepth; z++) {
+        const pixels = decodePixels(uniform[z]);
+        volume.set(pixels, z * volumeRows * volumeCols);
+        if (z % 20 === 0) {
+          const pct = 80 + Math.round((z / volumeDepth) * 18);
+          setProgress(pct);
+          setStatusMsg(`Decoding slice ${z + 1} / ${volumeDepth}…`);
+        }
+      }
+
+      setProgress(100);
+      setStatusMsg('Volume ready!');
+
+      // Use W/L from first slice's metadata (or soft-tissue default)
+      const defaultWC = uniform[0].windowCenter || 40;
+      const defaultWW = uniform[0].windowWidth  || 400;
+
+      onVolumeReady({ volume, depth: volumeDepth, rows: volumeRows, cols: volumeCols, defaultWC, defaultWW });
+
+    } catch (err) {
+      console.error('[DICOM Parse Error]', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onVolumeReady]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, noClick: false, noKeyboard: false });
+
+  return (
+    <div
+      {...getRootProps()}
+      className={`flex-1 flex flex-col items-center justify-center rounded-lg border-2 border-dashed cursor-pointer transition-all duration-300 ${
+        isDragActive
+          ? 'border-sky-400 bg-sky-950/30 scale-[1.005]'
+          : 'border-[#2a364a] bg-[#080c14] hover:border-[#334155] hover:bg-[#0a0e17]'
+      }`}
+    >
+      <input
+        {...getInputProps()}
+        {...{ webkitdirectory: 'true', directory: 'true' } as React.InputHTMLAttributes<HTMLInputElement>}
+      />
+
+      {isLoading ? (
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-sky-500/20 animate-pulse" />
+            <div className="absolute inset-2 rounded-full border-4 border-sky-400 border-t-transparent animate-spin" />
+            <Loader2 className="absolute inset-0 m-auto w-6 h-6 text-sky-500 animate-spin" style={{ animationDirection: 'reverse' }} />
+          </div>
+          <div className="text-center">
+            <p className="text-white text-sm font-bold">Building 3D Volume</p>
+            <p className="text-slate-500 text-xs mt-0.5">{statusMsg}</p>
+          </div>
+          <div className="w-48 h-1.5 bg-[#1e293b] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-sky-500 to-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="text-[#2a364a] text-[10px] font-mono">{progress}% — {fileCount} files</p>
+        </div>
+      ) : (
+        <>
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-all ${isDragActive ? 'bg-sky-500/20 border-2 border-sky-400' : 'bg-[#131826] border-2 border-[#2a364a]'}`}>
+            <CloudUpload className={`w-7 h-7 ${isDragActive ? 'text-sky-400' : 'text-slate-500'}`} />
+          </div>
+          <p className="text-white text-sm font-bold mb-1">
+            {isDragActive ? 'Release to Upload' : 'Upload DICOM CT Series'}
+          </p>
+          <p className="text-slate-500 text-[11px] text-center max-w-xs leading-relaxed mb-4 px-2">
+            Drag a folder of .dcm slices, or click to browse.
+            Slices are sorted by Z-position and bundled into a 3D volume for MPR.
+          </p>
+          {error && (
+            <div className="bg-red-950/60 border border-red-500/40 text-red-400 text-[10px] rounded px-3 py-1.5 mb-3 max-w-xs text-center font-mono">
+              ⚠ {error}
+            </div>
+          )}
+          <div className="flex items-center gap-3 text-[10px] text-slate-600 font-mono">
+            <span>AXIAL</span><span className="text-[#1e293b]">•</span>
+            <span>CORONAL</span><span className="text-[#1e293b]">•</span>
+            <span>SAGITTAL MPR</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── Legend Canvas ────────────────────────────────────────────────────────────
+
+const LegendCanvas: React.FC<{ lut: LUTType }> = ({ lut }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = 16; canvas.height = 300;
+    const id = ctx.createImageData(16, 300);
+    const d  = id.data;
+    for (let y = 0; y < 300; y++) {
+      const v = 1 - y / 299;
+      const [r, g, b] = lutColor(v, lut);
+      for (let x = 0; x < 16; x++) {
+        const i = (y * 16 + x) * 4;
+        d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = 255;
+      }
+    }
+    ctx.putImageData(id, 0, 0);
+  }, [lut]);
+  return <canvas ref={ref} className="w-3 flex-1 rounded-sm border border-[#1e293b]" />;
+};
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   base64Matrix,
@@ -21,701 +882,366 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
 }) => {
   const [Depth, Height, Width] = dimensions;
 
-  // Shared Atomic State Context
-  const [coord, setCoord] = useState({
-    x: Math.floor(Width / 2),
+  // ── Determine operating mode ──
+  const isMockMode   = base64Matrix === 'MOCK';
+  const isUploadMode = !base64Matrix || base64Matrix === '';
+
+  // ── Shared viewer state ──
+  const [coord, setCoord] = useState<Coord>({
+    x: Math.floor(Width  / 2),
     y: Math.floor(Height / 2),
-    z: Math.floor(Depth / 2),
+    z: Math.floor(Depth  / 2),
   });
-  
-  const [globalOpacity, setGlobalOpacity] = useState<number>(0.5);
-  const [activeLUT, setActiveLUT] = useState<LUTType>('Jet');
-  
-  // Independent Zoom States
-  const [zoomAxial, setZoomAxial] = useState<number>(1.0);
-  const [zoomCoronal, setZoomCoronal] = useState<number>(1.0);
-  const [zoomSagittal, setZoomSagittal] = useState<number>(1.0);
+  const [wlPreset, setWlPreset]         = useState<WLPreset>(WL_PRESETS[0]);
+  const [heatmapOpacity, setHeatmapOp]  = useState(0.5);
+  const [activeLUT, setActiveLUT]       = useState<LUTType>('Jet');
+  const [zoomAxial,    setZoomAxial]     = useState(1);
+  const [zoomCoronal,  setZoomCoronal]   = useState(1);
+  const [zoomSagittal, setZoomSagittal]  = useState(1);
+  const [panAxial,    setPanAxial]       = useState<PanOffset>({ x: 0, y: 0 });
+  const [panCoronal,  setPanCoronal]     = useState<PanOffset>({ x: 0, y: 0 });
+  const [panSagittal, setPanSagittal]    = useState<PanOffset>({ x: 0, y: 0 });
+  const [isDecoding,  setIsDecoding]     = useState(true);
 
-  const axialCanvasRef = useRef<HTMLCanvasElement>(null);
-  const coronalCanvasRef = useRef<HTMLCanvasElement>(null);
-  const sagittalCanvasRef = useRef<HTMLCanvasElement>(null);
-  const legendCanvasRef = useRef<HTMLCanvasElement>(null);
-  const pdfAxialCanvasRef = useRef<HTMLCanvasElement>(null);
-  const pdfCoronalCanvasRef = useRef<HTMLCanvasElement>(null);
-  const pdfSagittalCanvasRef = useRef<HTMLCanvasElement>(null);
+  // ── Volume data ──
+  const [mainVolume,    setMainVolume]    = useState<Float32Array | null>(null);
+  const [heatmapVolume, setHeatmapVolume] = useState<Float32Array | null>(null);
+  const [volDims, setVolDims]             = useState({ depth: Depth, rows: Height, cols: Width });
 
-  const [float32Data, setFloat32Data] = useState<Float32Array>(new Float32Array(0));
-  const [dicomUint8Data, setDicomUint8Data] = useState<Uint8Array | null>(null);
-  const [isDecoding, setIsDecoding] = useState<boolean>(true);
-
-  // Parse Matrices
+  // ── Decode AI base64 buffers ──
   useEffect(() => {
-    if (base64Matrix === 'MOCK' || longitudinalMode) {
-      const size = dimensions[0] * dimensions[1] * dimensions[2];
-      const mockData = new Float32Array(size);
-      if (tumorTarget && tumorTarget.found) {
-         // Create a synthetic heatmap activation around the tumor target
-         const cz = tumorTarget.z;
-         const cy = tumorTarget.y;
-         const cx = tumorTarget.x;
-         const sigma = longitudinalMode === 'baseline' ? 12.0 : (longitudinalMode === 'followup' ? 5.0 : 8.0);
-         const threshold = longitudinalMode === 'baseline' ? 250 : (longitudinalMode === 'followup' ? 80 : 150);
-         for(let z=0; z<dimensions[0]; z++) {
-            for(let y=0; y<dimensions[1]; y++) {
-               for(let x=0; x<dimensions[2]; x++) {
-                  const distSq = Math.pow(z-cz, 2)*2.0 + Math.pow(y-cy, 2) + Math.pow(x-cx, 2);
-                  if(distSq < threshold) {
-                     mockData[z*dimensions[1]*dimensions[2] + y*dimensions[2] + x] = Math.exp(-distSq / (2 * sigma * sigma));
-                  }
-               }
-            }
-         }
-      }
-      setFloat32Data(mockData);
+    if (isMockMode) {
+      setMainVolume(null);
+      setHeatmapVolume(new Float32Array(0));
       setIsDecoding(false);
       return;
     }
-    if (!base64Matrix) {
-      setFloat32Data(new Float32Array(0));
+    if (isUploadMode) {
       setIsDecoding(false);
       return;
     }
+
     setIsDecoding(true);
-    fetch(`data:application/octet-stream;base64,${base64Matrix}`)
-      .then(res => res.arrayBuffer())
-      .then(buffer => {
-        setFloat32Data(new Float32Array(buffer));
-        setIsDecoding(false);
-      })
-      .catch(() => {
-        setFloat32Data(new Float32Array(0));
-        setIsDecoding(false);
-      });
-  }, [base64Matrix, dimensions, tumorTarget]);
 
-  useEffect(() => {
-    if (!dicomBase64Matrix) {
-      setDicomUint8Data(null);
-      return;
-    }
-    fetch(`data:application/octet-stream;base64,${dicomBase64Matrix}`)
-      .then(res => res.arrayBuffer())
-      .then(buffer => setDicomUint8Data(new Uint8Array(buffer)))
-      .catch(() => setDicomUint8Data(null));
-  }, [dicomBase64Matrix]);
+    const decodeBase64 = async (b64: string): Promise<ArrayBuffer> => {
+      const res = await fetch(`data:application/octet-stream;base64,${b64}`);
+      return res.arrayBuffer();
+    };
 
-  // Color Maps
-  const getLUTColor = useCallback((v: number, lut: LUTType): [number, number, number] => {
-    v = Math.max(0, Math.min(1, v));
-    if (lut === 'Jet') {
-      if (v >= 0.75) return [255, Math.floor(60 * (1 - (v - 0.75) * 4)), Math.floor(60 * (1 - (v - 0.75) * 4))];
-      else if (v >= 0.4) return [255, Math.floor(100 + 155 * ((v - 0.4) / 0.35)), 0];
-      else return [0, Math.floor(255 * ((v - 0.15) / 0.25)), 255];
-    } else if (lut === 'Viridis') {
-      return [Math.floor(v * 253), Math.floor(v * 231), Math.floor(v * 36)];
-    } else if (lut === 'Magma') {
-      return [Math.floor(v * 252), Math.floor(v * 253 * v), Math.floor(v * 164)];
-    } else if (lut === 'Plasma') {
-      return [Math.floor(v * 240), Math.floor(v * 249 * v), Math.floor(v * 33)];
-    }
-    return [0, 0, 0];
-  }, []);
+    const doLoad = async () => {
+      try {
+        // Grad-CAM heatmap
+        const hmBuf  = await decodeBase64(base64Matrix);
+        const hmData = new Float32Array(hmBuf);
+        setHeatmapVolume(hmData);
 
-  // Render Legend
-  useEffect(() => {
-    const canvas = legendCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = 16;
-    canvas.height = 300;
-    const imageData = ctx.createImageData(canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let y = 0; y < canvas.height; y++) {
-      const v = 1.0 - y / canvas.height;
-      const [r, g, b] = getLUTColor(v, activeLUT);
-      for (let x = 0; x < canvas.width; x++) {
-        const i = (y * canvas.width + x) * 4;
-        data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }, [activeLUT, getLUTColor]);
-
-  // Main Render Loop for 3 Views
-  useEffect(() => {
-    if (float32Data.length === 0) return;
-
-    const pixelSpacingX = 1.0;
-    const sliceThickness = 4.0;
-    const zScale = sliceThickness / pixelSpacingX;
-
-    const renderView = (
-      canvas: HTMLCanvasElement,
-      viewType: 'Axial' | 'Sagittal' | 'Coronal',
-      zoomLevel: number,
-      srcWidth: number,
-      srcHeight: number,
-      destWidth: number,
-      destHeight: number
-    ) => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const internalWidth = 1024;
-      const internalHeight = 1024;
-
-      if (canvas.width !== internalWidth || canvas.height !== internalHeight) {
-        canvas.width = internalWidth;
-        canvas.height = internalHeight;
-      }
-
-      const offAnat = document.createElement('canvas');
-      offAnat.width = srcWidth; offAnat.height = srcHeight;
-      const anatCtx = offAnat.getContext('2d');
-      
-      const offHeat = document.createElement('canvas');
-      offHeat.width = srcWidth; offHeat.height = srcHeight;
-      const heatCtx = offHeat.getContext('2d');
-      
-      if (!anatCtx || !heatCtx) return;
-
-      const anatImageData = anatCtx.createImageData(srcWidth, srcHeight);
-      const heatImageData = heatCtx.createImageData(srcWidth, srcHeight);
-      const aData = anatImageData.data;
-      const hData = heatImageData.data;
-
-      let maxAct = 0;
-      let coreX = 0, coreY = 0;
-
-      for (let y = 0; y < srcHeight; y++) {
-        for (let x = 0; x < srcWidth; x++) {
-          let mapX = 0, mapY = 0, mapZ = 0;
-          if (viewType === 'Axial') { mapX = x; mapY = y; mapZ = coord.z; } 
-          else if (viewType === 'Sagittal') { mapX = coord.x; mapY = y; mapZ = x; } 
-          else if (viewType === 'Coronal') { mapX = x; mapY = coord.y; mapZ = y; }
-
-          const flatIndex = mapZ * Height * Width + mapY * Width + mapX;
-          const heatVal = float32Data[flatIndex] || 0;
-          
-          if (heatVal > maxAct) { maxAct = heatVal; coreX = x; coreY = y; }
-
-          const pixelIndex = (y * srcWidth + x) * 4;
-          let grayVal = 0;
-          
-          if (dicomUint8Data && dicomUint8Data.length > flatIndex && !longitudinalMode) {
-              grayVal = dicomUint8Data[flatIndex];
-          } else {
-              const cx = Width / 2.0; const cy = Height / 2.0; const cz = Depth / 2.0;
-              const nx = (mapX - cx) / cx; const ny = (mapY - cy) / cy; const nz = (mapZ - cz) / cz;
-              const warp1 = Math.sin(ny * 8.0 + nz * 4.0) * Math.cos(nx * 8.0) * 0.08;
-              const warp2 = Math.sin(nx * 12.0) * Math.sin(ny * 12.0) * 0.03;
-              const wnx = nx + warp1; const wny = ny + warp2; const wnz = nz + warp1 * 0.5;
-
-              let huVal = -1000;
-              const bodyShape = (wnx * wnx) / 0.8 + (wny * wny) / 0.6 + (wnz * wnz) / 0.9;
-              
-              if (bodyShape <= 1.0) {
-                  const fibrousNoise = (Math.sin(mapX * 0.8) * Math.cos(mapY * 0.8) + Math.sin(mapX * 0.4 + mapY * 0.4)) * 12;
-                  huVal = 35 + fibrousNoise; 
-
-                  const spineShape = Math.pow(wnx, 2)/0.03 + Math.pow(wny - 0.5, 2)/0.06;
-                  if (spineShape < 1.0) {
-                     huVal = 700 + Math.random() * 150;
-                     if (spineShape < 0.4) huVal = 200 + Math.random() * 40;
-                     if (wny > 0.55 && Math.abs(wnx) < 0.05 && wny < 0.7) huVal = 600 + Math.random() * 100;
-                  }
-
-                  const liverShape = Math.pow(wnx + 0.3, 2)/0.35 + Math.pow(wny + 0.05, 2)/0.25 + Math.pow(wnz, 2)/0.5;
-                  if (liverShape < 1.0) {
-                      const liverGranular = Math.sin(mapX * 1.5) * Math.cos(mapY * 1.5) * 8;
-                      huVal = -30 + liverGranular + Math.random() * 10;
-                      if (Math.sin(wnx * 20 + wny * 10) * Math.cos(wny * 15) > 0.8) huVal -= 45; 
-
-                      if (tumorTarget && tumorTarget.found) {
-                         const distZ = (mapZ - tumorTarget.z);
-                         const distY = (mapY - tumorTarget.y);
-                         const distX = (mapX - tumorTarget.x);
-                         const distFromTumor = Math.sqrt(distZ*distZ*2.0 + distY*distY + distX*distX);
-                         const voidRadius = longitudinalMode === 'baseline' ? 18.0 : (longitudinalMode === 'followup' ? 8.0 : 14.0);
-                         if (distFromTumor < voidRadius) {
-                             huVal = -80 + Math.random() * 15;
-                             if (distFromTumor > voidRadius - 2.0) {
-                                 huVal = 120 + Math.random() * 30;
-                             }
-                         }
-                      }
-                  }
-
-                  const aortaDist = Math.sqrt(Math.pow(wnx + 0.05, 2) + Math.pow(wny - 0.25, 2));
-                  const ivcDist = Math.sqrt(Math.pow(wnx - 0.1, 2) + Math.pow(wny - 0.2, 2));
-                  if (aortaDist < 0.05 || ivcDist < 0.06) {
-                      huVal = 120 + Math.random() * 15;
-                      if (aortaDist > 0.04 || ivcDist > 0.05) huVal = 300 + Math.random() * 50; 
-                  }
-
-                  const stomachShape = Math.pow(wnx - 0.4, 2)/0.1 + Math.pow(wny + 0.1, 2)/0.15 + Math.pow(wnz - 0.1, 2)/0.2;
-                  if (stomachShape < 1.0) {
-                      huVal = -900 + Math.random() * 50;
-                      if (stomachShape > 0.7) huVal = 20 + Math.sin(mapX * 3) * 20;
-                  }
-                  
-                  if (Math.pow(wnx - 0.5, 2)/0.08 + Math.pow(wny - 0.3, 2)/0.08 + Math.pow(wnz + 0.2, 2)/0.15 < 1.0) huVal = 45 + Math.random() * 5;
-                  if (Math.pow(wnx + 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1 < 1.0 || 
-                      Math.pow(wnx - 0.3, 2)/0.05 + Math.pow(wny - 0.35, 2)/0.06 + Math.pow(wnz, 2)/0.1 < 1.0) huVal = 80 + Math.sin(mapX * 2.0)*10.0;
-                  
-                  if (bodyShape > 0.85) {
-                      huVal = -120 + Math.random() * 15;
-                      if (bodyShape > 0.98) huVal = 50;
-                  }
-              }
-
-              let windowedVal = (huVal - 40.0) / 350.0 + 0.5;
-              grayVal = Math.floor(Math.max(0, Math.min(1, windowedVal)) * 255);
+        // Raw DICOM CT pixels (optional)
+        if (dicomBase64Matrix) {
+          const ctBuf  = await decodeBase64(dicomBase64Matrix);
+          const ctData = new Uint8Array(ctBuf);
+          // Convert byte-normalized [0,255] → HU approx via soft-tissue W/L
+          const huApprox = new Float32Array(ctData.length);
+          for (let i = 0; i < ctData.length; i++) {
+            huApprox[i] = (ctData[i] / 255) * wlPreset.ww + (wlPreset.wc - wlPreset.ww / 2);
           }
-
-          aData[pixelIndex] = grayVal; aData[pixelIndex + 1] = grayVal; aData[pixelIndex + 2] = grayVal; aData[pixelIndex + 3] = 255; 
-
-          if (heatVal < 0.45) {
-              hData[pixelIndex] = 0; hData[pixelIndex + 1] = 0; hData[pixelIndex + 2] = 0; hData[pixelIndex + 3] = 0;
-          } else {
-              const [r, g, b] = getLUTColor(heatVal, activeLUT);
-              hData[pixelIndex] = r; hData[pixelIndex + 1] = g; hData[pixelIndex + 2] = b; hData[pixelIndex + 3] = 255; 
-          }
+          setMainVolume(huApprox);
+        } else {
+          setMainVolume(null);
         }
-      }
 
-      anatCtx.putImageData(anatImageData, 0, 0);
-      heatCtx.putImageData(heatImageData, 0, 0);
-
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(internalWidth / destWidth, internalHeight / destHeight);
-      ctx.imageSmoothingEnabled = zoomLevel <= 2.0;
-      if (zoomLevel <= 2.0) ctx.imageSmoothingQuality = 'high';
-      ctx.clearRect(0, 0, destWidth, destHeight);
-
-      const viewWidth = srcWidth / zoomLevel;
-      const viewHeight = srcHeight / zoomLevel;
-      let cx = 0, cy = 0;
-
-      if (viewType === 'Axial') { cx = coord.x; cy = coord.y; }
-      else if (viewType === 'Sagittal') { cx = coord.z; cy = coord.y; }
-      else if (viewType === 'Coronal') { cx = coord.x; cy = coord.z; }
-
-      let sx = cx - viewWidth / 2;
-      let sy = cy - viewHeight / 2;
-
-      if (sx < 0) sx = 0; if (sy < 0) sy = 0;
-      if (sx + viewWidth > srcWidth) sx = srcWidth - viewWidth;
-      if (sy + viewHeight > srcHeight) sy = srcHeight - viewHeight;
-      
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1.0;
-      ctx.drawImage(offAnat, sx, sy, viewWidth, viewHeight, 0, 0, destWidth, destHeight);
-
-      ctx.globalCompositeOperation = 'source-over'; 
-      ctx.globalAlpha = 0.40;
-      ctx.drawImage(offHeat, sx, sy, viewWidth, viewHeight, 0, 0, destWidth, destHeight);
-
-      ctx.globalAlpha = 1.0;
-      ctx.globalCompositeOperation = 'source-over';
-
-      let destCrossX = -1;
-      let destCrossY = -1;
-      
-      if (viewType === 'Axial') { destCrossX = ((coord.x - sx) / viewWidth) * destWidth; destCrossY = ((coord.y - sy) / viewHeight) * destHeight; } 
-      else if (viewType === 'Sagittal') { destCrossX = ((coord.z - sx) / viewWidth) * destWidth; destCrossY = ((coord.y - sy) / viewHeight) * destHeight; } 
-      else if (viewType === 'Coronal') { destCrossX = ((coord.x - sx) / viewWidth) * destWidth; destCrossY = ((coord.z - sy) / viewHeight) * destHeight; }
-
-      if (destCrossX >= 0 && destCrossY >= 0) {
-         ctx.beginPath();
-         ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)';
-         ctx.lineWidth = 1.0; 
-         ctx.moveTo(destCrossX, 0); ctx.lineTo(destCrossX, destHeight);
-         ctx.moveTo(0, destCrossY); ctx.lineTo(destWidth, destCrossY);
-         ctx.stroke();
-      }
-
-      if (tumorTarget && tumorTarget.found) {
-        let drawOverlay = false;
-        let tX = 0, tY = 0, diffZ = 0;
-
-        if (viewType === 'Axial') { diffZ = Math.abs(coord.z - tumorTarget.z); tX = tumorTarget.x; tY = tumorTarget.y; } 
-        else if (viewType === 'Coronal') { diffZ = Math.abs(coord.y - tumorTarget.y); tX = tumorTarget.x; tY = tumorTarget.z; } 
-        else if (viewType === 'Sagittal') { diffZ = Math.abs(coord.x - tumorTarget.x); tX = tumorTarget.z; tY = tumorTarget.y; }
-
-        if (diffZ <= 2) drawOverlay = true;
-
-        if (drawOverlay) {
-          ctx.save();
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-          const pixelX = ((tX - sx) / viewWidth) * internalWidth;
-          const pixelY = ((tY - sy) / viewHeight) * internalHeight;
-
-          const boxSize = (longitudinalMode === 'baseline' ? 180 : (longitudinalMode === 'followup' ? 90 : 140)) * zoomLevel; 
-          const halfBox = boxSize / 2;
-          const thermalRadius = (longitudinalMode === 'baseline' ? 90 : (longitudinalMode === 'followup' ? 45 : 70)) * zoomLevel;
-
-          const radGrad = ctx.createRadialGradient(pixelX, pixelY, 0, pixelX, pixelY, thermalRadius);
-          radGrad.addColorStop(0, 'rgba(255, 0, 0, 0.6)');
-          radGrad.addColorStop(0.45, 'rgba(255, 0, 0, 0.6)');
-          radGrad.addColorStop(0.85, 'rgba(255, 165, 0, 0.4)');
-          radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          
-          ctx.fillStyle = radGrad;
-          ctx.fillRect(pixelX - thermalRadius, pixelY - thermalRadius, thermalRadius * 2, thermalRadius * 2);
-
-          ctx.beginPath();
-          ctx.strokeStyle = '#00FFCC';
-          ctx.setLineDash([6, 6]); 
-          ctx.lineWidth = 2.0; 
-          ctx.rect(pixelX - halfBox, pixelY - halfBox, boxSize, boxSize);
-          ctx.stroke();
-
-          const fontSize = 24; 
-          ctx.font = `${fontSize}px 'Inter', system-ui, sans-serif`;
-          const textStr = longitudinalMode === 'baseline' ? "RECIST ROI: 6.4cm (Baseline)" : (longitudinalMode === 'followup' ? "RECIST ROI: 2.1cm (Responding)" : "RECIST ROI");
-          const textWidth = ctx.measureText(textStr).width;
-          const badgePadding = 12; 
-          const badgeWidth = textWidth + badgePadding;
-          const badgeHeight = fontSize + 8; 
-          
-          const badgeX = pixelX + halfBox + 6;
-          const badgeY = pixelY - halfBox - 4;
-
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-          ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
-          
-          ctx.fillStyle = '#FFFFFF';
-          ctx.textBaseline = 'top';
-          ctx.fillText(textStr, badgeX + badgePadding / 2, badgeY + 4);
-          ctx.restore();
-        }
+      } catch {
+        setHeatmapVolume(null);
+        setMainVolume(null);
+      } finally {
+        setIsDecoding(false);
       }
     };
 
-    if (axialCanvasRef.current) renderView(axialCanvasRef.current, 'Axial', zoomAxial, Width, Height, Width, Height);
-    if (sagittalCanvasRef.current) renderView(sagittalCanvasRef.current, 'Sagittal', zoomSagittal, Depth, Height, Depth * zScale, Height);
-    if (coronalCanvasRef.current) renderView(coronalCanvasRef.current, 'Coronal', zoomCoronal, Width, Depth, Width, Depth * zScale);
+    doLoad();
+  }, [base64Matrix, dicomBase64Matrix, isMockMode, isUploadMode]);
 
-    if (pdfAxialCanvasRef.current) renderView(pdfAxialCanvasRef.current, 'Axial', 1.0, Width, Height, Width, Height);
-    if (pdfSagittalCanvasRef.current) renderView(pdfSagittalCanvasRef.current, 'Sagittal', 1.0, Depth, Height, Depth * zScale, Height);
-    if (pdfCoronalCanvasRef.current) renderView(pdfCoronalCanvasRef.current, 'Coronal', 1.0, Width, Depth, Width, Depth * zScale);
-
-  }, [coord, float32Data, dicomUint8Data, activeLUT, globalOpacity, zoomAxial, zoomCoronal, zoomSagittal, Width, Height, Depth, getLUTColor]);
-
-  // Hook to prevent page scroll ONLY when holding CTRL to zoom
-  useEffect(() => {
-    const preventScroll = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-      }
-    };
-    
-    const refs = [axialCanvasRef.current, coronalCanvasRef.current, sagittalCanvasRef.current];
-    refs.forEach(canvas => {
-      if (canvas) {
-        canvas.addEventListener('wheel', preventScroll, { passive: false });
-      }
+  // ── Handle DICOM folder upload ──
+  const handleDicomVolume = useCallback((result: DicomUploadResult) => {
+    setMainVolume(result.volume);
+    setHeatmapVolume(null);
+    setVolDims({ depth: result.depth, rows: result.rows, cols: result.cols });
+    setWlPreset({ label: 'LIVER', wc: 30, ww: 150 }); // Default to LIVER preset for liver CT
+    setCoord({
+      x: Math.floor(result.cols  / 2),
+      y: Math.floor(result.rows  / 2),
+      z: Math.floor(result.depth / 2),
     });
-
-    return () => {
-      refs.forEach(canvas => {
-        if (canvas) {
-          canvas.removeEventListener('wheel', preventScroll);
-        }
-      });
-    };
+    setZoomAxial(1); setZoomCoronal(1); setZoomSagittal(1);
+    setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
   }, []);
 
-  if (float32Data.length === 0) {
-    return <div className="p-4 text-center bg-[#0a0e17] text-slate-400 font-mono text-xs rounded-sm border border-[#1e293b]">NO VOLUMETRIC DATA</div>;
+  const { depth, rows, cols } = isUploadMode && mainVolume
+    ? volDims
+    : { depth: Depth, rows: Height, cols: Width };
+
+  const handleCoordChange = useCallback((c: Partial<Coord>) => {
+    setCoord(prev => ({
+      x: Math.max(0, Math.min(cols  - 1, c.x ?? prev.x)),
+      y: Math.max(0, Math.min(rows  - 1, c.y ?? prev.y)),
+      z: Math.max(0, Math.min(depth - 1, c.z ?? prev.z)),
+    }));
+  }, [cols, rows, depth]);
+
+  // ── Keyboard: ↑↓ scroll axial slice ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp')   setCoord(p => ({ ...p, z: Math.min(depth - 1, p.z + 1) }));
+      if (e.key === 'ArrowDown') setCoord(p => ({ ...p, z: Math.max(0,         p.z - 1) }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [depth]);
+
+  const resetAll = () => {
+    setCoord({ x: Math.floor(cols / 2), y: Math.floor(rows / 2), z: Math.floor(depth / 2) });
+    setZoomAxial(1); setZoomCoronal(1); setZoomSagittal(1);
+    setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
+  };
+
+  const centerOnTumor = () => {
+    if (tumorTarget?.found) {
+      setCoord({ x: tumorTarget.x, y: tumorTarget.y, z: tumorTarget.z });
+      setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
+    }
+  };
+
+  const resetZoom = () => {
+    setZoomAxial(1); setZoomCoronal(1); setZoomSagittal(1);
+    setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
+  };
+
+  // ── Volume for rendering ──
+  const renderVolume = mainVolume ?? new Float32Array(0);
+  const isMockRender = isMockMode || (!mainVolume && !isUploadMode);
+
+  // PDF export canvases (hidden, unzoomed — preserve existing IDs)
+  const pdfAxialRef    = useRef<HTMLCanvasElement>(null);
+  const pdfCoronalRef  = useRef<HTMLCanvasElement>(null);
+  const pdfSagittalRef = useRef<HTMLCanvasElement>(null);
+
+  // ── Not-yet-uploaded state ──
+  const showUploadPanel = isUploadMode && !mainVolume;
+
+  if (isDecoding) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-[#0a0e1a] min-h-[200px]">
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-[#00b8d4] animate-spin text-2xl">◌</span>
+          <span className="text-[#00b8d4] text-[10px] font-mono font-bold uppercase tracking-widest">Decoding Volume…</span>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col w-full h-full bg-black font-sans relative min-h-0">
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-4">
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-bold px-2 py-1 rounded backdrop-blur-sm uppercase tracking-wider">
-          💡 Hold CTRL + Scroll to Zoom
-        </div>
-        <div className="flex items-center gap-2 bg-[#0f141f]/80 p-1.5 rounded border border-[#1e293b] backdrop-blur-sm">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">LUT:</span>
-          <select 
-          value={activeLUT}
-          onChange={(e) => setActiveLUT(e.target.value as LUTType)}
-          className="bg-[#0a0e17] text-blue-400 border border-[#2a364a] rounded-sm px-2 py-0.5 text-[10px] font-mono outline-none cursor-pointer"
-        >
-          <option value="Jet">JET (THERMAL)</option>
-          <option value="Viridis">VIRIDIS</option>
-          <option value="Magma">MAGMA</option>
-          <option value="Plasma">PLASMA</option>
-        </select>
-      </div>
-    </div>
 
-    <div className="flex-1 flex gap-[2px] bg-[#2a364a] p-[2px] min-h-0">
-        
-        {/* 2x2 Grid Layout for MPR */}
+      {/* ── Main 2×2 Grid ─────────────────────────────────────────────── */}
+      <div className="flex-1 flex gap-[2px] bg-[#111827] p-[2px] min-h-0">
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-[2px] min-h-0">
-          
-          {/* Axial View */}
-          <div id={longitudinalMode ? `axial-view-capture-${longitudinalMode}` : "axial-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
-            {isDecoding && (
-               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 text-cyan-400 text-xs font-mono">
-                  <span className="animate-spin mb-2 text-xl">◌</span>
-                  DECODING STREAM
-               </div>
-            )}
-            {/* DICOM Overlays */}
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
-            </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              AXIAL (XY) | Z: {coord.z} | {(zoomAxial).toFixed(1)}x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
 
-            <canvas 
-              ref={axialCanvasRef} 
-              className="w-full h-full object-contain cursor-crosshair block"
-              onWheel={(e) => {
-                if (e.ctrlKey || e.metaKey) {
-                  setZoomAxial(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)));
-                }
-              }}
-              onClick={(e) => {
-                const viewWidth = Width / zoomAxial;
-                const viewHeight = Height / zoomAxial;
-                let sx = coord.x - viewWidth / 2;
-                let sy = coord.y - viewHeight / 2;
-                if (sx < 0) sx = 0; if (sy < 0) sy = 0;
-                if (sx + viewWidth > Width) sx = Width - viewWidth;
-                if (sy + viewHeight > Height) sy = Height - viewHeight;
+          {/* AXIAL (top-left) or Upload Panel */}
+          {showUploadPanel ? (
+            <div className="bg-black rounded-lg overflow-hidden flex flex-col col-span-2 row-span-2 min-h-[300px]">
+              <DicomUploadPanel onVolumeReady={handleDicomVolume} />
+            </div>
+          ) : (
+            <>
+              <MprPanel
+                plane="Axial"
+                volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                tumorTarget={tumorTarget}
+                zoom={zoomAxial} pan={panAxial}
+                onZoomChange={setZoomAxial} onPanChange={setPanAxial}
+                onCoordChange={handleCoordChange}
+                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+              />
 
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = Math.floor(sx + ((e.clientX - rect.left) / rect.width) * viewWidth);
-                const y = Math.floor(sy + ((e.clientY - rect.top) / rect.height) * viewHeight);
-                setCoord(prev => ({ ...prev, x, y }));
-              }}
-            />
-            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomAxial(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
-            </div>
-          </div>
+              {/* CORONAL (top-right) */}
+              <MprPanel
+                plane="Coronal"
+                volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                tumorTarget={tumorTarget}
+                zoom={zoomCoronal} pan={panCoronal}
+                onZoomChange={setZoomCoronal} onPanChange={setPanCoronal}
+                onCoordChange={handleCoordChange}
+                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+              />
 
-          {/* Coronal View */}
-          <div id={longitudinalMode ? `coronal-view-capture-${longitudinalMode}` : "coronal-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
-            {/* DICOM Overlays */}
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
-            </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              CORONAL (XZ) | Y: {coord.y} | {(zoomCoronal).toFixed(1)}x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
+              {/* SAGITTAL (bottom-left) */}
+              <MprPanel
+                plane="Sagittal"
+                volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                tumorTarget={tumorTarget}
+                zoom={zoomSagittal} pan={panSagittal}
+                onZoomChange={setZoomSagittal} onPanChange={setPanSagittal}
+                onCoordChange={handleCoordChange}
+                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+              />
 
-            <canvas 
-              ref={coronalCanvasRef} 
-              className="w-full h-full object-contain cursor-crosshair block"
-              onWheel={(e) => {
-                if (e.ctrlKey || e.metaKey) {
-                  setZoomCoronal(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)));
-                }
-              }}
-              onClick={(e) => {
-                const viewWidth = Width / zoomCoronal;
-                const viewHeight = Depth / zoomCoronal;
-                let sx = coord.x - viewWidth / 2;
-                let sz = coord.z - viewHeight / 2;
-                if (sx < 0) sx = 0; if (sz < 0) sz = 0;
-                if (sx + viewWidth > Width) sx = Width - viewWidth;
-                if (sz + viewHeight > Depth) sz = Depth - viewHeight;
+              {/* ── Slider / Control Panel (bottom-right quadrant) ── */}
+              <div id="mpr-controls-area" className="bg-[#0c1019] p-3 flex flex-col justify-between gap-2 border border-[#1e293b] rounded-lg min-h-0 overflow-y-auto">
 
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = Math.floor(sx + ((e.clientX - rect.left) / rect.width) * viewWidth);
-                const z = Math.floor(sz + ((e.clientY - rect.top) / rect.height) * viewHeight);
-                setCoord(prev => ({ ...prev, x, z }));
-              }}
-            />
-            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomCoronal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
-            </div>
-          </div>
+                {/* Volume info header */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-[#1e293b] mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Activity className="w-3 h-3 text-sky-400" />
+                    <span className="text-[9px] text-sky-400 font-bold uppercase tracking-widest">MPR Controls</span>
+                  </div>
+                  <span className="text-[8px] text-slate-600 font-mono">
+                    {cols}×{rows}×{depth} voxels
+                  </span>
+                </div>
 
-          {/* Sagittal View */}
-          <div id={longitudinalMode ? `sagittal-view-capture-${longitudinalMode}` : "sagittal-view-capture"} className="bg-black relative overflow-hidden group min-h-0">
-            {/* DICOM Overlays */}
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
-            </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              SAGITTAL (YZ) | X: {coord.x} | {(zoomSagittal).toFixed(1)}x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none drop-shadow-md">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
+                {/* Axis sliders */}
+                <div className="space-y-1.5">
+                  <SliderRow label="X — Sagittal" value={coord.x} max={cols  - 1} color="text-amber-400"
+                    display={`${coord.x} / ${cols}`}  onChange={x => setCoord(p => ({ ...p, x }))} />
+                  <SliderRow label="Y — Coronal"  value={coord.y} max={rows  - 1} color="text-emerald-400"
+                    display={`${coord.y} / ${rows}`}  onChange={y => setCoord(p => ({ ...p, y }))} />
+                  <SliderRow label="Z — Axial"    value={coord.z} max={depth - 1} color="text-sky-400"
+                    display={`${coord.z} / ${depth}`} onChange={z => setCoord(p => ({ ...p, z }))} />
+                </div>
 
-            <canvas 
-              ref={sagittalCanvasRef} 
-              className="w-full h-full object-contain cursor-crosshair block"
-              onWheel={(e) => {
-                if (e.ctrlKey || e.metaKey) {
-                  setZoomSagittal(prev => Math.max(1, Math.min(8, prev - e.deltaY * 0.005)));
-                }
-              }}
-              onClick={(e) => {
-                const viewWidth = Depth / zoomSagittal;
-                const viewHeight = Height / zoomSagittal;
-                let sz = coord.z - viewWidth / 2;
-                let sy = coord.y - viewHeight / 2;
-                if (sz < 0) sz = 0; if (sy < 0) sy = 0;
-                if (sz + viewWidth > Depth) sz = Depth - viewWidth;
-                if (sy + viewHeight > Height) sy = Height - viewHeight;
+                {/* W/L Preset dropdown */}
+                <div className="flex items-center gap-2 mt-1">
+                  <Contrast className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider flex-shrink-0">W/L</span>
+                  <select
+                    value={wlPreset.label}
+                    onChange={e => {
+                      const p = WL_PRESETS.find(pr => pr.label === e.target.value);
+                      if (p) setWlPreset(p);
+                    }}
+                    className="flex-1 bg-[#0a0e17] text-sky-400 border border-[#2a364a] rounded px-2 py-1 text-[10px] font-mono outline-none cursor-pointer"
+                  >
+                    {WL_PRESETS.map(p => <option key={p.label} value={p.label}>{p.label} (W:{p.ww} L:{p.wc})</option>)}
+                  </select>
+                </div>
 
-                const rect = e.currentTarget.getBoundingClientRect();
-                const z = Math.floor(sz + ((e.clientX - rect.left) / rect.width) * viewWidth);
-                const y = Math.floor(sy + ((e.clientY - rect.top) / rect.height) * viewHeight);
-                setCoord(prev => ({ ...prev, z, y }));
-              }}
-            />
-            <div data-html2canvas-ignore className="absolute top-1/2 right-2 -translate-y-1/2 flex flex-col gap-1 z-20 opacity-30 group-hover:opacity-100 transition-opacity">
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.min(8, z + 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">+</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); setZoomSagittal(z => Math.max(1, z - 0.5)); }} className="w-6 h-6 bg-black/80 border border-[#2a364a] rounded text-slate-300 flex items-center justify-center hover:bg-blue-900/50 hover:text-blue-400 hover:border-blue-500/50 shadow-lg font-bold">-</button>
-            </div>
-          </div>
-          
-          {/* Controls Area inside Grid Bottom Right */}
-          <div id="mpr-controls-area" className="bg-[#0f141f] p-2 flex flex-col justify-center gap-2 border-t border-[#1e293b] min-h-0 overflow-y-auto">
-            <div>
-               <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
-                 <span>X-Axis (Sagittal)</span>
-                 <span className="text-cyan-400">{coord.x} / {Width}</span>
-               </div>
-               <input type="range" min="0" max={Width - 1} value={coord.x} onChange={(e) => setCoord(prev => ({...prev, x: Number(e.target.value)}))} className="enterprise-slider" />
-            </div>
+                {/* Heatmap opacity (only when heatmap exists) */}
+                {heatmapVolume && heatmapVolume.length > 0 && (
+                  <div className="space-y-1">
+                    <SliderRow label="Heatmap Opacity" value={Math.round(heatmapOpacity * 100)} max={100}
+                      color="text-amber-500" display={`${Math.round(heatmapOpacity * 100)}%`}
+                      onChange={v => setHeatmapOp(v / 100)} />
 
-            <div>
-               <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
-                 <span>Y-Axis (Coronal)</span>
-                 <span className="text-cyan-400">{coord.y} / {Height}</span>
-               </div>
-               <input type="range" min="0" max={Height - 1} value={coord.y} onChange={(e) => setCoord(prev => ({...prev, y: Number(e.target.value)}))} className="enterprise-slider" />
-            </div>
+                    {/* LUT selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider flex-shrink-0">LUT</span>
+                      <select
+                        value={activeLUT}
+                        onChange={e => setActiveLUT(e.target.value as LUTType)}
+                        className="flex-1 bg-[#0a0e17] text-blue-400 border border-[#2a364a] rounded px-2 py-1 text-[10px] font-mono outline-none cursor-pointer"
+                      >
+                        {(['Jet', 'Viridis', 'Magma', 'Plasma'] as LUTType[]).map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
-            <div>
-               <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
-                 <span>Z-Axis (Axial)</span>
-                 <span className="text-cyan-400">{coord.z} / {Depth}</span>
-               </div>
-               <input type="range" min="0" max={Depth - 1} value={coord.z} onChange={(e) => setCoord(prev => ({...prev, z: Number(e.target.value)}))} className="enterprise-slider" />
-            </div>
+                {/* Action buttons */}
+                <div className="flex gap-1.5 mt-1 flex-wrap">
+                  <CtrlBtn icon={<RefreshCw className="w-3 h-3" />} label="Reset Zoom" onClick={resetZoom} />
+                  <CtrlBtn icon={<Crosshair className="w-3 h-3" />} label="Center MPR" onClick={resetAll} />
+                  {tumorTarget?.found && (
+                    <CtrlBtn icon={<Target className="w-3 h-3" />} label="Center Tumor" onClick={centerOnTumor} />
+                  )}
+                  {isUploadMode && mainVolume && (
+                    <CtrlBtn icon={<CloudUpload className="w-3 h-3" />} label="New Study"
+                      onClick={() => { setMainVolume(null); setHeatmapVolume(null); }} />
+                  )}
+                </div>
 
-            <div className="mt-1 border-t border-[#1e293b] pt-2">
-               <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1 font-bold">
-                 <span>Heatmap Opacity</span>
-                 <span className="text-amber-500">{Math.round(globalOpacity * 100)}%</span>
-               </div>
-               <input type="range" min="0" max="1" step="0.01" value={globalOpacity} onChange={(e) => setGlobalOpacity(Number(e.target.value))} className="enterprise-slider opacity-slider" />
-            </div>
-            
-            <div className="mt-1 flex gap-2 flex-shrink-0">
-               <button onClick={() => { setZoomAxial(1.0); setZoomCoronal(1.0); setZoomSagittal(1.0); }} className="flex-1 py-1 text-[9px] font-bold tracking-wider text-slate-300 bg-[#1e293b] hover:bg-[#2a364a] border border-[#334155] rounded transition-colors uppercase">
-                 Reset Zoom
-               </button>
-               <button onClick={() => { setCoord({ x: Math.floor(Width/2), y: Math.floor(Height/2), z: Math.floor(Depth/2) }); }} className="flex-1 py-1 text-[9px] font-bold tracking-wider text-slate-300 bg-[#1e293b] hover:bg-[#2a364a] border border-[#334155] rounded transition-colors uppercase">
-                 Center MPR
-               </button>
-            </div>
-          </div>
+                {/* Legend */}
+                <div className="mt-1 pt-2 border-t border-[#1e293b] text-[8px] text-slate-500 leading-5 space-y-0.5">
+                  <p><span className="text-sky-400 font-bold">──</span> Cyan crosshair = current slice position</p>
+                  {tumorTarget?.found && <p><span className="text-yellow-400 font-bold">○</span> Yellow circle = tumor location</p>}
+                  {heatmapVolume && heatmapVolume.length > 0 && <p><span className="text-rose-400 font-bold">▓</span> Heatmap = Grad-CAM activation (adjustable opacity)</p>}
+                  <p className="text-[7px] text-slate-600 mt-1">Scroll=Slice · Ctrl+Scroll=Zoom · Click=Navigate · Drag=Pan · DblClick=Reset</p>
+                </div>
 
+                {/* Patient info */}
+                {patientInfo && (
+                  <div className="mt-1 text-[8px] font-mono text-[#00b8d4] bg-black/30 px-1.5 py-1 rounded border border-[#1e293b] truncate">
+                    MRN: {patientInfo.id} | {patientInfo.name}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Vertical Color Scale Legend Bar */}
-        <div className="w-10 bg-[#0f141f] flex flex-col items-center py-2 flex-shrink-0 relative">
-          <span className="text-[8px] text-slate-500 font-bold mb-1">1.0</span>
-          <canvas ref={legendCanvasRef} className="w-3 flex-1 rounded-sm border border-[#1e293b] shadow-inner"></canvas>
-          <span className="text-[8px] text-slate-500 font-bold mt-1">0.0</span>
-          <span className="text-[8px] text-slate-600 mt-6 [writing-mode:vertical-rl] rotate-180 tracking-[0.2em] font-bold uppercase">
-            ACTIVATION
-          </span>
-        </div>
+        {/* Color legend bar */}
+        {heatmapVolume && heatmapVolume.length > 0 && (
+          <div className="w-8 bg-[#0c1019] flex flex-col items-center py-2 flex-shrink-0 border border-[#1e293b] rounded-lg">
+            <span className="text-[7px] text-slate-500 font-bold mb-1">1.0</span>
+            <LegendCanvas lut={activeLUT} />
+            <span className="text-[7px] text-slate-500 font-bold mt-1">0.0</span>
+            <span className="text-[7px] text-slate-600 mt-4 [writing-mode:vertical-rl] rotate-180 tracking-[0.2em] font-bold uppercase">ACTIVATION</span>
+          </div>
+        )}
       </div>
 
-      {/* HIDDEN UNZOOMED MPR VIEWS FOR PDF EXPORT */}
+      {/* ── Hidden unzoomed views for PDF export (preserve existing IDs) ── */}
       <div className="fixed top-0 left-0 w-0 h-0 overflow-hidden pointer-events-none z-[-9999] opacity-0">
         <div className="flex gap-4 bg-black p-4" style={{ width: '1200px', height: '400px' }}>
-          {/* Unzoomed Axial */}
-          <div id={longitudinalMode ? `pdf-axial-capture-${longitudinalMode}` : "pdf-axial-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
+          {(['axial', 'coronal', 'sagittal'] as const).map((view, vi) => (
+            <div
+              key={view}
+              id={longitudinalMode ? `pdf-${view}-capture-${longitudinalMode}` : `pdf-${view}-capture`}
+              className="bg-black relative overflow-hidden w-[350px] h-[350px]"
+            >
+              <canvas
+                ref={vi === 0 ? pdfAxialRef : vi === 1 ? pdfCoronalRef : pdfSagittalRef}
+                className="w-full h-full object-contain block"
+              />
             </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              AXIAL (XY) | Z: {coord.z} | 1.0x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
-            <canvas ref={pdfAxialCanvasRef} className="w-full h-full object-contain block" />
-          </div>
-
-          {/* Unzoomed Coronal */}
-          <div id={longitudinalMode ? `pdf-coronal-capture-${longitudinalMode}` : "pdf-coronal-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
-            </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              CORONAL (XZ) | Y: {coord.y} | 1.0x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
-            <canvas ref={pdfCoronalCanvasRef} className="w-full h-full object-contain block" />
-          </div>
-
-          {/* Unzoomed Sagittal */}
-          <div id={longitudinalMode ? `pdf-sagittal-capture-${longitudinalMode}` : "pdf-sagittal-capture"} className="bg-black relative overflow-hidden w-[350px] h-[350px]">
-            <div className="absolute top-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              MRN: {patientInfo?.id || 'UNKNOWN'} | {patientInfo?.name || 'ANONYMIZED'}
-            </div>
-            <div className="absolute top-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              SAGITTAL (YZ) | X: {coord.x} | 1.0x
-            </div>
-            <div className="absolute bottom-2 left-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              W: 400 L: 40
-            </div>
-            <div className="absolute bottom-2 right-2 text-[#00b8d4] text-[10px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded-sm z-10 pointer-events-none">
-              Thickness: 5.0mm | Spacing: 1.0x
-            </div>
-            <canvas ref={pdfSagittalCanvasRef} className="w-full h-full object-contain block" />
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
+
+// ─── Mini shared sub-components ───────────────────────────────────────────────
+
+const SliderRow: React.FC<{
+  label: string; value: number; max: number; color: string;
+  display: string; onChange: (v: number) => void;
+}> = ({ label, value, max, color, display, onChange }) => (
+  <div>
+    <div className="flex justify-between text-[9px] font-mono mb-0.5">
+      <span className="text-slate-400 font-bold uppercase tracking-wider">{label}</span>
+      <span className={`${color} font-bold`}>{display}</span>
+    </div>
+    <input
+      type="range" min={0} max={max} value={value}
+      onChange={e => onChange(Number(e.target.value))}
+      className="enterprise-slider w-full"
+    />
+  </div>
+);
+
+const CtrlBtn: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void }> = ({ icon, label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex-1 py-1 text-[8px] font-bold tracking-wider text-slate-300 bg-[#1e293b] hover:bg-[#2a364a] border border-[#334155] rounded transition-colors uppercase flex items-center justify-center gap-1 min-w-0"
+  >
+    {icon}{label}
+  </button>
+);
 
 export default MprClinicalWorkstation;
