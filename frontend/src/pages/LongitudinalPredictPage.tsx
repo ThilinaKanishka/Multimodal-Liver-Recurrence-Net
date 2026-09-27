@@ -622,21 +622,6 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                     <Database className="w-4 h-4 text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]" />
                     1. Diagnostic Pipeline
                   </h2>
-                  {dicomFileCount > 1 && pipelineStep !== "STEP1" && pipelineStep !== "STEP3" && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); setShowViewerModal(true); }}
-                      className="group relative flex items-center justify-center h-8 px-4 overflow-hidden rounded-md bg-[#00e5ff]/10 border border-[#00e5ff]/30 hover:border-[#00e5ff] transition-all shadow-[0_0_10px_rgba(0,229,255,0.1)] hover:shadow-[0_0_15px_rgba(0,229,255,0.3)] cursor-pointer"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00e5ff]/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
-                      <div className="flex items-center gap-2 relative z-10">
-                        <Box className="w-3.5 h-3.5 text-[#00e5ff] group-hover:rotate-12 transition-transform duration-300" />
-                        <span className="text-[9px] font-black text-white tracking-[0.15em] uppercase group-hover:text-[#00e5ff] transition-colors duration-300">
-                          OPEN PACS
-                        </span>
-                      </div>
-                    </button>
-                  )}
                 </div>
                 <div className="p-4 flex flex-col gap-4 flex-1 justify-start max-h-[calc(100vh-260px)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent relative z-10">
                   <div className={`border-2 rounded-xl p-4 min-h-[160px] flex flex-col items-center justify-center relative flex-1 transition-all duration-500 group/drop cursor-pointer overflow-hidden ${
@@ -1246,6 +1231,21 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                       
                       {/* SHAP & Metrics Sidebar */}
                       <div className="w-full xl:w-[350px] p-4 flex flex-col gap-4 bg-black/40 backdrop-blur-sm overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
+                        {dicomFileCount > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); setShowViewerModal(true); }}
+                              className="group relative flex items-center justify-center w-full h-11 overflow-hidden rounded-lg bg-[#00e5ff]/10 border border-[#00e5ff]/40 hover:border-[#00e5ff] transition-all shadow-[0_0_15px_rgba(0,229,255,0.15)] hover:shadow-[0_0_25px_rgba(0,229,255,0.4)] cursor-pointer shrink-0 mb-1"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00e5ff]/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+                              <div className="flex items-center gap-2.5 relative z-10">
+                                <Box className="w-4 h-4 text-[#00e5ff] group-hover:rotate-12 transition-transform duration-300" />
+                                <span className="text-[10px] font-black text-white tracking-[0.2em] uppercase group-hover:text-[#00e5ff] transition-colors duration-300">
+                                  OPEN ORIGINAL 3D PACS
+                                </span>
+                              </div>
+                            </button>
+                        )}
                         {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" && (
                           <div className="p-3 bg-red-950/30 border border-red-500/30 rounded text-[10px] text-red-200">
                               <p className="font-bold text-red-400 mb-1 border-b border-red-500/20 pb-1">🛑 UNCERTAINTY BOUNDARY BREACHED</p>
