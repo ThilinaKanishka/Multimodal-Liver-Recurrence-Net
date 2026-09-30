@@ -30,7 +30,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
-import { DicomPacsViewer } from "../components/DicomPacsViewer";
+import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -1698,7 +1698,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
       {showViewerModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
           <div className="w-full h-full max-w-[95vw] max-h-[95vh] flex flex-col relative rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-gray-900">
-             <DicomPacsViewer initialFiles={allDicomFiles} onClose={() => setShowViewerModal(false)} />
+             <Three3DPacsViewer initialFiles={allDicomFiles} onClose={() => setShowViewerModal(false)} />
           </div>
         </div>
       )}
