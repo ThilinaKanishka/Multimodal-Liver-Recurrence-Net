@@ -36,6 +36,7 @@ import dicomParser from 'dicom-parser';
 import {
   Activity, CloudUpload, Contrast, Crosshair, Loader2,
   RefreshCw, ScanLine, Target, ZoomIn, ZoomOut,
+  Maximize2, Minimize2, LayoutGrid, LayoutTemplate, Square, Rows, X
 } from 'lucide-react';
 
 // ─── Prop Interface (must match all callers) ──────────────────────────────────
@@ -329,6 +330,8 @@ interface MprPanelProps {
   onCoordChange: (c: Partial<Coord>) => void;
   isMockMode: boolean;
   longitudinalMode?: string;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 const CANVAS_SIZE = 512; // Internal canvas resolution
@@ -339,11 +342,21 @@ const MprPanel: React.FC<MprPanelProps> = ({
   coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
   tumorTarget, zoom, pan, onZoomChange, onPanChange, onCoordChange,
   isMockMode, longitudinalMode,
+  isMaximized, onToggleMaximize
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef<{ x: number; y: number } | null>(null);
   const animFrameRef = useRef<number>(0);
+  const [resizeCount, setResizeCount] = useState(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => setResizeCount(c => c + 1));
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   const { srcW, srcH } = getPlaneSourceDims(plane, depth, rows, cols);
 
@@ -554,7 +567,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [volume, depth, rows, cols, coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
-      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics]);
+      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics, resizeCount]);
 
   // ── Click → update crosshair in other views ──
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -699,6 +712,17 @@ const MprPanel: React.FC<MprPanelProps> = ({
           <span className="text-[9px] text-white/50 font-mono font-medium">{sliceLabel}</span>
           <span className="text-[9px] text-white/30 font-mono">{zoom.toFixed(1)}×</span>
           <span className="text-[9px] text-white/30 font-mono">W:{ww} L:{wc}</span>
+          {onToggleMaximize && (
+            <button type="button" onClick={onToggleMaximize} className="ml-1 text-white/50 hover:text-white transition-colors" title={isMaximized ? "Restore" : "Maximize"}>
+              {isMaximized ? (
+                <div className="flex items-center gap-1 bg-white/10 px-1.5 py-0.5 rounded text-[8px] tracking-widest text-white/80 hover:bg-white/20 hover:text-white transition-colors">
+                  <X className="w-3.5 h-3.5" /> RESTORE
+                </div>
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
         </div>
       </div>
       {/* Canvas */}
@@ -712,10 +736,10 @@ const MprPanel: React.FC<MprPanelProps> = ({
       />
       {/* Hover zoom buttons */}
       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-        <button onClick={() => onZoomChange(Math.min(5, zoom + 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
+        <button type="button" onClick={() => onZoomChange(Math.min(5, zoom + 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
           <ZoomIn className="w-2.5 h-2.5" />
         </button>
-        <button onClick={() => onZoomChange(Math.max(0.5, zoom - 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
+        <button type="button" onClick={() => onZoomChange(Math.max(0.5, zoom - 0.5))} className="w-5 h-5 flex items-center justify-center rounded bg-black/70 border border-white/20 text-white/60 hover:text-sky-400 transition-colors">
           <ZoomOut className="w-2.5 h-2.5" />
         </button>
       </div>
@@ -975,6 +999,73 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   const [panSagittal, setPanSagittal]    = useState<PanOffset>({ x: 0, y: 0 });
   const [isDecoding,  setIsDecoding]     = useState(true);
 
+  // ── Layout and Fullscreen ──
+  const [layoutMode, setLayoutMode] = useState<'2x2' | '1x1' | '1x2' | '2x1'>('2x2');
+  const [maximizedView, setMaximizedView] = useState<'Axial' | 'Coronal' | 'Sagittal' | null>(null);
+  const [selectedView, setSelectedView] = useState<'Axial' | 'Coronal' | 'Sagittal'>('Axial');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle fullscreen with F11 or F
+      if (e.key === 'F11' || e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+          containerRef.current?.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      // Layout shortcuts
+      if (e.key === '1') { setLayoutMode('1x1'); setMaximizedView(null); }
+      if (e.key === '2') { setLayoutMode('2x2'); setMaximizedView(null); }
+      if (e.key === '3') { setLayoutMode('1x2'); setMaximizedView(null); }
+      if (e.key === '4') { setLayoutMode('2x1'); setMaximizedView(null); }
+      
+      // Escape restores layout if maximized
+      if (e.key === 'Escape') {
+        setMaximizedView(null);
+      }
+    };
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('keydown', handleKeyDown);
+      // We also attach to window to catch F11 easily
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      if (container) container.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [layoutMode]);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const handleMaximize = (plane: Plane) => {
+    if (maximizedView === plane) {
+      setMaximizedView(null);
+    } else {
+      setMaximizedView(plane);
+    }
+  };
+
+
+
   // ── Volume data ──
   const [mainVolume,    setMainVolume]    = useState<Float32Array | null>(null);
   const [heatmapVolume, setHeatmapVolume] = useState<Float32Array | null>(null);
@@ -1183,62 +1274,130 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   }
 
   return (
-    <div className="flex flex-col w-full h-full bg-black font-sans relative min-h-0">
+    <div ref={containerRef} tabIndex={-1} className="flex flex-col w-full h-full bg-black font-sans relative min-h-0 focus:outline-none">
 
-      {/* ── Main 2×2 Grid ─────────────────────────────────────────────── */}
+      {/* ── Top Toolbar (Fullscreen & Layout) ── */}
+      <div className="flex items-center justify-between px-3 py-2 bg-[#0c1019] border-b border-[#1e293b] select-none flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 border border-[#2a364a] rounded bg-black p-0.5">
+            <LayoutBtn icon={<Square className="w-3.5 h-3.5" />} active={layoutMode === '1x1'} onClick={() => setLayoutMode('1x1')} label="1×1" />
+            <LayoutBtn icon={<Rows className="w-3.5 h-3.5" />} active={layoutMode === '1x2'} onClick={() => setLayoutMode('1x2')} label="1×2" />
+            <LayoutBtn icon={<LayoutTemplate className="w-3.5 h-3.5" />} active={layoutMode === '2x1'} onClick={() => setLayoutMode('2x1')} label="2×1" />
+            <LayoutBtn icon={<LayoutGrid className="w-3.5 h-3.5" />} active={layoutMode === '2x2'} onClick={() => setLayoutMode('2x2')} label="2×2" />
+          </div>
+          {layoutMode === '1x1' && (
+            <select
+              value={selectedView}
+              onChange={e => setSelectedView(e.target.value as Plane)}
+              className="bg-[#0a0e17] text-sky-400 border border-[#2a364a] rounded px-2 py-1 text-[10px] font-mono outline-none cursor-pointer"
+            >
+              <option value="Axial">Axial</option>
+              <option value="Coronal">Coronal</option>
+              <option value="Sagittal">Sagittal</option>
+            </select>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {patientInfo && (
+            <div className="text-[10px] font-mono text-[#00b8d4] truncate max-w-[200px]">
+              {patientInfo.id} | {patientInfo.name}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e293b] hover:bg-[#2a364a] text-slate-300 rounded text-[10px] font-bold tracking-widest uppercase transition-colors"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main Grid ─────────────────────────────────────────────── */}
       <div className="flex-1 flex gap-[2px] bg-[#111827] p-[2px] min-h-0">
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-[2px] min-h-0">
+        <div className={`flex-1 grid gap-[2px] min-h-0 ${
+          (maximizedView || layoutMode === '1x1') ? 'grid-cols-1 grid-rows-1' :
+          layoutMode === '1x2' ? 'grid-cols-2 grid-rows-2' :
+          'grid-cols-1 md:grid-cols-2 grid-rows-2'
+        }`}>
 
-          {/* AXIAL (top-left) or Upload Panel */}
-          {showUploadPanel ? (
-            <div className="bg-black rounded-lg overflow-hidden flex flex-col col-span-2 row-span-2 min-h-[300px]">
+          {/* Upload Panel (takes precedence) */}
+          {showUploadPanel && (
+            <div className="bg-black rounded-lg overflow-hidden flex flex-col col-span-full row-span-full min-h-[300px]">
               <DicomUploadPanel onVolumeReady={handleDicomVolume} />
             </div>
-          ) : (
+          )}
+
+          {/* Render Panels Based on Layout */}
+          {!showUploadPanel && (
             <>
-              <MprPanel
-                plane="Axial"
-                volume={renderVolume} depth={depth} rows={rows} cols={cols}
-                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
-                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
-                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                tumorTarget={tumorTarget}
-                zoom={zoomAxial} pan={panAxial}
-                onZoomChange={setZoomAxial} onPanChange={setPanAxial}
-                onCoordChange={handleCoordChange}
-                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
-              />
+              {/* AXIAL */}
+              {(!maximizedView || maximizedView === 'Axial') &&
+               (layoutMode !== '1x1' || selectedView === 'Axial') && (
+                <div className={`flex flex-col min-h-0 ${(!maximizedView && layoutMode === '1x2') ? 'col-span-1 md:col-span-2 row-span-1' : ''}`}>
+                  <MprPanel
+                    plane="Axial"
+                    volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                    spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
+                    coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                    heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                    tumorTarget={tumorTarget}
+                    zoom={zoomAxial} pan={panAxial}
+                    onZoomChange={setZoomAxial} onPanChange={setPanAxial}
+                    onCoordChange={handleCoordChange}
+                    isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+                    isMaximized={maximizedView === 'Axial'}
+                    onToggleMaximize={() => handleMaximize('Axial')}
+                  />
+                </div>
+              )}
 
-              {/* CORONAL (top-right) */}
-              <MprPanel
-                plane="Coronal"
-                volume={renderVolume} depth={depth} rows={rows} cols={cols}
-                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
-                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
-                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                tumorTarget={tumorTarget}
-                zoom={zoomCoronal} pan={panCoronal}
-                onZoomChange={setZoomCoronal} onPanChange={setPanCoronal}
-                onCoordChange={handleCoordChange}
-                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
-              />
+              {/* CORONAL */}
+              {(!maximizedView || maximizedView === 'Coronal') &&
+               (layoutMode !== '1x1' || selectedView === 'Coronal') && (
+                <div className="flex flex-col min-h-0">
+                  <MprPanel
+                    plane="Coronal"
+                    volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                    spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
+                    coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                    heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                    tumorTarget={tumorTarget}
+                    zoom={zoomCoronal} pan={panCoronal}
+                    onZoomChange={setZoomCoronal} onPanChange={setPanCoronal}
+                    onCoordChange={handleCoordChange}
+                    isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+                    isMaximized={maximizedView === 'Coronal'}
+                    onToggleMaximize={() => handleMaximize('Coronal')}
+                  />
+                </div>
+              )}
 
-              {/* SAGITTAL (bottom-left) */}
-              <MprPanel
-                plane="Sagittal"
-                volume={renderVolume} depth={depth} rows={rows} cols={cols}
-                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
-                coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
-                heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                tumorTarget={tumorTarget}
-                zoom={zoomSagittal} pan={panSagittal}
-                onZoomChange={setZoomSagittal} onPanChange={setPanSagittal}
-                onCoordChange={handleCoordChange}
-                isMockMode={isMockRender} longitudinalMode={longitudinalMode}
-              />
+              {/* SAGITTAL */}
+              {(!maximizedView || maximizedView === 'Sagittal') &&
+               (layoutMode !== '1x1' || selectedView === 'Sagittal') && (
+                <div className="flex flex-col min-h-0">
+                  <MprPanel
+                    plane="Sagittal"
+                    volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                    spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
+                    coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
+                    heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
+                    tumorTarget={tumorTarget}
+                    zoom={zoomSagittal} pan={panSagittal}
+                    onZoomChange={setZoomSagittal} onPanChange={setPanSagittal}
+                    onCoordChange={handleCoordChange}
+                    isMockMode={isMockRender} longitudinalMode={longitudinalMode}
+                    isMaximized={maximizedView === 'Sagittal'}
+                    onToggleMaximize={() => handleMaximize('Sagittal')}
+                  />
+                </div>
+              )}
 
-              {/* ── Slider / Control Panel (bottom-right quadrant) ── */}
-              <div id="mpr-controls-area" className="bg-[#0c1019] p-3 flex flex-col justify-between gap-2 border border-[#1e293b] rounded-lg min-h-0 overflow-y-auto">
+              {/* ── Slider / Control Panel ── */}
+              {!maximizedView && (layoutMode === '2x2' || layoutMode === '2x1') && (
+                <div id="mpr-controls-area" className="bg-[#0c1019] p-3 flex flex-col justify-between gap-2 border border-[#1e293b] rounded-lg min-h-0 overflow-y-auto">
 
                 {/* Volume info header */}
                 <div className="flex items-center justify-between pb-1.5 border-b border-[#1e293b] mb-1">
@@ -1326,6 +1485,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
         </div>
@@ -1388,6 +1548,19 @@ const CtrlBtn: React.FC<{ icon: React.ReactNode; label: string; onClick: () => v
     className="flex-1 py-1 text-[8px] font-bold tracking-wider text-slate-300 bg-[#1e293b] hover:bg-[#2a364a] border border-[#334155] rounded transition-colors uppercase flex items-center justify-center gap-1 min-w-0"
   >
     {icon}{label}
+  </button>
+);
+
+const LayoutBtn: React.FC<{ icon: React.ReactNode; label: string; active: boolean; onClick: () => void }> = ({ icon, label, active, onClick }) => (
+  <button
+    type="button"
+    title={label}
+    onClick={onClick}
+    className={`p-1.5 rounded transition-colors flex items-center justify-center ${
+      active ? 'bg-teal-600/20 text-teal-400' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+    }`}
+  >
+    {icon}
   </button>
 );
 
