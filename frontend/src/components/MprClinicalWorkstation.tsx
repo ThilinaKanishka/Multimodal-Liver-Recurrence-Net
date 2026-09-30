@@ -76,6 +76,8 @@ interface DicomMeta {
   dataLength: number;
   byteArray: Uint8Array;
   filename: string;
+  flipX: boolean;
+  flipY: boolean;
 }
 
 // ─── DICOM Parsing Helpers ────────────────────────────────────────────────────
@@ -142,6 +144,20 @@ function parseDicomMeta(buffer: ArrayBuffer, filename: string): DicomMeta | null
       const wwStr = ds.string('x00281051'); if (wwStr) windowWidth  = parseFloat(wwStr.split('\\')[0]);
     } catch { /* not present */ }
 
+    // (0020,0037) ImageOrientationPatient
+    let flipX = false;
+    let flipY = false;
+    try {
+      const iopStr = ds.string('x00200037');
+      if (iopStr) {
+        const parts = iopStr.split('\\').map(parseFloat);
+        if (parts.length >= 6) {
+          if (parts[0] < 0) flipX = true;
+          if (parts[4] < 0) flipY = true;
+        }
+      }
+    } catch { /* not present */ }
+
     return {
       instanceNumber, imagePositionZ, rows, cols,
       pixelSpacingRow, pixelSpacingCol, sliceThickness,
@@ -149,7 +165,7 @@ function parseDicomMeta(buffer: ArrayBuffer, filename: string): DicomMeta | null
       bitsAllocated, pixelRepresentation,
       dataOffset: pixelEl.dataOffset,
       dataLength: pixelEl.length,
-      byteArray, filename,
+      byteArray, filename, flipX, flipY
     };
   } catch {
     return null;
@@ -159,24 +175,37 @@ function parseDicomMeta(buffer: ArrayBuffer, filename: string): DicomMeta | null
 /** Decode raw pixel bytes → Float32Array of HU values */
 function decodePixels(meta: DicomMeta): Float32Array {
   const { rows, cols, bitsAllocated, pixelRepresentation,
-          rescaleSlope, rescaleIntercept, dataOffset, dataLength, byteArray } = meta;
+          rescaleSlope, rescaleIntercept, dataOffset, dataLength, byteArray, flipX, flipY } = meta;
   const n = rows * cols;
   const hu = new Float32Array(n);
 
   if (bitsAllocated === 8) {
-    for (let i = 0; i < n; i++) {
-      hu[i] = byteArray[dataOffset + i] * rescaleSlope + rescaleIntercept;
+    for (let py = 0; py < rows; py++) {
+      for (let px = 0; px < cols; px++) {
+        const srcX = flipX ? cols - 1 - px : px;
+        const srcY = flipY ? rows - 1 - py : py;
+        const srcIdx = srcY * cols + srcX;
+        const dstIdx = py * cols + px;
+        hu[dstIdx] = byteArray[dataOffset + srcIdx] * rescaleSlope + rescaleIntercept;
+      }
     }
   } else if (bitsAllocated === 16) {
     // Use DataView for correct endianness (DICOM is always little-endian)
     const dv = new DataView(byteArray.buffer, byteArray.byteOffset + dataOffset,
       Math.min(dataLength, n * 2));
     const isSigned = pixelRepresentation === 1;
-    for (let i = 0; i < n; i++) {
-      const offset = i * 2;
-      if (offset + 2 > dv.byteLength) break;
-      const raw = isSigned ? dv.getInt16(offset, true) : dv.getUint16(offset, true);
-      hu[i] = raw * rescaleSlope + rescaleIntercept;
+    for (let py = 0; py < rows; py++) {
+      for (let px = 0; px < cols; px++) {
+        const srcX = flipX ? cols - 1 - px : px;
+        const srcY = flipY ? rows - 1 - py : py;
+        const srcIdx = srcY * cols + srcX;
+        const dstIdx = py * cols + px;
+        
+        const offset = srcIdx * 2;
+        if (offset + 2 > dv.byteLength) continue;
+        const raw = isSigned ? dv.getInt16(offset, true) : dv.getUint16(offset, true);
+        hu[dstIdx] = raw * rescaleSlope + rescaleIntercept;
+      }
     }
   }
   return hu;
