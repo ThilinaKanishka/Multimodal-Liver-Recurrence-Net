@@ -29,13 +29,13 @@
  */
 
 import React, {
-  useCallback, useEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useRef, useState,
 } from 'react';
 import { useDropzone } from 'react-dropzone';
 import dicomParser from 'dicom-parser';
 import {
   Activity, CloudUpload, Contrast, Crosshair, Loader2,
-  Maximize2, Move, RefreshCw, ScanLine, Target, ZoomIn, ZoomOut,
+  RefreshCw, ScanLine, Target, ZoomIn, ZoomOut,
 } from 'lucide-react';
 
 // ─── Prop Interface (must match all callers) ──────────────────────────────────
@@ -47,6 +47,7 @@ interface MprClinicalWorkstationProps {
   tumorTarget?: { found: boolean; x: number; y: number; z: number };
   patientInfo?: { name: string; id: string };
   longitudinalMode?: 'baseline' | 'followup';
+  localDicomFiles?: File[];
 }
 
 // ─── Internal Types ───────────────────────────────────────────────────────────
@@ -879,12 +880,13 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   tumorTarget,
   patientInfo,
   longitudinalMode,
+  localDicomFiles,
 }) => {
   const [Depth, Height, Width] = dimensions;
 
   // ── Determine operating mode ──
-  const isMockMode   = base64Matrix === 'MOCK';
-  const isUploadMode = !base64Matrix || base64Matrix === '';
+  const isMockMode   = base64Matrix === 'MOCK' && (!localDicomFiles || localDicomFiles.length === 0);
+  const isUploadMode = (!base64Matrix || base64Matrix === '') && (!localDicomFiles || localDicomFiles.length === 0);
 
   // ── Shared viewer state ──
   const [coord, setCoord] = useState<Coord>({
@@ -908,8 +910,63 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   const [heatmapVolume, setHeatmapVolume] = useState<Float32Array | null>(null);
   const [volDims, setVolDims]             = useState({ depth: Depth, rows: Height, cols: Width });
 
-  // ── Decode AI base64 buffers ──
+  // ── Decode AI base64 buffers or Local Files ──
   useEffect(() => {
+    if (localDicomFiles && localDicomFiles.length > 0) {
+      setIsDecoding(true);
+      const doLoadLocal = async () => {
+        try {
+          const BATCH = 20;
+          const metas: DicomMeta[] = [];
+          for (let i = 0; i < localDicomFiles.length; i += BATCH) {
+            const batch = localDicomFiles.slice(i, i + BATCH);
+            const results = await Promise.all(
+              batch.map(f => f.arrayBuffer().then(buf => parseDicomMeta(buf, f.name), () => null))
+            );
+            results.forEach(m => { if (m) metas.push(m); });
+          }
+          if (metas.length === 0) throw new Error('No valid DICOM');
+
+          const hasIPP = metas.every(m => m.imagePositionZ !== null);
+          if (hasIPP) {
+            metas.sort((a, b) => (a.imagePositionZ ?? 0) - (b.imagePositionZ ?? 0));
+          } else {
+            const hasInstance = metas.every(m => m.instanceNumber > 0);
+            if (hasInstance) metas.sort((a, b) => a.instanceNumber - b.instanceNumber);
+            else metas.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
+          }
+
+          const refRows = metas[0].rows;
+          const refCols = metas[0].cols;
+          const volumeDepth = metas.length;
+          const volume = new Float32Array(volumeDepth * refRows * refCols);
+          for (let z = 0; z < volumeDepth; z++) {
+            const pixels = decodePixels(metas[z]);
+            volume.set(pixels, z * refRows * refCols);
+          }
+          
+          setMainVolume(volume);
+          setVolDims({ depth: volumeDepth, rows: refRows, cols: refCols });
+          
+          if (base64Matrix && base64Matrix !== 'MOCK') {
+            const res = await fetch(`data:application/octet-stream;base64,${base64Matrix}`);
+            const hmBuf = await res.arrayBuffer();
+            setHeatmapVolume(new Float32Array(hmBuf));
+          } else {
+             setHeatmapVolume(new Float32Array(0));
+          }
+        } catch (e) {
+          console.error(e);
+          setMainVolume(null);
+          setHeatmapVolume(null);
+        } finally {
+          setIsDecoding(false);
+        }
+      };
+      doLoadLocal();
+      return;
+    }
+
     if (isMockMode) {
       setMainVolume(null);
       setHeatmapVolume(new Float32Array(0));
@@ -958,7 +1015,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     };
 
     doLoad();
-  }, [base64Matrix, dicomBase64Matrix, isMockMode, isUploadMode]);
+  }, [base64Matrix, dicomBase64Matrix, isMockMode, isUploadMode, localDicomFiles]);
 
   // ── Handle DICOM folder upload ──
   const handleDicomVolume = useCallback((result: DicomUploadResult) => {
@@ -975,7 +1032,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
   }, []);
 
-  const { depth, rows, cols } = isUploadMode && mainVolume
+  const { depth, rows, cols } = (isUploadMode || (localDicomFiles && localDicomFiles.length > 0)) && mainVolume
     ? volDims
     : { depth: Depth, rows: Height, cols: Width };
 

@@ -1194,6 +1194,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                                    tumorTarget={result.interpretability_layer.tumor_target}
                                    patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
                                    longitudinalMode="baseline"
+                                   localDicomFiles={allDicomFiles}
                                  />
                                </div>
                              </div>
@@ -1217,6 +1218,7 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                                    tumorTarget={result.interpretability_layer.tumor_target}
                                    patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
                                    longitudinalMode="followup"
+                                   localDicomFiles={allDicomFiles}
                                  />
                                </div>
                              </div>
