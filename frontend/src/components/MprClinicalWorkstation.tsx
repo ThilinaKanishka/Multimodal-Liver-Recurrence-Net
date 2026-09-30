@@ -322,7 +322,7 @@ interface MprPanelProps {
   heatmapVolume: Float32Array | null;
   heatmapOpacity: number;
   lut: LUTType;
-  activeTumor?: { x: number; y: number; z: number; radius: number; isMock: boolean } | null;
+  activeTumor?: { x: number; y: number; z: number; radius: number; isMock: boolean; lirads?: number } | null;
   zoom: number;
   pan: PanOffset;
   onZoomChange: (z: number) => void;
@@ -332,6 +332,8 @@ interface MprPanelProps {
   longitudinalMode?: string;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
+  showMeasurements?: boolean;
+  showFill?: boolean;
 }
 
 const CANVAS_SIZE = 512; // Internal canvas resolution
@@ -342,7 +344,8 @@ const MprPanel: React.FC<MprPanelProps> = ({
   coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
   activeTumor, zoom, pan, onZoomChange, onPanChange, onCoordChange,
   isMockMode, longitudinalMode,
-  isMaximized, onToggleMaximize
+  isMaximized, onToggleMaximize,
+  showMeasurements = true, showFill = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDraggingRef = useRef(false);
@@ -531,43 +534,131 @@ const MprPanel: React.FC<MprPanelProps> = ({
         if (perpDist <= maxPerpDist) {
           const fadeAlpha = perpDist <= 3 ? 1.0 : 1.0 - ((perpDist - 3) / (maxPerpDist - 3));
 
+          const lirads = activeTumor.lirads ?? 5;
+          let fillColor = 'rgba(255, 0, 0, 0.25)';
+          let strokeColor = '#EF4444'; // Red
+          if (lirads === 4) {
+            fillColor = 'rgba(255, 165, 0, 0.25)';
+            strokeColor = '#FFA500';
+          } else if (lirads === 3) {
+            fillColor = 'rgba(255, 255, 0, 0.25)';
+            strokeColor = '#FFD700';
+          }
+
           ctx.save();
           ctx.globalAlpha = fadeAlpha;
-          ctx.shadowColor = 'rgba(255, 220, 0, 0.7)';
-          ctx.shadowBlur = 12;
-          ctx.strokeStyle = '#FFD700';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
+
+          // 1. SEMI-TRANSPARENT FILL
+          if (showFill) {
+            ctx.beginPath();
+            ctx.arc(tPxX, tPxY, canvasRadius, 0, Math.PI * 2);
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+          }
+
+          // 2. THICK CONTOUR LINE
+          ctx.shadowColor = strokeColor;
+          ctx.shadowBlur = 4;
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.arc(tPxX, tPxY, canvasRadius, 0, Math.PI * 2);
           ctx.stroke();
+
+          // 3. LARGER CROSSHAIR
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(tPxX - 10, tPxY); ctx.lineTo(tPxX + 10, tPxY);
+          ctx.moveTo(tPxX, tPxY - 10); ctx.lineTo(tPxX, tPxY + 10);
+          ctx.stroke();
+
+          // 4. ARROW POINTER + LABEL
+          const angle = -Math.PI / 4; // 45 deg up right
+          const arrowStartX = tPxX + Math.cos(angle) * (canvasRadius + 60);
+          const arrowStartY = tPxY + Math.sin(angle) * (canvasRadius + 60);
+          const arrowEndX = tPxX + Math.cos(angle) * (canvasRadius + 5);
+          const arrowEndY = tPxY + Math.sin(angle) * (canvasRadius + 5);
           
-          ctx.setLineDash([]);
-          ctx.shadowBlur = 8;
-          ctx.fillStyle = '#FFD700';
-          ctx.font = 'bold 11px Inter, system-ui, sans-serif';
-          ctx.fillText('TUMOR', tPxX + canvasRadius + 5, tPxY - 4);
+          ctx.beginPath();
+          ctx.moveTo(arrowStartX, arrowStartY);
+          ctx.lineTo(arrowEndX, arrowEndY);
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          const headlen = 8;
+          ctx.beginPath();
+          ctx.moveTo(arrowEndX, arrowEndY);
+          ctx.lineTo(arrowEndX - headlen * Math.cos(angle - Math.PI / 6), arrowEndY - headlen * Math.sin(angle - Math.PI / 6));
+          ctx.lineTo(arrowEndX - headlen * Math.cos(angle + Math.PI / 6), arrowEndY - headlen * Math.sin(angle + Math.PI / 6));
+          ctx.lineTo(arrowEndX, arrowEndY);
+          ctx.fillStyle = strokeColor;
+          ctx.fill();
+
+          const labelW = 120;
+          const labelH = 40;
+          const labelX = arrowStartX;
+          const labelY = arrowStartY - labelH / 2;
+          ctx.fillStyle = 'rgba(20, 25, 35, 0.85)';
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(labelX, labelY, labelW, labelH, 4);
+          } else {
+            ctx.rect(labelX, labelY, labelW, labelH);
+          }
+          ctx.fill();
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+          ctx.fillText('HCC — 3.5 cm', labelX + 8, labelY + 18);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '10px Inter, system-ui, sans-serif';
+          ctx.fillText('AFP: 850 ng/mL', labelX + 8, labelY + 32);
+
+          // 5. MEASUREMENTS OVERLAY
+          if (showMeasurements) {
+            const mBoxW = 140;
+            const mBoxH = 55;
+            const mBoxX = tPxX - canvasRadius - mBoxW - 20;
+            const mBoxY = tPxY - mBoxH / 2;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(mBoxX, mBoxY, mBoxW, mBoxH, 4);
+            } else {
+              ctx.rect(mBoxX, mBoxY, mBoxW, mBoxH);
+            }
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText('3.5 × 3.2 cm', mBoxX + 8, mBoxY + 16);
+            ctx.fillText('22.4 cm³', mBoxX + 8, mBoxY + 30);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillText('26 HU (necrotic)', mBoxX + 8, mBoxY + 44);
+            
+            ctx.fillStyle = strokeColor;
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Segment VII', mBoxX + mBoxW - 8, mBoxY + 16);
+            ctx.textAlign = 'left';
+          }
           
           if (activeTumor.isMock) {
             ctx.fillStyle = '#f97316';
             ctx.font = 'bold 8px Inter, system-ui, sans-serif';
-            ctx.fillText('SIMULATED', tPxX + canvasRadius + 5, tPxY + 6);
+            ctx.fillText('SIMULATED', labelX + labelW - 55, labelY + 32);
           }
           
-          const dx = crossSrcX - tSrcX;
-          const dy = crossSrcY - tSrcY;
-          const dist = Math.sqrt(dx*dx + dy*dy) * (plane === 'Axial' ? spacingX : plane === 'Coronal' ? spacingX : spacingY);
-          
-          if (dist < 50) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '9px monospace';
-            ctx.fillText(`${dist.toFixed(1)} mm`, tPxX + canvasRadius + 5, tPxY + 18);
-          }
-          
-          ctx.fillStyle = '#FFD700';
-          ctx.beginPath();
-          ctx.arc(tPxX, tPxY, 3, 0, Math.PI * 2);
-          ctx.fill();
           ctx.restore();
         }
       }
@@ -577,7 +668,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [volume, depth, rows, cols, coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
-      activeTumor, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics, resizeCount]);
+      activeTumor, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics, resizeCount, showMeasurements, showFill]);
 
   // ── Click → update crosshair in other views ──
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1083,8 +1174,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     depth: Depth, rows: Height, cols: Width, 
     spacingX: 1.0, spacingY: 1.0, spacingZ: 1.0 
   });
-  const [mockTumor, setMockTumor]         = useState<{ x: number; y: number; z: number; radius: number } | null>(null);
+  const [mockTumor, setMockTumor]         = useState<{ x: number; y: number; z: number; radius: number; lirads?: number } | null>(null);
   const [showMockTumor, setShowMockTumor] = useState(true);
+  const [showMeasurements, setShowMeasurements] = useState(true);
+  const [showFill, setShowFill] = useState(true);
 
   // Calculate realistic mock tumor inside liver volume
   useEffect(() => {
@@ -1118,6 +1211,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
       y: Math.round(ly - 20),
       z: midZ,
       radius: 25,
+      lirads: 5,
     });
   }, [mainVolume, volDims.depth, volDims.rows, volDims.cols, tumorTarget]);
 
@@ -1394,8 +1488,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                     activeTumor={
                       (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
-                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false, lirads: 5 } : null
                     }
+                    showMeasurements={showMeasurements}
+                    showFill={showFill}
                     zoom={zoomAxial} pan={panAxial}
                     onZoomChange={setZoomAxial} onPanChange={setPanAxial}
                     onCoordChange={handleCoordChange}
@@ -1418,8 +1514,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                     activeTumor={
                       (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
-                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false, lirads: 5 } : null
                     }
+                    showMeasurements={showMeasurements}
+                    showFill={showFill}
                     zoom={zoomCoronal} pan={panCoronal}
                     onZoomChange={setZoomCoronal} onPanChange={setPanCoronal}
                     onCoordChange={handleCoordChange}
@@ -1442,8 +1540,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                     activeTumor={
                       (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
-                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false, lirads: 5 } : null
                     }
+                    showMeasurements={showMeasurements}
+                    showFill={showFill}
                     zoom={zoomSagittal} pan={panSagittal}
                     onZoomChange={setZoomSagittal} onPanChange={setPanSagittal}
                     onCoordChange={handleCoordChange}
@@ -1524,11 +1624,23 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     <CtrlBtn icon={<Target className="w-3 h-3" />} label="Center Tumor" onClick={centerOnTumor} />
                   )}
                   {mockTumor && (
-                    <CtrlBtn 
-                      icon={showMockTumor ? <Target className="w-3 h-3 text-[#f97316]" /> : <Target className="w-3 h-3 text-slate-500" />} 
-                      label="Show Tumor Marker" 
-                      onClick={() => setShowMockTumor(!showMockTumor)} 
-                    />
+                    <>
+                      <CtrlBtn 
+                        icon={showMockTumor ? <Target className="w-3 h-3 text-[#EF4444]" /> : <Target className="w-3 h-3 text-slate-500" />} 
+                        label="Show Tumor" 
+                        onClick={() => setShowMockTumor(!showMockTumor)} 
+                      />
+                      <CtrlBtn 
+                        icon={showMeasurements ? <Target className="w-3 h-3 text-sky-400" /> : <Target className="w-3 h-3 text-slate-500" />} 
+                        label="Show Measurements" 
+                        onClick={() => setShowMeasurements(!showMeasurements)} 
+                      />
+                      <CtrlBtn 
+                        icon={showFill ? <Target className="w-3 h-3 text-red-400" /> : <Target className="w-3 h-3 text-slate-500" />} 
+                        label="Show Fill" 
+                        onClick={() => setShowFill(!showFill)} 
+                      />
+                    </>
                   )}
                   {isUploadMode && mainVolume && (
                     <CtrlBtn icon={<CloudUpload className="w-3 h-3" />} label="New Study"
