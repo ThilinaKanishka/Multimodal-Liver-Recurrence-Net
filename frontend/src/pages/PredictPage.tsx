@@ -504,7 +504,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       hepatitis_b: false,
       hepatitis_c: false,
       enhancement_pattern: "Arterial Hyperenhancement (APHE)"
-    });
+    } as any);
     setPatientInfo({
       mrn: "---",
       name: "NO PATIENT LOADED",
@@ -1141,6 +1141,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                             dimensions={result.interpretability_layer.heatmap_spatial_shape} 
                             tumorTarget={result.interpretability_layer.tumor_target}
                             patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
+                            localDicomFiles={allDicomFiles}
                           />
                         ) : (
                           <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
