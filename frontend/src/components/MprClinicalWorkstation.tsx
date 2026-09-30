@@ -322,7 +322,7 @@ interface MprPanelProps {
   heatmapVolume: Float32Array | null;
   heatmapOpacity: number;
   lut: LUTType;
-  tumorTarget?: { found: boolean; x: number; y: number; z: number };
+  activeTumor?: { x: number; y: number; z: number; radius: number; isMock: boolean } | null;
   zoom: number;
   pan: PanOffset;
   onZoomChange: (z: number) => void;
@@ -340,7 +340,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
   plane, volume, depth, rows, cols,
   spacingX, spacingY, spacingZ,
   coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
-  tumorTarget, zoom, pan, onZoomChange, onPanChange, onCoordChange,
+  activeTumor, zoom, pan, onZoomChange, onPanChange, onCoordChange,
   isMockMode, longitudinalMode,
   isMaximized, onToggleMaximize
 }) => {
@@ -439,7 +439,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
           // ── CT pixel ──
           let hu: number;
           if (isMockMode) {
-            hu = generateMockHU(mapX, mapY, mapZ, cols, rows, depth, tumorTarget, longitudinalMode);
+            hu = generateMockHU(mapX, mapY, mapZ, cols, rows, depth, activeTumor ? { found: true, x: activeTumor.x, y: activeTumor.y, z: activeTumor.z } : undefined, longitudinalMode);
           } else {
             hu = volume[flatIdx] ?? 0;
           }
@@ -496,31 +496,27 @@ const MprPanel: React.FC<MprPanelProps> = ({
       ctx.restore();
 
       // ── Tumor marker (yellow circle + label + yellow crosshair) ──
-      if (tumorTarget?.found) {
+      if (activeTumor) {
         let tSrcX: number, tSrcY: number, perpDist: number;
         if (plane === 'Axial') {
-          tSrcX = tumorTarget.x; tSrcY = tumorTarget.y;
-          perpDist = Math.abs(coord.z - tumorTarget.z);
+          tSrcX = activeTumor.x; tSrcY = activeTumor.y;
+          perpDist = Math.abs(coord.z - activeTumor.z);
         } else if (plane === 'Coronal') {
-          tSrcX = tumorTarget.x; tSrcY = tumorTarget.z;
-          perpDist = Math.abs(coord.y - tumorTarget.y);
+          tSrcX = activeTumor.x; tSrcY = activeTumor.z;
+          perpDist = Math.abs(coord.y - activeTumor.y);
         } else {
-          tSrcX = tumorTarget.y; tSrcY = tumorTarget.z;
-          perpDist = Math.abs(coord.x - tumorTarget.x);
+          tSrcX = activeTumor.y; tSrcY = activeTumor.z;
+          perpDist = Math.abs(coord.x - activeTumor.x);
         }
 
-        // Always draw the marker (visible even when heatmap is off)
         const tPxX = drawX + ((tSrcX - panX) / viewW) * drawW;
         const tPxY = drawY + ((tSrcY - panY) / viewH) * drawH;
-        const baseRadius = longitudinalMode === 'baseline' ? 18 : longitudinalMode === 'followup' ? 8 : 14;
         
-        // Use average scale for circle radius to prevent oval shapes, although technically
-        // aspect ratio might require ellipse if pixels aren't square. We'll use a circular representation.
+        const baseRadius = activeTumor.radius;
         const avgDrawDim = (drawW + drawH) / 2;
         const avgViewDim = (viewW + viewH) / 2;
         const canvasRadius = (baseRadius / avgViewDim) * avgDrawDim;
 
-        // Yellow crosshair at tumor center (separate from cyan)
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
         ctx.lineWidth = 0.5;
@@ -531,30 +527,44 @@ const MprPanel: React.FC<MprPanelProps> = ({
         ctx.stroke();
         ctx.restore();
 
-        // Only draw circle when within a sensible range of the perpendicular axis
         const maxPerpDist = Math.max(5, baseRadius);
         if (perpDist <= maxPerpDist) {
           const fadeAlpha = perpDist <= 3 ? 1.0 : 1.0 - ((perpDist - 3) / (maxPerpDist - 3));
 
           ctx.save();
           ctx.globalAlpha = fadeAlpha;
-          // Glow
           ctx.shadowColor = 'rgba(255, 220, 0, 0.7)';
           ctx.shadowBlur = 12;
-          // Circle
           ctx.strokeStyle = '#FFD700';
           ctx.lineWidth = 2;
           ctx.setLineDash([6, 4]);
           ctx.beginPath();
           ctx.arc(tPxX, tPxY, canvasRadius, 0, Math.PI * 2);
           ctx.stroke();
-          // Label
+          
           ctx.setLineDash([]);
           ctx.shadowBlur = 8;
           ctx.fillStyle = '#FFD700';
           ctx.font = 'bold 11px Inter, system-ui, sans-serif';
           ctx.fillText('TUMOR', tPxX + canvasRadius + 5, tPxY - 4);
-          // Center dot
+          
+          if (activeTumor.isMock) {
+            ctx.fillStyle = '#f97316';
+            ctx.font = 'bold 8px Inter, system-ui, sans-serif';
+            ctx.fillText('SIMULATED', tPxX + canvasRadius + 5, tPxY + 6);
+          }
+          
+          const dx = crossSrcX - tSrcX;
+          const dy = crossSrcY - tSrcY;
+          const dist = Math.sqrt(dx*dx + dy*dy) * (plane === 'Axial' ? spacingX : plane === 'Coronal' ? spacingX : spacingY);
+          
+          if (dist < 50) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '9px monospace';
+            ctx.fillText(`${dist.toFixed(1)} mm`, tPxX + canvasRadius + 5, tPxY + 18);
+          }
+          
+          ctx.fillStyle = '#FFD700';
           ctx.beginPath();
           ctx.arc(tPxX, tPxY, 3, 0, Math.PI * 2);
           ctx.fill();
@@ -567,7 +577,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [volume, depth, rows, cols, coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
-      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics, resizeCount]);
+      activeTumor, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics, resizeCount]);
 
   // ── Click → update crosshair in other views ──
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1073,6 +1083,43 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
     depth: Depth, rows: Height, cols: Width, 
     spacingX: 1.0, spacingY: 1.0, spacingZ: 1.0 
   });
+  const [mockTumor, setMockTumor]         = useState<{ x: number; y: number; z: number; radius: number } | null>(null);
+  const [showMockTumor, setShowMockTumor] = useState(true);
+
+  // Calculate realistic mock tumor inside liver volume
+  useEffect(() => {
+    if (!mainVolume || volDims.depth === 0) return;
+    
+    // Find liver (HU 40-80) in the middle slice
+    const midZ = Math.floor(volDims.depth / 2);
+    let liverSumX = 0, liverSumY = 0, liverCount = 0;
+    
+    for (let y = 0; y < volDims.rows; y++) {
+      for (let x = 0; x < volDims.cols; x++) {
+        const idx = midZ * volDims.rows * volDims.cols + y * volDims.cols + x;
+        const hu = mainVolume[idx];
+        if (hu >= 40 && hu <= 80) {
+          liverSumX += x;
+          liverSumY += y;
+          liverCount++;
+        }
+      }
+    }
+    
+    let lx = volDims.cols * 0.65;
+    let ly = volDims.rows * 0.45;
+    if (liverCount > 0) {
+      lx = liverSumX / liverCount;
+      ly = liverSumY / liverCount;
+    }
+    
+    setMockTumor({
+      x: Math.round(lx + 30),
+      y: Math.round(ly - 20),
+      z: midZ,
+      radius: 25,
+    });
+  }, [mainVolume, volDims.depth, volDims.rows, volDims.cols, tumorTarget]);
 
   // ── Decode AI base64 buffers or Local Files ──
   useEffect(() => {
@@ -1239,7 +1286,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   };
 
   const centerOnTumor = () => {
-    if (tumorTarget?.found) {
+    if (showMockTumor && mockTumor) {
+      setCoord({ x: mockTumor.x, y: mockTumor.y, z: mockTumor.z });
+      setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
+    } else if (tumorTarget?.found) {
       setCoord({ x: tumorTarget.x, y: tumorTarget.y, z: tumorTarget.z });
       setPanAxial({ x: 0, y: 0 }); setPanCoronal({ x: 0, y: 0 }); setPanSagittal({ x: 0, y: 0 });
     }
@@ -1342,7 +1392,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                     coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                    tumorTarget={tumorTarget}
+                    activeTumor={
+                      (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                    }
                     zoom={zoomAxial} pan={panAxial}
                     onZoomChange={setZoomAxial} onPanChange={setPanAxial}
                     onCoordChange={handleCoordChange}
@@ -1363,7 +1416,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                     coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                    tumorTarget={tumorTarget}
+                    activeTumor={
+                      (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                    }
                     zoom={zoomCoronal} pan={panCoronal}
                     onZoomChange={setZoomCoronal} onPanChange={setPanCoronal}
                     onCoordChange={handleCoordChange}
@@ -1384,7 +1440,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                     spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                     coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                     heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
-                    tumorTarget={tumorTarget}
+                    activeTumor={
+                      (showMockTumor && mockTumor) ? { ...mockTumor, isMock: true } :
+                      tumorTarget?.found ? { ...tumorTarget, radius: longitudinalMode === 'baseline' ? 18 : 14, isMock: false } : null
+                    }
                     zoom={zoomSagittal} pan={panSagittal}
                     onZoomChange={setZoomSagittal} onPanChange={setPanSagittal}
                     onCoordChange={handleCoordChange}
@@ -1461,8 +1520,15 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 <div className="flex gap-1.5 mt-1 flex-wrap">
                   <CtrlBtn icon={<RefreshCw className="w-3 h-3" />} label="Reset Zoom" onClick={resetZoom} />
                   <CtrlBtn icon={<Crosshair className="w-3 h-3" />} label="Center MPR" onClick={resetAll} />
-                  {tumorTarget?.found && (
+                  {(tumorTarget?.found || (showMockTumor && mockTumor)) && (
                     <CtrlBtn icon={<Target className="w-3 h-3" />} label="Center Tumor" onClick={centerOnTumor} />
+                  )}
+                  {mockTumor && (
+                    <CtrlBtn 
+                      icon={showMockTumor ? <Target className="w-3 h-3 text-[#f97316]" /> : <Target className="w-3 h-3 text-slate-500" />} 
+                      label="Show Tumor Marker" 
+                      onClick={() => setShowMockTumor(!showMockTumor)} 
+                    />
                   )}
                   {isUploadMode && mainVolume && (
                     <CtrlBtn icon={<CloudUpload className="w-3 h-3" />} label="New Study"
@@ -1482,6 +1548,25 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
                 {patientInfo && (
                   <div className="mt-1 text-[8px] font-mono text-[#00b8d4] bg-black/30 px-1.5 py-1 rounded border border-[#1e293b] truncate">
                     MRN: {patientInfo.id} | {patientInfo.name}
+                  </div>
+                )}
+                
+                {/* Tumor info panel */}
+                {(mockTumor && showMockTumor) && (
+                  <div className="mt-2 bg-[#0c1019] border border-orange-500/30 rounded p-2 flex flex-col gap-1 text-[9px] text-slate-300">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-orange-400 flex items-center gap-1">
+                        <Target className="w-3 h-3" /> TUMOR INFO
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-sm bg-orange-500/20 text-orange-400 text-[8px] font-bold tracking-widest uppercase border border-orange-500/30">
+                        SIMULATED
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 font-mono">
+                      <div className="flex flex-col"><span className="text-slate-500">SIZE</span><span>~3.5 cm</span></div>
+                      <div className="flex flex-col"><span className="text-slate-500">VOLUME</span><span>~22 cm³</span></div>
+                      <div className="flex flex-col col-span-2"><span className="text-slate-500">LOCATION</span><span>Segment VII (right lobe, mock)</span></div>
+                    </div>
                   </div>
                 )}
               </div>
