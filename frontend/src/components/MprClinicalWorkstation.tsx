@@ -286,6 +286,7 @@ interface MprPanelProps {
   plane: Plane;
   volume: Float32Array;
   depth: number; rows: number; cols: number;
+  spacingX: number; spacingY: number; spacingZ: number;
   coord: Coord;
   wc: number; ww: number;
   heatmapVolume: Float32Array | null;
@@ -305,6 +306,7 @@ const CANVAS_SIZE = 512; // Internal canvas resolution
 
 const MprPanel: React.FC<MprPanelProps> = ({
   plane, volume, depth, rows, cols,
+  spacingX, spacingY, spacingZ,
   coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
   tumorTarget, zoom, pan, onZoomChange, onPanChange, onCoordChange,
   isMockMode, longitudinalMode,
@@ -316,12 +318,11 @@ const MprPanel: React.FC<MprPanelProps> = ({
 
   const { srcW, srcH } = getPlaneSourceDims(plane, depth, rows, cols);
 
-  // ── Compute the visible viewport in source coordinates ──
-  const getViewport = useCallback(() => {
+  // ── Compute the visible viewport and canvas rendering metrics ──
+  const getRenderMetrics = useCallback(() => {
     const viewW = srcW / zoom;
     const viewH = srcH / zoom;
 
-    // Pan offset is in source-pixel units, centered on the crosshair
     let crossSrcX: number, crossSrcY: number;
     if (plane === 'Axial')         { crossSrcX = coord.x; crossSrcY = coord.y; }
     else if (plane === 'Coronal')  { crossSrcX = coord.x; crossSrcY = coord.z; }
@@ -332,8 +333,26 @@ const MprPanel: React.FC<MprPanelProps> = ({
     panX = Math.max(0, Math.min(srcW - viewW, panX));
     panY = Math.max(0, Math.min(srcH - viewH, panY));
 
-    return { viewW, viewH, panX, panY };
-  }, [srcW, srcH, zoom, plane, coord, pan]);
+    let physW = viewW, physH = viewH;
+    if (plane === 'Axial') {
+       physW = viewW * spacingX;
+       physH = viewH * spacingY;
+    } else if (plane === 'Coronal') {
+       physW = viewW * spacingX;
+       physH = viewH * spacingZ;
+    } else { // Sagittal
+       physW = viewW * spacingY;
+       physH = viewH * spacingZ;
+    }
+
+    const scale = Math.min(CANVAS_SIZE / physW, CANVAS_SIZE / physH);
+    const drawW = physW * scale;
+    const drawH = physH * scale;
+    const drawX = (CANVAS_SIZE - drawW) / 2;
+    const drawY = (CANVAS_SIZE - drawH) / 2;
+
+    return { viewW, viewH, panX, panY, drawX, drawY, drawW, drawH, scale };
+  }, [srcW, srcH, zoom, plane, coord, pan, spacingX, spacingY, spacingZ]);
 
   // ── Render the slice to canvas ──
   useEffect(() => {
@@ -402,17 +421,17 @@ const MprPanel: React.FC<MprPanelProps> = ({
         }
       }
 
-      // ── Blit to canvas with zoom/pan ──
+      // ── Blit to canvas with zoom/pan and aspect ratio ──
       const off = new OffscreenCanvas(srcW, srcH);
       const offCtx = off.getContext('2d')!;
       offCtx.putImageData(imgData, 0, 0);
 
-      const { viewW, viewH, panX, panY } = getViewport();
+      const { viewW, viewH, panX, panY, drawX, drawY, drawW, drawH } = getRenderMetrics();
 
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       ctx.imageSmoothingEnabled = zoom < 3;
       ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(off, panX, panY, viewW, viewH, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      ctx.drawImage(off, panX, panY, viewW, viewH, drawX, drawY, drawW, drawH);
 
       // ── Cyan crosshair ──
       let crossSrcX: number, crossSrcY: number;
@@ -420,16 +439,17 @@ const MprPanel: React.FC<MprPanelProps> = ({
       else if (plane === 'Coronal')  { crossSrcX = coord.x; crossSrcY = coord.z; }
       else /* Sagittal */            { crossSrcX = coord.y; crossSrcY = coord.z; }
 
-      const cxPx = ((crossSrcX - panX) / viewW) * CANVAS_SIZE;
-      const cyPx = ((crossSrcY - panY) / viewH) * CANVAS_SIZE;
+      const cxPx = drawX + ((crossSrcX - panX) / viewW) * drawW;
+      const cyPx = drawY + ((crossSrcY - panY) / viewH) * drawH;
 
       ctx.save();
       ctx.strokeStyle = 'rgba(0, 220, 255, 0.75)';
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(cxPx, 0);    ctx.lineTo(cxPx, CANVAS_SIZE);
-      ctx.moveTo(0, cyPx);    ctx.lineTo(CANVAS_SIZE, cyPx);
+      // Only draw crosshair within the letterboxed area
+      ctx.moveTo(cxPx, drawY);    ctx.lineTo(cxPx, drawY + drawH);
+      ctx.moveTo(drawX, cyPx);    ctx.lineTo(drawX + drawW, cyPx);
       ctx.stroke();
       ctx.restore();
 
@@ -448,11 +468,15 @@ const MprPanel: React.FC<MprPanelProps> = ({
         }
 
         // Always draw the marker (visible even when heatmap is off)
-        const tPxX = ((tSrcX - panX) / viewW) * CANVAS_SIZE;
-        const tPxY = ((tSrcY - panY) / viewH) * CANVAS_SIZE;
+        const tPxX = drawX + ((tSrcX - panX) / viewW) * drawW;
+        const tPxY = drawY + ((tSrcY - panY) / viewH) * drawH;
         const baseRadius = longitudinalMode === 'baseline' ? 18 : longitudinalMode === 'followup' ? 8 : 14;
-        // Scale radius with zoom
-        const canvasRadius = (baseRadius / viewW) * CANVAS_SIZE;
+        
+        // Use average scale for circle radius to prevent oval shapes, although technically
+        // aspect ratio might require ellipse if pixels aren't square. We'll use a circular representation.
+        const avgDrawDim = (drawW + drawH) / 2;
+        const avgViewDim = (viewW + viewH) / 2;
+        const canvasRadius = (baseRadius / avgViewDim) * avgDrawDim;
 
         // Yellow crosshair at tumor center (separate from cyan)
         ctx.save();
@@ -460,8 +484,8 @@ const MprPanel: React.FC<MprPanelProps> = ({
         ctx.lineWidth = 0.5;
         ctx.setLineDash([3, 6]);
         ctx.beginPath();
-        ctx.moveTo(tPxX, 0);    ctx.lineTo(tPxX, CANVAS_SIZE);
-        ctx.moveTo(0, tPxY);    ctx.lineTo(CANVAS_SIZE, tPxY);
+        ctx.moveTo(tPxX, drawY);    ctx.lineTo(tPxX, drawY + drawH);
+        ctx.moveTo(drawX, tPxY);    ctx.lineTo(drawX + drawW, tPxY);
         ctx.stroke();
         ctx.restore();
 
@@ -501,7 +525,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [volume, depth, rows, cols, coord, wc, ww, heatmapVolume, heatmapOpacity, lut,
-      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getViewport]);
+      tumorTarget, zoom, pan, plane, srcW, srcH, isMockMode, longitudinalMode, getRenderMetrics]);
 
   // ── Click → update crosshair in other views ──
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -509,10 +533,21 @@ const MprPanel: React.FC<MprPanelProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect  = canvas.getBoundingClientRect();
-    const fracX = (e.clientX - rect.left) / rect.width;
-    const fracY = (e.clientY - rect.top)  / rect.height;
+    const { viewW, viewH, panX, panY, drawX, drawY, drawW, drawH } = getRenderMetrics();
 
-    const { viewW, viewH, panX, panY } = getViewport();
+    // Map screen click to letterboxed canvas coords
+    const scaleX = rect.width / CANVAS_SIZE;
+    const scaleY = rect.height / CANVAS_SIZE;
+    const screenDrawX = drawX * scaleX;
+    const screenDrawY = drawY * scaleY;
+    const screenDrawW = drawW * scaleX;
+    const screenDrawH = drawH * scaleY;
+
+    const fracX = (e.clientX - rect.left - screenDrawX) / screenDrawW;
+    const fracY = (e.clientY - rect.top - screenDrawY) / screenDrawH;
+
+    if (fracX < 0 || fracX > 1 || fracY < 0 || fracY > 1) return; // Ignored if outside letterbox
+
     const imgX = Math.round(panX + fracX * viewW);
     const imgY = Math.round(panY + fracY * viewH);
 
@@ -532,7 +567,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
         z: Math.max(0, Math.min(depth - 1, imgY)),
       });
     }
-  }, [getViewport, plane, onCoordChange, cols, rows, depth]);
+  }, [getRenderMetrics, plane, onCoordChange, cols, rows, depth]);
 
   // ── Mouse drag for panning ──
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -549,10 +584,16 @@ const MprPanel: React.FC<MprPanelProps> = ({
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
+      const { viewW, viewH, drawW, drawH } = getRenderMetrics();
+      
+      const scaleX = rect.width / CANVAS_SIZE;
+      const scaleY = rect.height / CANVAS_SIZE;
+      const screenDrawW = drawW * scaleX;
+      const screenDrawH = drawH * scaleY;
+
       // Convert screen-pixel delta to source-pixel delta
-      const { viewW, viewH } = getViewport();
-      const srcDx = -(dx / rect.width) * viewW;
-      const srcDy = -(dy / rect.height) * viewH;
+      const srcDx = -(dx / screenDrawW) * viewW;
+      const srcDy = -(dy / screenDrawH) * viewH;
 
       onPanChange({ x: pan.x + srcDx, y: pan.y + srcDy });
       lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
@@ -566,7 +607,7 @@ const MprPanel: React.FC<MprPanelProps> = ({
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-  }, [pan, getViewport, onPanChange]);
+  }, [pan, getRenderMetrics, onPanChange]);
 
   // ── Mouse wheel: Ctrl+scroll = zoom, plain scroll = advance slice ──
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -908,7 +949,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   // ── Volume data ──
   const [mainVolume,    setMainVolume]    = useState<Float32Array | null>(null);
   const [heatmapVolume, setHeatmapVolume] = useState<Float32Array | null>(null);
-  const [volDims, setVolDims]             = useState({ depth: Depth, rows: Height, cols: Width });
+  const [volDims, setVolDims]             = useState({ 
+    depth: Depth, rows: Height, cols: Width, 
+    spacingX: 1.0, spacingY: 1.0, spacingZ: 1.0 
+  });
 
   // ── Decode AI base64 buffers or Local Files ──
   useEffect(() => {
@@ -939,6 +983,12 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           const refRows = metas[0].rows;
           const refCols = metas[0].cols;
           const volumeDepth = metas.length;
+          console.log(`[MPR] Volume loaded: depth=${volumeDepth}, rows=${refRows}, cols=${refCols}`);
+
+          const spacingX = metas[0].pixelSpacingCol || 0.7;
+          const spacingY = metas[0].pixelSpacingRow || 0.7;
+          const spacingZ = metas[0].sliceThickness || 2.5;
+
           const volume = new Float32Array(volumeDepth * refRows * refCols);
           for (let z = 0; z < volumeDepth; z++) {
             const pixels = decodePixels(metas[z]);
@@ -946,7 +996,12 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
           }
           
           setMainVolume(volume);
-          setVolDims({ depth: volumeDepth, rows: refRows, cols: refCols });
+          setVolDims({ depth: volumeDepth, rows: refRows, cols: refCols, spacingX, spacingY, spacingZ });
+          setCoord({
+            x: Math.floor(refCols / 2),
+            y: Math.floor(refRows / 2),
+            z: Math.floor(volumeDepth / 2),
+          });
           
           if (base64Matrix && base64Matrix !== 'MOCK') {
             const res = await fetch(`data:application/octet-stream;base64,${base64Matrix}`);
@@ -1021,7 +1076,10 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
   const handleDicomVolume = useCallback((result: DicomUploadResult) => {
     setMainVolume(result.volume);
     setHeatmapVolume(null);
-    setVolDims({ depth: result.depth, rows: result.rows, cols: result.cols });
+    setVolDims({ 
+      depth: result.depth, rows: result.rows, cols: result.cols,
+      spacingX: 1.0, spacingY: 1.0, spacingZ: 1.0 
+    });
     setWlPreset({ label: 'LIVER', wc: 30, ww: 150 }); // Default to LIVER preset for liver CT
     setCoord({
       x: Math.floor(result.cols  / 2),
@@ -1112,6 +1170,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
               <MprPanel
                 plane="Axial"
                 volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                 coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                 heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                 tumorTarget={tumorTarget}
@@ -1125,6 +1184,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
               <MprPanel
                 plane="Coronal"
                 volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                 coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                 heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                 tumorTarget={tumorTarget}
@@ -1138,6 +1198,7 @@ const MprClinicalWorkstation: React.FC<MprClinicalWorkstationProps> = ({
               <MprPanel
                 plane="Sagittal"
                 volume={renderVolume} depth={depth} rows={rows} cols={cols}
+                spacingX={volDims.spacingX} spacingY={volDims.spacingY} spacingZ={volDims.spacingZ}
                 coord={coord} wc={wlPreset.wc} ww={wlPreset.ww}
                 heatmapVolume={heatmapVolume} heatmapOpacity={heatmapOpacity} lut={activeLUT}
                 tumorTarget={tumorTarget}
