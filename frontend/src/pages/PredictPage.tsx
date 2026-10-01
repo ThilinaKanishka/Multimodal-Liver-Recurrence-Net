@@ -30,6 +30,9 @@ import { jsPDF } from "jspdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
 import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
+import { DiagnosticPipelineModal } from "../components/DiagnosticPipelineModal";
+import { PatientVerificationPanel } from "../components/PatientVerificationPanel";
+import type { VerificationData } from "../components/PatientVerificationPanel";
 
 export interface DiagnosticInput {
   tumor_size_cm: number;
@@ -352,6 +355,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [progress, setProgress] = useState<number>(0);
   const [loadingText, setLoadingText] = useState<string>("");
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
+  const [showPipelineModal, setShowPipelineModal] = useState<boolean>(false);
+  const [activeModalStep, setActiveModalStep] = useState<number>(0);
+  const [modalOverallProgress, setModalOverallProgress] = useState<number>(0);
+  const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
 
   const [simData, setSimData] = useState<any>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
@@ -546,6 +553,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
         } else {
             setErrorMessage(null);
         }
+        
+        if (data.verification_data) {
+            setVerificationData(data.verification_data);
+        }
 
         setAutoFilled(true);
         setTimeout(() => setAutoFilled(false), 5000);
@@ -566,6 +577,11 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setPipelineStep("STEP1");
     setProgress(33);
     setLoadingText("Extracting 3D Radiomics Features...");
+    
+    // Initialize Modal
+    setShowPipelineModal(true);
+    setActiveModalStep(0);
+    setModalOverallProgress(0);
 
     const payload = new FormData();
     payload.append("clinical_data", JSON.stringify(formData));
@@ -578,24 +594,59 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       headers: { "Content-Type": "multipart/form-data" },
     }).catch((error: any) => ({ error }));
 
-    // Step 1 (0s - 2s) - Image Processing
-    await new Promise(r => setTimeout(r, 2000));
+    // --- Modal Animation Sequence ---
     
-    // Step 2 (2s - 4s) - Text Processing
-    setPipelineStep("STEP2");
-    setProgress(66);
-    setLoadingText("Executing NLP on Clinical Ledger...");
-    await new Promise(r => setTimeout(r, 2000));
+    // Step 0: DICOM Volume Loading (1000ms)
+    setActiveModalStep(0);
+    setModalOverallProgress(10);
+    await new Promise(r => setTimeout(r, 1000));
 
-    // Step 3 (4s - 6s) - The Fusion
-    setPipelineStep("STEP3");
-    setProgress(100);
-    setLoadingText("Executing Multimodal Vector Fusion & SHAP Analysis...");
-    await new Promise(r => setTimeout(r, 2000));
+    // Step 1: Clinical Report Parsing (1000ms)
+    setActiveModalStep(1);
+    setModalOverallProgress(25);
+    await new Promise(r => setTimeout(r, 1000));
 
+    // Step 2: Image Feature Extraction (1500ms)
+    setPipelineStep("STEP1"); // sync old UI
+    setActiveModalStep(2);
+    setModalOverallProgress(40);
+    await new Promise(r => setTimeout(r, 1500));
+
+    // Step 3: Text Feature Extraction (1000ms)
+    setPipelineStep("STEP2"); // sync old UI
+    setActiveModalStep(3);
+    setModalOverallProgress(60);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Step 4: Multimodal Fusion (1000ms)
+    setPipelineStep("STEP3"); // sync old UI
+    setActiveModalStep(4);
+    setModalOverallProgress(75);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Step 5: Prediction & SHAP (1000ms)
+    setActiveModalStep(5);
+    setModalOverallProgress(85);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Wait for the actual API to finish before final explainability step
     const res: any = await apiPromise;
+
+    // Step 6: Grad-CAM Heatmap (1500ms)
+    setActiveModalStep(6);
+    setModalOverallProgress(95);
+    await new Promise(r => setTimeout(r, 1500));
+
+    // Complete
+    setModalOverallProgress(100);
+    setActiveModalStep(7);
+    
+    // Hold completion state for 1 second before closing
+    await new Promise(r => setTimeout(r, 1000));
+
     setLoading(false);
     setPipelineStep("COMPLETE");
+    setShowPipelineModal(false);
 
     if (res?.error) {
       setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
@@ -623,7 +674,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
             formRef.current.scrollBy({ top: resultsTop - formTop, behavior: "smooth" });
           }
         }, 100);
-      }, 2000);
+      }, 500);
     }
   };
 
@@ -683,10 +734,20 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setPipelineStep("IDLE");
     setProgress(0);
     setLoadingText("");
+    setShowPipelineModal(false);
+    setActiveModalStep(0);
+    setModalOverallProgress(0);
+    setVerificationData(null);
   };
 
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#030712]">
+      <DiagnosticPipelineModal 
+        isOpen={showPipelineModal} 
+        activeStep={activeModalStep} 
+        overallProgress={modalOverallProgress} 
+        onCancel={() => setShowPipelineModal(false)} 
+      />
       <style>{`
         @keyframes slideDown {
           0% { transform: translateY(-100%); opacity: 0; }
@@ -767,6 +828,9 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
         {/* MAIN WORKSTATION GRID */}
         <form ref={formRef} onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-scrollbar">
           
+          {/* Patient Verification Panel */}
+          <PatientVerificationPanel data={verificationData} />
+
           {/* TOP INPUT ROW */}
           <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch flex-shrink-0">
             {/* LEFT COLUMN: Data Sources */}
