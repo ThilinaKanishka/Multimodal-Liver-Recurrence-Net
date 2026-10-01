@@ -32,6 +32,7 @@ import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes
 import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
 import { DiagnosticPipelineModal } from "../components/DiagnosticPipelineModal";
 import { PatientVerificationPanel } from "../components/PatientVerificationPanel";
+import { PatientVerificationToast } from "../components/PatientVerificationToast";
 import type { VerificationData } from "../components/PatientVerificationPanel";
 
 export interface DiagnosticInput {
@@ -301,6 +302,7 @@ const ShapPanel = ({ weights, probability }: { weights: Record<string, number>, 
            {thirdText && <p>{thirdText}</p>}
         </div>
       </div>
+      
     </div>
   );
 };
@@ -340,6 +342,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [showVerificationToast, setShowVerificationToast] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dicomFileCount, setDicomFileCount] = useState<number>(0);
   const [allDicomFiles, setAllDicomFiles] = useState<File[]>([]);
@@ -647,6 +650,11 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setLoading(false);
     setPipelineStep("COMPLETE");
     setShowPipelineModal(false);
+    
+    // Show toast after modal closes
+    if (verificationData) {
+      setTimeout(() => setShowVerificationToast(true), 300);
+    }
 
     if (res?.error) {
       setErrorMessage(res.error.response?.data?.detail || "Backend communication failed.");
@@ -694,6 +702,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
   const handleResetWorkspace = () => {
     sessionStorage.removeItem("active_patient_session");
+    setShowVerificationToast(false);
     setFormData({
       tumor_size_cm: "",
       afp_ngml: "",
@@ -826,7 +835,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
         </div>
 
         {/* MAIN WORKSTATION GRID */}
-        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-scrollbar">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 p-6 flex flex-col gap-6 relative z-10 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent custom-scrollbar patient-verification-panel-anchor">
           
           {/* Patient Verification Panel */}
           <PatientVerificationPanel data={verificationData} />
@@ -1681,6 +1690,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
              <Three3DPacsViewer initialFiles={allDicomFiles} onClose={() => setShowViewerModal(false)} />
           </div>
         </div>
+      )}
+
+      {showVerificationToast && (
+        <PatientVerificationToast 
+          data={verificationData} 
+          onClose={() => setShowVerificationToast(false)} 
+        />
       )}
     </div>
   );
