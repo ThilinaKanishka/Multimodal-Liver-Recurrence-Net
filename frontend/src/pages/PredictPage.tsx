@@ -147,6 +147,161 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
+const ShapPanel = ({ weights, probability }: { weights: Record<string, number>, probability: number }) => {
+  if (!weights || Object.keys(weights).length === 0) return null;
+
+  const entries = Object.entries(weights)
+    .map(([key, value]) => ({
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: Number(value),
+      abs: Math.abs(Number(value))
+    }))
+    .sort((a, b) => b.abs - a.abs);
+
+  const top3 = entries.slice(0, 3);
+  const maxAbs = Math.max(...entries.map(e => e.abs), 0.1);
+  const baseValue = 0.50;
+  const finalPrediction = probability / 100;
+  const probFormatted = probability.toFixed(2);
+
+  const primaryDriver = top3[0]?.name || "Unknown";
+  const secondaryDriver = top3[1]?.name || "Unknown";
+  const thirdDriver = top3[2]?.name || "";
+  
+  const thirdText = thirdDriver 
+    ? (top3[2].value > 0 ? `Elevated ${thirdDriver} also contributed slightly.` : `Reduced ${thirdDriver} slightly lowered the risk.`)
+    : "";
+
+  return (
+    <div className="mt-4 flex flex-col gap-4 mb-2">
+      {/* 1. Header with Base Value */}
+      <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
+        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <Hexagon className="w-4 h-4 text-indigo-400" />
+          SHAP Feature Importance
+        </h4>
+        <div className="text-[10px] font-mono text-slate-400 bg-black/40 px-2 py-1 rounded border border-white/5">
+          Base value: {baseValue.toFixed(2)}
+        </div>
+      </div>
+
+      {/* 5. Top Features Summary Box */}
+      <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg p-3 relative overflow-hidden shadow-inner">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-purple-500"></div>
+        <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Top 3 Drivers of Risk:</h5>
+        <div className="space-y-1.5 ml-2">
+          {top3.map((f, i) => (
+             <div key={i} className="flex justify-between items-center text-[11px] font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
+               <span className="text-slate-300 font-bold">{i + 1}. {f.name}</span>
+               <span className={`font-black ${f.value > 0 ? "text-[#E11D48]" : "text-[#0891B2]"}`}>
+                 {f.value > 0 ? "+" : ""}{f.value.toFixed(4)}
+               </span>
+             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 1. Horizontal Bar Chart */}
+      <div className="flex flex-col gap-2 mt-1">
+        <h5 className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Impact Magnitude</h5>
+        {entries.map((f, i) => (
+          <div key={i} className="flex items-center gap-3 group relative">
+             <div className="w-[35%] text-[10px] text-right truncate font-mono text-slate-400 group-hover:text-slate-200 transition-colors">
+               {f.name}
+             </div>
+             <div className="w-[65%] flex items-center gap-2">
+               <div 
+                 className={`h-2.5 rounded-sm transition-all shadow-[0_0_10px_currentColor] opacity-90 group-hover:opacity-100 ${f.value > 0 ? 'bg-[#E11D48] text-[#E11D48]/30' : 'bg-[#0891B2] text-[#0891B2]/30'}`}
+                 style={{ width: `${(f.abs / maxAbs) * 100}%` }}
+               />
+               <span className={`text-[10px] font-mono font-bold ${f.value > 0 ? 'text-[#E11D48]' : 'text-[#0891B2]'}`}>
+                 {f.value > 0 ? "+" : ""}{f.value.toFixed(4)}
+               </span>
+             </div>
+             
+             {/* Tooltip */}
+             <div className="absolute left-1/2 -top-6 -translate-x-1/2 bg-black/95 text-white px-3 py-1.5 rounded-md text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none z-50 whitespace-nowrap shadow-xl border border-white/10 transition-opacity">
+               <span className="font-bold">{f.name}:</span> {f.value.toFixed(5)}
+             </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 3 & 4. Waterfall & Force Plot Visualizer */}
+      <div className="mt-3 border border-[#1e293b] bg-[#0a0e17] rounded-lg p-4 relative overflow-hidden shadow-lg">
+        <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Risk Trajectory (Waterfall)</h5>
+        
+        {/* Waterfall Steps */}
+        <div className="flex items-center justify-between relative px-1 mb-8">
+          <div className="absolute left-0 right-0 top-1/2 h-px bg-white/10 -translate-y-1/2 border-t border-dashed border-slate-600"></div>
+          
+          <div className="relative z-10 flex flex-col items-center gap-1">
+            <span className="text-[9px] font-mono text-slate-500">Base</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-black"></div>
+            <span className="text-[10px] font-bold text-slate-300">{baseValue.toFixed(2)}</span>
+          </div>
+
+          {top3.map((f, i) => (
+             <div key={i} className="relative z-10 flex flex-col items-center gap-1">
+               <span className="text-[9px] font-mono truncate max-w-[50px] text-slate-500" title={f.name}>{f.name}</span>
+               <div className={`w-2 h-2 rounded-full border border-black ${f.value > 0 ? "bg-[#E11D48]" : "bg-[#0891B2]"}`}></div>
+               <span className={`text-[9px] font-bold ${f.value > 0 ? "text-[#E11D48]" : "text-[#0891B2]"}`}>
+                 {f.value > 0 ? "+" : ""}{f.value.toFixed(2)}
+               </span>
+             </div>
+          ))}
+          
+          <div className="relative z-10 flex flex-col items-center gap-1">
+            <span className="text-[9px] font-mono text-slate-300 font-bold bg-indigo-500/20 px-1 rounded">Final</span>
+            <div className="w-3.5 h-3.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] border-2 border-black"></div>
+            <span className="text-[11px] font-black text-indigo-400">{finalPrediction.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Force Plot Area */}
+        <div className="relative h-5 bg-slate-800/40 rounded-full border border-white/5 overflow-hidden flex items-center shadow-inner group mb-2">
+           <div className="absolute left-[50%] top-0 bottom-0 w-px bg-slate-400 z-20 pointer-events-none"></div>
+           {/* Negative forces pushing left */}
+           <div className="w-1/2 h-full flex justify-end">
+             {entries.filter(e => e.value < 0).slice(0, 3).map((f, i) => (
+                <div key={i} className="h-full bg-gradient-to-l from-[#0891B2] to-[#0e7490] border-r border-black/20 relative group/force flex-shrink-0" style={{ width: `${Math.max(15, (f.abs / maxAbs) * 50)}%` }}>
+                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/force:opacity-100 transition-opacity">
+                     <span className="text-[8px] font-black text-white/90 truncate px-1">← {f.name}</span>
+                   </div>
+                </div>
+             ))}
+           </div>
+           {/* Positive forces pushing right */}
+           <div className="w-1/2 h-full flex justify-start">
+             {entries.filter(e => e.value > 0).slice(0, 3).map((f, i) => (
+                <div key={i} className="h-full bg-gradient-to-r from-[#E11D48] to-[#be123c] border-l border-black/20 relative group/force flex-shrink-0" style={{ width: `${Math.max(15, (f.abs / maxAbs) * 50)}%` }}>
+                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/force:opacity-100 transition-opacity">
+                     <span className="text-[8px] font-black text-white/90 truncate px-1">{f.name} →</span>
+                   </div>
+                </div>
+             ))}
+           </div>
+           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60 group-hover:opacity-0 transition-opacity">
+             <span className="text-[8px] font-mono text-white/70 tracking-widest uppercase">Force Plot</span>
+           </div>
+        </div>
+        <div className="text-center mt-2">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Final: {finalPrediction.toFixed(2)} ({probFormatted}%)</span>
+        </div>
+      </div>
+
+      {/* 6. Interpretation Text */}
+      <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-lg p-3 flex items-start gap-3 shadow-inner mt-1">
+        <Info className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
+        <div className="text-[11px] font-mono text-indigo-200 leading-relaxed">
+           <p>The prediction is primarily driven by <strong>{primaryDriver}</strong> and <strong>{secondaryDriver}</strong>.</p>
+           {thirdText && <p>{thirdText}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?: any }> = ({ onViewHistory, user }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
     tumor_size_cm: 5.0,
@@ -1177,19 +1332,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                         )}
 
                         {result.explainable_ai_weights && (
-                          <div>
-                            <h4 className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider border-b border-[#1e293b] pb-1">SHAP Feature Importance</h4>
-                            <div className="space-y-1">
-                              {Object.entries(result.explainable_ai_weights).map(([key, value]) => (
-                                <div key={key} className="flex justify-between items-center text-[11px] bg-[#131826] px-2 py-1 rounded border border-[#1e293b] shadow-sm">
-                                  <span className="text-slate-300 font-mono truncate mr-2">{key.replace(/_/g, ' ')}</span>
-                                  <span className={`font-mono font-bold ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                                    {value > 0 ? "+" : ""}{value}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                          <ShapPanel weights={result.explainable_ai_weights} probability={result.probability} />
                         )}
 
                         {/* Interactive What-If Analysis */}
