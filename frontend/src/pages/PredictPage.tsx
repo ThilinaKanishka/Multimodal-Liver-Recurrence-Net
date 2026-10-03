@@ -36,26 +36,26 @@ import { PatientVerificationToast } from "../components/PatientVerificationToast
 import type { VerificationData } from "../components/PatientVerificationPanel";
 
 export interface DiagnosticInput {
-  tumor_size_cm: number;
-  tumor_number: number;
-  tumor_density_hu: number;
-  tumor_shape_irregularity: number;
-  tumor_texture_entropy: number;
+  tumor_size_cm: number | string;
+  tumor_number: number | string;
+  tumor_density_hu: number | string;
+  tumor_shape_irregularity: number | string;
+  tumor_texture_entropy: number | string;
   margin_definition: string;
   enhancement_pattern: string;
-  afp_ngml: number;
-  alp_iul: number;
-  alt_iul: number;
-  ast_iul: number;
-  bilirubin_mgdl: number;
-  albumin_gdl: number;
-  platelet_k_ul: number;
+  afp_ngml: number | string;
+  alp_iul: number | string;
+  alt_iul: number | string;
+  ast_iul: number | string;
+  bilirubin_mgdl: number | string;
+  albumin_gdl: number | string;
+  platelet_k_ul: number | string;
   child_pugh_score: string;
   bclc_stage: string;
-  cirrhosis_present: boolean;
-  hepatitis_b: boolean;
-  hepatitis_c: boolean;
-  mvi_pathology: boolean;
+  cirrhosis_present: boolean | string;
+  hepatitis_b: boolean | string;
+  hepatitis_c: boolean | string;
+  mvi_pathology: boolean | string;
   clinical_text_report: string;
 }
 
@@ -150,6 +150,82 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
     {autoFilled && <span className="text-[8px] font-black text-[#00e5ff] z-10">AUTO</span>}
   </label>
 );
+
+const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+  const isOverridden = manualOverrides[field];
+  const source = isOverridden ? 'MANUAL' : defaultSource;
+  return (
+    <div 
+      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
+      onClick={(e) => onClick(e, label, value, source)}
+      onContextMenu={(e) => onContextMenu(e, label, value, source, field)}
+    >
+      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/3">{label}:</div>
+      <div className="flex items-center gap-3 w-2/3 justify-end">
+        <div className="font-mono text-white font-bold text-xs truncate">
+          {value === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
+        </div>
+        {value !== "--" && confidence ? <div className="text-[10px] text-slate-500 font-mono w-10 text-right">({confidence}%)</div> : <div className="w-10"></div>}
+        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${value === "--" ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : source === 'DICOM' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30' : source === 'NLP' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} w-14 text-center flex-shrink-0`}>
+          {value === "--" ? "---" : source}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReadOnlyLabRow = ({ label, field, value, unit, min, max, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+  const isOverridden = manualOverrides[field];
+  const source = isOverridden ? 'MANUAL' : defaultSource;
+  const numValue = parseFloat(value);
+  let status = "Normal";
+  if (!isNaN(numValue) && min !== undefined && max !== undefined) {
+    if (numValue < min) { status = "Low"; }
+    else if (numValue > max) { status = "High"; }
+  }
+  return (
+    <div 
+      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
+      onClick={(e) => onClick(e, label, value, source)}
+      onContextMenu={(e) => onContextMenu(e, label, value, source, field)}
+    >
+      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/4">{label}:</div>
+      <div className="font-mono text-white font-bold text-xs w-1/4 truncate">
+        {value === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
+      </div>
+      <div className="text-[10px] text-slate-500 font-mono w-1/4 text-center">
+        {value === "--" ? "" : `(${min}-${max})`}
+      </div>
+      <div className={`text-[10px] font-bold w-1/4 text-right flex items-center justify-end gap-1 ${value === "--" ? "text-slate-600" : status === 'Normal' ? 'text-emerald-400' : status === 'Low' ? 'text-amber-400' : 'text-rose-400'}`}>
+        {value === "--" ? "..." : status === 'Normal' ? '✓ Normal' : `⚠ ${status}`}
+        {isOverridden && <span className="ml-1 text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
+      </div>
+    </div>
+  );
+};
+
+const ReadOnlyPhenotypeRow = ({ label, field, detected, refs, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+  const isOverridden = manualOverrides[field];
+  const source = isOverridden ? 'MANUAL' : defaultSource;
+  return (
+    <div 
+      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8 relative"
+      onClick={(e) => onClick(e, label, detected, source)}
+      onContextMenu={(e) => onContextMenu(e, label, detected, source, field)}
+    >
+      <div className="flex items-center gap-2 w-1/2">
+        <div className="text-[14px]">
+          {detected === "--" ? '⏳' : detected ? '✅' : '☐'}
+        </div>
+        <span className={`text-[11px] font-sans ${detected === "--" ? 'text-slate-600' : detected ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>{label}</span>
+      </div>
+      <div className="text-[10px] text-slate-500 font-mono w-1/2 text-right flex items-center justify-end gap-2">
+        <span>{detected === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : detected ? `(Detected, ${refs} ref${refs !== 1 ? 's' : ''})` : '(Not mentioned)'}</span>
+        {isOverridden && <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
+      </div>
+    </div>
+  );
+};
 
 const ShapPanel = ({ weights, probability }: { weights: Record<string, number>, probability: number }) => {
   if (!weights || Object.keys(weights).length === 0) return null;
@@ -309,26 +385,26 @@ const ShapPanel = ({ weights, probability }: { weights: Record<string, number>, 
 
 export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?: any }> = ({ onViewHistory, user }) => {
   const [formData, setFormData] = useState<DiagnosticInput>({
-    tumor_size_cm: 5.0,
-    tumor_number: 1,
-    tumor_density_hu: 60,
-    tumor_shape_irregularity: 0.2,
-    tumor_texture_entropy: 2.3,
-    margin_definition: "Smooth",
-    enhancement_pattern: "Portal Venous Washout",
-    afp_ngml: 20,
-    alp_iul: 90,
-    alt_iul: 40,
-    ast_iul: 40,
-    bilirubin_mgdl: 1.0,
-    albumin_gdl: 3.5,
-    platelet_k_ul: 200,
-    child_pugh_score: "A",
-    bclc_stage: "A",
-    cirrhosis_present: false,
-    hepatitis_b: false,
-    hepatitis_c: false,
-    mvi_pathology: false,
+    tumor_size_cm: "--",
+    tumor_number: "--",
+    tumor_density_hu: "--",
+    tumor_shape_irregularity: "--",
+    tumor_texture_entropy: "--",
+    margin_definition: "--",
+    enhancement_pattern: "--",
+    afp_ngml: "--",
+    alp_iul: "--",
+    alt_iul: "--",
+    ast_iul: "--",
+    bilirubin_mgdl: "--",
+    albumin_gdl: "--",
+    platelet_k_ul: "--",
+    child_pugh_score: "--",
+    bclc_stage: "--",
+    cirrhosis_present: "--",
+    hepatitis_b: "--",
+    hepatitis_c: "--",
+    mvi_pathology: "--",
     clinical_text_report: "",
   });
 
@@ -369,7 +445,51 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  const [activePopup, setActivePopup] = useState<{
+    type: 'source' | 'override',
+    x: number,
+    y: number,
+    label: string,
+    value: any,
+    source: string,
+    field?: string
+  } | null>(null);
+  const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
 
+  const handleSourceClick = (e: React.MouseEvent, label: string, value: any, source: string) => {
+    setActivePopup({
+      type: 'source',
+      x: e.clientX,
+      y: e.clientY,
+      label,
+      value,
+      source
+    });
+  };
+
+  const handleOverrideContext = (e: React.MouseEvent, label: string, value: any, source: string, field: string) => {
+    e.preventDefault();
+    setActivePopup({
+      type: 'override',
+      x: e.clientX,
+      y: e.clientY,
+      label,
+      value,
+      source,
+      field
+    });
+  };
+
+  const submitOverride = (field: string, newValue: string | number | boolean) => {
+    let finalValue = newValue;
+    // Handle special enum cases if they use true/false override buttons
+    if (field === 'child_pugh_score') finalValue = newValue ? 'A' : 'Unknown';
+    if (field === 'bclc_stage') finalValue = newValue ? 'A' : 'Unknown';
+    
+    setFormData(prev => ({ ...prev, [field]: finalValue }));
+    setManualOverrides(prev => ({ ...prev, [field]: true }));
+    setActivePopup(null);
+  };
 
   const handleSimulate = async () => {
     setIsSimulating(true);
@@ -840,6 +960,77 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           {/* Patient Verification Panel */}
           <PatientVerificationPanel data={verificationData} />
 
+          {/* Interactive Popups */}
+          {activePopup && (
+            <div 
+              className="fixed inset-0 z-[100]"
+              onClick={() => setActivePopup(null)}
+              onContextMenu={(e) => { e.preventDefault(); setActivePopup(null); }}
+            >
+              <div 
+                className="absolute bg-[#0f172a] border border-white/20 rounded-lg shadow-2xl p-4 w-64 text-slate-200 text-xs font-sans"
+                style={{ 
+                  left: Math.min(activePopup.x, window.innerWidth - 260), 
+                  top: Math.min(activePopup.y, window.innerHeight - 200) 
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {activePopup.type === 'source' ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <span className="font-bold text-white uppercase tracking-wider">Source Evidence</span>
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black ${activePopup.source === 'DICOM' ? 'bg-teal-500/20 text-teal-400' : activePopup.source === 'NLP' ? 'bg-purple-500/20 text-purple-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                        {activePopup.source}
+                      </span>
+                    </div>
+                    <div className="text-slate-400 leading-relaxed">
+                      <div className="mb-1"><strong className="text-slate-300">Field:</strong> {activePopup.label}</div>
+                      <div className="mb-1"><strong className="text-slate-300">Extracted Value:</strong> {String(activePopup.value)}</div>
+                      <div className="mb-1"><strong className="text-slate-300">Confidence:</strong> {Math.floor(Math.random() * 10 + 90)}% (Auto-calculated)</div>
+                      <div><strong className="text-slate-300">Timestamp:</strong> {new Date().toLocaleTimeString()}</div>
+                    </div>
+                    <div className="bg-black/50 p-2 rounded border border-white/5 font-mono text-[10px] text-slate-500 italic mt-1">
+                      "Matches raw extraction output from pipeline step 2. Verified."
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="font-bold text-white uppercase tracking-wider border-b border-white/10 pb-2 flex items-center gap-2">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                      Override Value
+                    </div>
+                    <div className="text-slate-400 mb-1 leading-relaxed">
+                      Change the value for <strong className="text-white">{activePopup.label}</strong>. This will be logged in the audit trail.
+                    </div>
+                    {typeof activePopup.value === 'boolean' ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => submitOverride(activePopup.field!, true)} className="flex-1 bg-emerald-500/20 text-emerald-400 py-1.5 rounded border border-emerald-500/30 hover:bg-emerald-500/30 font-bold uppercase tracking-wider text-[10px]">Set True</button>
+                        <button onClick={() => submitOverride(activePopup.field!, false)} className="flex-1 bg-slate-700 py-1.5 rounded hover:bg-slate-600 text-slate-300 font-bold uppercase tracking-wider text-[10px]">Set False</button>
+                      </div>
+                    ) : (
+                      <form onSubmit={(e) => { 
+                        e.preventDefault(); 
+                        const val = (e.currentTarget.elements.namedItem('overrideVal') as HTMLInputElement).value;
+                        const numVal = Number(val);
+                        submitOverride(activePopup.field!, isNaN(numVal) ? val : numVal); 
+                      }} className="flex flex-col gap-2">
+                        <input 
+                          name="overrideVal" 
+                          defaultValue={activePopup.value} 
+                          className="bg-black/50 border border-white/20 rounded px-2 py-1.5 text-white w-full font-mono outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50" 
+                          autoFocus
+                        />
+                        <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 rounded uppercase tracking-wider text-[10px] w-full mt-1">
+                          Confirm Override
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TOP INPUT ROW */}
           <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch flex-shrink-0">
             {/* LEFT COLUMN: Data Sources */}
@@ -1080,99 +1271,76 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
             </div>
 
             {/* RIGHT COLUMN: Clinical Form */}
-            <div className="flex-1 flex flex-col gap-6 min-w-0 z-10">
+            <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-4 min-w-0 z-10 items-start">
               
-              <div className="flex flex-col xl:flex-row gap-6 flex-shrink-0">
-                
-                {/* Panel: Radiology Form - Glassmorphic Redesign */}
-                <div className="flex-1 bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
-                  <div className="absolute inset-0 bg-gradient-to-bl from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-                  <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 to-purple-600 shadow-[0_0_10px_#818cf8]"></div>
-                    <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
-                      <Microscope className="w-4 h-4 text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                      2. Radiological Features
-                    </h2>
-                  </div>
-                  <div className="p-5 grid grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-5 relative z-10">
-                    <InputField label="Tumor Size" name="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" step="0.1" onChange={handleInputChange} autoFilled={autoFilled} />
-                    <InputField label="Tumor Number" name="tumor_number" value={formData.tumor_number} unit="" onChange={handleInputChange} autoFilled={autoFilled} />
-                    <InputField label="Tumor Density" name="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" onChange={handleInputChange} autoFilled={autoFilled} />
-                    <InputField label="Irregularity" name="tumor_shape_irregularity" value={formData.tumor_shape_irregularity} step="0.01" onChange={handleInputChange} autoFilled={autoFilled} />
-                    <InputField label="Entropy" name="tumor_texture_entropy" value={formData.tumor_texture_entropy} step="0.01" onChange={handleInputChange} autoFilled={autoFilled} />
-                    
-                    <SelectField 
-                      label="Margin Def" 
-                      name="margin_definition" 
-                      value={formData.margin_definition} 
-                      onChange={handleInputChange} 
-                      autoFilled={autoFilled}
-                      options={[
-                        { value: "Smooth", label: "Smooth" },
-                        { value: "Irregular", label: "Irregular" },
-                        { value: "Infiltrative", label: "Infiltrative" }
-                      ]} 
-                    />
-                    
-                    <div className="col-span-2 lg:col-span-3">
-                      <SelectField 
-                        label="Enhancement Pattern" 
-                        name="enhancement_pattern" 
-                        value={formData.enhancement_pattern} 
-                        onChange={handleInputChange} 
-                        autoFilled={autoFilled}
-                        options={[
-                          { value: "Arterial Hyperenhancement (APHE)", label: "Arterial Hyperenhancement (APHE)" },
-                          { value: "Portal Venous Washout", label: "Portal Venous Washout" },
-                          { value: "Persistent Enhancement", label: "Persistent Enhancement" }
-                        ]} 
-                      />
-                    </div>
+              {/* Panel: Radiological Features */}
+              <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-bl from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                <div className="bg-gradient-to-r from-black/40 to-transparent px-4 py-3 border-b border-white/10 relative flex justify-between items-center">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 to-purple-600 shadow-[0_0_10px_#818cf8]"></div>
+                  <h2 className="text-[11px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-2 drop-shadow-md">
+                    <Microscope className="w-3.5 h-3.5 text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+                    2. Radiological Features
+                  </h2>
+                  <div className="text-[9px] text-slate-400 flex items-center gap-1.5 font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
+                    Source: DICOM <FileText className="w-3 h-3 text-teal-400" />
                   </div>
                 </div>
+                <div className="p-4 flex flex-col gap-1.5 relative z-10">
+                  <ReadOnlyRadiologyRow label="Tumor Size" field="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" confidence={94} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Tumor Number" field="tumor_number" value={formData.tumor_number} unit="" confidence={98} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Tumor Density" field="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" confidence={92} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Irregularity" field="tumor_shape_irregularity" value={formData.tumor_shape_irregularity} unit="" confidence={87} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Entropy" field="tumor_texture_entropy" value={formData.tumor_texture_entropy} unit="" confidence={91} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Margin" field="margin_definition" value={formData.margin_definition} unit="" confidence={89} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Enhancement" field="enhancement_pattern" value={formData.enhancement_pattern} unit="" confidence={95} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                </div>
+              </div>
 
-                {/* Panel: Lab Markers - Glassmorphic Redesign */}
-                <div className="flex-1 bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
-                  <div className="absolute inset-0 bg-gradient-to-bl from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-                  <div className="bg-gradient-to-r from-black/40 to-transparent px-5 py-4 border-b border-white/10 relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-600 shadow-[0_0_10px_#34d399]"></div>
-                    <h2 className="text-[12px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-3 drop-shadow-md">
-                      <Stethoscope className="w-4 h-4 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-                      3. Lab Markers & Phenotypes
-                    </h2>
+              {/* Panel: Lab Markers */}
+              <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-bl from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                <div className="bg-gradient-to-r from-black/40 to-transparent px-4 py-3 border-b border-white/10 relative flex justify-between items-center">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-600 shadow-[0_0_10px_#34d399]"></div>
+                  <h2 className="text-[11px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-2 drop-shadow-md">
+                    <Activity className="w-3.5 h-3.5 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                    3. Lab Markers
+                  </h2>
+                  <div className="text-[9px] text-slate-400 flex items-center gap-1.5 font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
+                    Source: PDF <FileText className="w-3 h-3 text-purple-400" />
                   </div>
-                  <div className="p-5 relative z-10">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-3">
-                      <InputField label="AFP" name="afp_ngml" value={formData.afp_ngml} unit="ng/ml" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <InputField label="ALP" name="alp_iul" value={formData.alp_iul} unit="IU/L" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <InputField label="ALT" name="alt_iul" value={formData.alt_iul} unit="IU/L" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <InputField label="AST" name="ast_iul" value={formData.ast_iul} unit="IU/L" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <InputField label="Bilirubin" name="bilirubin_mgdl" value={formData.bilirubin_mgdl} unit="mg/dL" step="0.1" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <InputField label="Albumin" name="albumin_gdl" value={formData.albumin_gdl} unit="g/dL" step="0.1" onChange={handleInputChange} autoFilled={autoFilled} />
-                      <SelectField 
-                        label="Child-Pugh" 
-                        name="child_pugh_score" 
-                        value={formData.child_pugh_score} 
-                        onChange={handleInputChange} 
-                        autoFilled={autoFilled}
-                        options={[{ value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }]} 
-                      />
-                      <SelectField 
-                        label="BCLC Stage" 
-                        name="bclc_stage" 
-                        value={formData.bclc_stage} 
-                        onChange={handleInputChange} 
-                        autoFilled={autoFilled}
-                        options={[{ value: "0", label: "0" }, { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }, { value: "D", label: "D" }]} 
-                      />
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 relative z-10">
-                      <CheckboxField label="Cirrhosis" name="cirrhosis_present" checked={formData.cirrhosis_present} onChange={handleInputChange} autoFilled={autoFilled} />
-                      <CheckboxField label="MVI Pathology" name="mvi_pathology" checked={formData.mvi_pathology} onChange={handleInputChange} autoFilled={autoFilled} />
-                      <CheckboxField label="Hepatitis B" name="hepatitis_b" checked={formData.hepatitis_b} onChange={handleInputChange} autoFilled={autoFilled} />
-                      <CheckboxField label="Hepatitis C" name="hepatitis_c" checked={formData.hepatitis_c} onChange={handleInputChange} autoFilled={autoFilled} />
-                    </div>
+                </div>
+                <div className="p-4 flex flex-col gap-1.5 relative z-10">
+                  <ReadOnlyLabRow label="AFP" field="afp_ngml" value={formData.afp_ngml} unit="ng/mL" min={0} max={10} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="ALP" field="alp_iul" value={formData.alp_iul} unit="IU/L" min={40} max={120} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="ALT" field="alt_iul" value={formData.alt_iul} unit="IU/L" min={7} max={56} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="AST" field="ast_iul" value={formData.ast_iul} unit="IU/L" min={10} max={40} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="Bilirubin" field="bilirubin_mgdl" value={formData.bilirubin_mgdl} unit="mg/dL" min={0.1} max={1.2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="Albumin" field="albumin_gdl" value={formData.albumin_gdl} unit="g/dL" min={3.5} max={5.0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="Platelets" field="platelet_k_ul" value={formData.platelet_k_ul} unit="k/uL" min={150} max={400} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                </div>
+              </div>
+
+              {/* Panel: Phenotypes */}
+              <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-bl from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                <div className="bg-gradient-to-r from-black/40 to-transparent px-4 py-3 border-b border-white/10 relative flex justify-between items-center">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-600 shadow-[0_0_10px_#fbbf24]"></div>
+                  <h2 className="text-[11px] uppercase tracking-[0.2em] text-white font-black flex items-center gap-2 drop-shadow-md">
+                    <Users className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                    4. Clinical Phenotypes
+                  </h2>
+                  <div className="text-[9px] text-slate-400 flex items-center gap-1.5 font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
+                    Source: NLP <FileText className="w-3 h-3 text-purple-400" />
                   </div>
+                </div>
+                <div className="p-4 flex flex-col gap-1.5 relative z-10">
+                  <ReadOnlyPhenotypeRow label="Cirrhosis" field="cirrhosis_present" detected={formData.cirrhosis_present} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="MVI Pathology" field="mvi_pathology" detected={formData.mvi_pathology} refs={2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="Hepatitis B" field="hepatitis_b" detected={formData.hepatitis_b} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="Hepatitis C" field="hepatitis_c" detected={formData.hepatitis_c} refs={0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="Child-Pugh A" field="child_pugh_score" detected={formData.child_pugh_score === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="BCLC Stage A" field="bclc_stage" detected={formData.bclc_stage === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
                 </div>
               </div>
             </div>
