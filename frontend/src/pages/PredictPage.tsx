@@ -163,18 +163,18 @@ const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSo
 
   return (
     <div 
-      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
+      className="flex items-center justify-between py-1 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer min-h-[32px]"
       onClick={(e) => onClick(e, label, value, source)}
       onContextMenu={(e) => onContextMenu(e, label, value, source, field)}
     >
-      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/3">{label}:</div>
-      <div className="flex items-center gap-3 w-2/3 justify-end">
-        <div className="font-mono text-white font-bold text-xs truncate">
+      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/4">{label}:</div>
+      <div className="flex items-center gap-2 w-3/4 justify-end">
+        <div className="font-mono text-white font-bold text-[10px] leading-tight break-words whitespace-normal flex-1 text-right" title={String(value)}>
           {value === "--" ? (
              isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
           ) : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
         </div>
-        {!isMissing && value !== "--" && finalConfidence ? <div className="text-[10px] text-slate-500 font-mono w-10 text-right">({finalConfidence}%)</div> : <div className="w-10"></div>}
+        {!isMissing && value !== "--" && finalConfidence ? <div className="text-[10px] text-slate-500 font-mono w-9 text-right flex-shrink-0">({finalConfidence}%)</div> : <div className="w-9 flex-shrink-0"></div>}
         <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isMissing ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : value === "--" ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : source === 'DICOM' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30' : source === 'NLP' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} w-14 text-center flex-shrink-0`}>
           {isMissing ? "---" : value === "--" ? "---" : source}
         </div>
