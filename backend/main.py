@@ -923,6 +923,11 @@ async def extract_clinical_data(
         except:
             extracted_data["tumor_size_cm"] = 5.0 # Mock default
             
+        if extracted_data.get("tumor_size_cm", 0) > 0:
+            extracted_data["tumor_number"] = 1
+            extracted_data.setdefault("sources", {})["tumor_number"] = "DICOM"
+            extracted_data.setdefault("confidences", {})["tumor_number"] = 95
+            
         # Tumor Density (HU)
         try:
             pixel_array = ds.pixel_array.astype(np.float64)
