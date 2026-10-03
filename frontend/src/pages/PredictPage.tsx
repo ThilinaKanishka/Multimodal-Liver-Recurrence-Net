@@ -57,6 +57,8 @@ export interface DiagnosticInput {
   hepatitis_c: boolean | string;
   mvi_pathology: boolean | string;
   clinical_text_report: string;
+  sources?: Record<string, string>;
+  confidences?: Record<string, number>;
 }
 
 export interface PredictionResult {
@@ -151,9 +153,14 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources, confidences }: any) => {
   const isOverridden = manualOverrides[field];
-  const source = isOverridden ? 'MANUAL' : defaultSource;
+  const backendSource = sources?.[field];
+  const backendConfidence = confidences?.[field];
+  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
+  const finalConfidence = backendConfidence || confidence;
+  const isMissing = isExtracted && value === "--";
+
   return (
     <div 
       className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
@@ -163,26 +170,30 @@ const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSo
       <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/3">{label}:</div>
       <div className="flex items-center gap-3 w-2/3 justify-end">
         <div className="font-mono text-white font-bold text-xs truncate">
-          {value === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
+          {value === "--" ? (
+             isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
+          ) : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
         </div>
-        {value !== "--" && confidence ? <div className="text-[10px] text-slate-500 font-mono w-10 text-right">({confidence}%)</div> : <div className="w-10"></div>}
-        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${value === "--" ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : source === 'DICOM' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30' : source === 'NLP' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} w-14 text-center flex-shrink-0`}>
-          {value === "--" ? "---" : source}
+        {!isMissing && value !== "--" && finalConfidence ? <div className="text-[10px] text-slate-500 font-mono w-10 text-right">({finalConfidence}%)</div> : <div className="w-10"></div>}
+        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isMissing ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : value === "--" ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : source === 'DICOM' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30' : source === 'NLP' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} w-14 text-center flex-shrink-0`}>
+          {isMissing ? "---" : value === "--" ? "---" : source}
         </div>
       </div>
     </div>
   );
 };
 
-const ReadOnlyLabRow = ({ label, field, value, unit, min, max, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+const ReadOnlyLabRow = ({ label, field, value, unit, min, max, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources }: any) => {
   const isOverridden = manualOverrides[field];
-  const source = isOverridden ? 'MANUAL' : defaultSource;
+  const backendSource = sources?.[field];
+  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
   const numValue = parseFloat(value);
   let status = "Normal";
   if (!isNaN(numValue) && min !== undefined && max !== undefined) {
     if (numValue < min) { status = "Low"; }
     else if (numValue > max) { status = "High"; }
   }
+  const isMissing = isExtracted && value === "--";
   return (
     <div 
       className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
@@ -191,22 +202,26 @@ const ReadOnlyLabRow = ({ label, field, value, unit, min, max, defaultSource, ma
     >
       <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/4">{label}:</div>
       <div className="font-mono text-white font-bold text-xs w-1/4 truncate">
-        {value === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
+        {value === "--" ? (
+           isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
+        ) : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
       </div>
       <div className="text-[10px] text-slate-500 font-mono w-1/4 text-center">
         {value === "--" ? "" : `(${min}-${max})`}
       </div>
-      <div className={`text-[10px] font-bold w-1/4 text-right flex items-center justify-end gap-1 ${value === "--" ? "text-slate-600" : status === 'Normal' ? 'text-emerald-400' : status === 'Low' ? 'text-amber-400' : 'text-rose-400'}`}>
-        {value === "--" ? "..." : status === 'Normal' ? '✓ Normal' : `⚠ ${status}`}
+      <div className={`text-[10px] font-bold w-1/4 text-right flex items-center justify-end gap-1 ${isMissing ? "text-slate-500" : value === "--" ? "text-slate-600" : status === 'Normal' ? 'text-emerald-400' : status === 'Low' ? 'text-amber-400' : 'text-rose-400'}`}>
+        {isMissing ? "---" : value === "--" ? "..." : status === 'Normal' ? '✓ Normal' : `⚠ ${status}`}
         {isOverridden && <span className="ml-1 text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
       </div>
     </div>
   );
 };
 
-const ReadOnlyPhenotypeRow = ({ label, field, detected, refs, defaultSource, manualOverrides, onClick, onContextMenu }: any) => {
+const ReadOnlyPhenotypeRow = ({ label, field, detected, refs, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources }: any) => {
   const isOverridden = manualOverrides[field];
-  const source = isOverridden ? 'MANUAL' : defaultSource;
+  const backendSource = sources?.[field];
+  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
+  const isMissing = isExtracted && detected === "--";
   return (
     <div 
       className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8 relative"
@@ -215,12 +230,14 @@ const ReadOnlyPhenotypeRow = ({ label, field, detected, refs, defaultSource, man
     >
       <div className="flex items-center gap-2 w-1/2">
         <div className="text-[14px]">
-          {detected === "--" ? '⏳' : detected ? '✅' : '☐'}
+          {isMissing ? '⚠' : detected === "--" ? '⏳' : detected ? '✅' : '☐'}
         </div>
-        <span className={`text-[11px] font-sans ${detected === "--" ? 'text-slate-600' : detected ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>{label}</span>
+        <span className={`text-[11px] font-sans ${isMissing ? 'text-slate-500' : detected === "--" ? 'text-slate-600' : detected ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>{label}</span>
       </div>
       <div className="text-[10px] text-slate-500 font-mono w-1/2 text-right flex items-center justify-end gap-2">
-        <span>{detected === "--" ? <span className="text-slate-600 font-mono tracking-widest font-normal">WAITING</span> : detected ? `(Detected, ${refs} ref${refs !== 1 ? 's' : ''})` : '(Not mentioned)'}</span>
+        <span>{detected === "--" ? (
+           isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
+        ) : detected ? `(Detected, ${refs} ref${refs !== 1 ? 's' : ''})` : '(Not mentioned)'}</span>
         {isOverridden && <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
       </div>
     </div>
@@ -406,6 +423,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     hepatitis_c: "--",
     mvi_pathology: "--",
     clinical_text_report: "",
+    sources: {},
+    confidences: {}
   });
 
   const [patientInfo, setPatientInfo] = useState({
@@ -1287,13 +1306,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyRadiologyRow label="Tumor Size" field="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" confidence={94} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Tumor Number" field="tumor_number" value={formData.tumor_number} unit="" confidence={98} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Tumor Density" field="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" confidence={92} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Irregularity" field="tumor_shape_irregularity" value={formData.tumor_shape_irregularity} unit="" confidence={87} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Entropy" field="tumor_texture_entropy" value={formData.tumor_texture_entropy} unit="" confidence={91} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Margin" field="margin_definition" value={formData.margin_definition} unit="" confidence={89} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyRadiologyRow label="Enhancement" field="enhancement_pattern" value={formData.enhancement_pattern} unit="" confidence={95} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyRadiologyRow label="Tumor Size" field="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" confidence={94} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Tumor Number" field="tumor_number" value={formData.tumor_number} unit="" confidence={98} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Tumor Density" field="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" confidence={92} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Irregularity" field="tumor_shape_irregularity" value={formData.tumor_shape_irregularity} unit="" confidence={87} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Entropy" field="tumor_texture_entropy" value={formData.tumor_texture_entropy} unit="" confidence={91} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Margin" field="margin_definition" value={formData.margin_definition} unit="" confidence={89} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  <ReadOnlyRadiologyRow label="Enhancement" field="enhancement_pattern" value={formData.enhancement_pattern} unit="" confidence={95} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
                 </div>
               </div>
 
@@ -1311,13 +1330,13 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyLabRow label="AFP" field="afp_ngml" value={formData.afp_ngml} unit="ng/mL" min={0} max={10} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="ALP" field="alp_iul" value={formData.alp_iul} unit="IU/L" min={40} max={120} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="ALT" field="alt_iul" value={formData.alt_iul} unit="IU/L" min={7} max={56} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="AST" field="ast_iul" value={formData.ast_iul} unit="IU/L" min={10} max={40} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="Bilirubin" field="bilirubin_mgdl" value={formData.bilirubin_mgdl} unit="mg/dL" min={0.1} max={1.2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="Albumin" field="albumin_gdl" value={formData.albumin_gdl} unit="g/dL" min={3.5} max={5.0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyLabRow label="Platelets" field="platelet_k_ul" value={formData.platelet_k_ul} unit="k/uL" min={150} max={400} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyLabRow label="AFP" field="afp_ngml" value={formData.afp_ngml} unit="ng/mL" min={0} max={10} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="ALP" field="alp_iul" value={formData.alp_iul} unit="IU/L" min={40} max={120} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="ALT" field="alt_iul" value={formData.alt_iul} unit="IU/L" min={7} max={56} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="AST" field="ast_iul" value={formData.ast_iul} unit="IU/L" min={10} max={40} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="Bilirubin" field="bilirubin_mgdl" value={formData.bilirubin_mgdl} unit="mg/dL" min={0.1} max={1.2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="Albumin" field="albumin_gdl" value={formData.albumin_gdl} unit="g/dL" min={3.5} max={5.0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyLabRow label="Platelets" field="platelet_k_ul" value={formData.platelet_k_ul} unit="k/uL" min={150} max={400} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
                 </div>
               </div>
 
@@ -1335,12 +1354,12 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyPhenotypeRow label="Cirrhosis" field="cirrhosis_present" detected={formData.cirrhosis_present} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyPhenotypeRow label="MVI Pathology" field="mvi_pathology" detected={formData.mvi_pathology} refs={2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyPhenotypeRow label="Hepatitis B" field="hepatitis_b" detected={formData.hepatitis_b} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyPhenotypeRow label="Hepatitis C" field="hepatitis_c" detected={formData.hepatitis_c} refs={0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyPhenotypeRow label="Child-Pugh A" field="child_pugh_score" detected={formData.child_pugh_score === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
-                  <ReadOnlyPhenotypeRow label="BCLC Stage A" field="bclc_stage" detected={formData.bclc_stage === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} />
+                  <ReadOnlyPhenotypeRow label="Cirrhosis" field="cirrhosis_present" detected={formData.cirrhosis_present} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyPhenotypeRow label="MVI Pathology" field="mvi_pathology" detected={formData.mvi_pathology} refs={2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyPhenotypeRow label="Hepatitis B" field="hepatitis_b" detected={formData.hepatitis_b} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyPhenotypeRow label="Hepatitis C" field="hepatitis_c" detected={formData.hepatitis_c} refs={0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyPhenotypeRow label="Child-Pugh A" field="child_pugh_score" detected={formData.child_pugh_score === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  <ReadOnlyPhenotypeRow label="BCLC Stage A" field="bclc_stage" detected={formData.bclc_stage === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
                 </div>
               </div>
             </div>

@@ -858,6 +858,42 @@ async def extract_clinical_data(
         extracted_data["hepatitis_c"] = bool(re.search(r'\b(hepatitis c|hcv|anti-hcv)\b', text))
         extracted_data["mvi_pathology"] = bool(re.search(r'\b(mvi|microvascular invasion)\b', text))
         
+        # NLP for missing radiological features
+        irr_match = re.search(r'shape irregularity.*?([\d\.]+)', text)
+        if irr_match:
+            extracted_data["tumor_shape_irregularity"] = float(irr_match.group(1))
+            extracted_data.setdefault("sources", {})["tumor_shape_irregularity"] = "NLP"
+            extracted_data.setdefault("confidences", {})["tumor_shape_irregularity"] = 90
+        
+        ent_match = re.search(r'texture entropy.*?([\d\.]+)', text)
+        if ent_match:
+            extracted_data["tumor_texture_entropy"] = float(ent_match.group(1))
+            extracted_data.setdefault("sources", {})["tumor_texture_entropy"] = "NLP"
+            extracted_data.setdefault("confidences", {})["tumor_texture_entropy"] = 90
+
+        if re.search(r'(jagged|infiltrative|irregular).*?margin', text):
+            extracted_data["margin_definition"] = "Irregular"
+            extracted_data.setdefault("sources", {})["margin_definition"] = "NLP"
+            extracted_data.setdefault("confidences", {})["margin_definition"] = 75
+        else:
+            mar_match = re.search(r'margins?:\s*([a-z]+)', text)
+            if mar_match:
+                extracted_data["margin_definition"] = mar_match.group(1).capitalize()
+                extracted_data.setdefault("sources", {})["margin_definition"] = "NLP"
+                extracted_data.setdefault("confidences", {})["margin_definition"] = 90
+
+        enh_match = re.search(r'(portal venous washout|progressive enhancement|rim enhancement|no enhancement)', text)
+        if enh_match:
+            extracted_data["enhancement_pattern"] = enh_match.group(1).title()
+            extracted_data.setdefault("sources", {})["enhancement_pattern"] = "NLP"
+            extracted_data.setdefault("confidences", {})["enhancement_pattern"] = 75
+        else:
+            enh_match2 = re.search(r'enhancement(?: pattern)?:\s*([a-z\s]+?)(?=\n|\.|,)', text)
+            if enh_match2:
+                extracted_data["enhancement_pattern"] = enh_match2.group(1).strip().title()
+                extracted_data.setdefault("sources", {})["enhancement_pattern"] = "NLP"
+                extracted_data.setdefault("confidences", {})["enhancement_pattern"] = 90
+        
     except Exception as e:
         print(f"PDF Extraction Error: {e}")
         pass
