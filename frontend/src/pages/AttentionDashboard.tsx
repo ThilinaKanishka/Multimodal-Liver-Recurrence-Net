@@ -390,35 +390,7 @@ export const AttentionDashboard = () => {
               </div>
             </div>
 
-            {/* High-Tech AI Summary Box */}
-            <div className="mt-auto bg-gradient-to-br from-[#0f1522] to-[#05080f] border border-[#00e5ff]/30 rounded-xl p-5 relative z-10 overflow-hidden shadow-[0_0_25px_rgba(0,229,255,0.15)] group transition-all duration-500 hover:shadow-[0_0_35px_rgba(0,229,255,0.25)] hover:border-[#00e5ff]/60">
-              {/* Ambient Glows */}
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#9d00ff]/20 blur-[50px] rounded-full group-hover:bg-[#9d00ff]/30 transition-all duration-1000"></div>
-              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#00e5ff]/20 blur-[50px] rounded-full group-hover:bg-[#00e5ff]/30 transition-all duration-1000"></div>
-              
-              <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[#00e5ff]/20 border border-[#00e5ff]/50 shadow-[0_0_10px_rgba(0,229,255,0.3)]">
-                    <Cpu className="w-3.5 h-3.5 text-[#00e5ff]" />
-                  </div>
-                  <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em] drop-shadow-[0_0_8px_rgba(0,229,255,0.5)]">AI Fusion Intelligence</h3>
-                </div>
-                <div className="flex items-center gap-1.5 bg-[#00ff9d]/10 border border-[#00ff9d]/30 px-2 py-1 rounded text-[8px] uppercase tracking-widest text-[#00ff9d] font-bold shadow-[0_0_10px_rgba(0,255,157,0.2)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-[pulse_1s_ease-in-out_infinite]"></span>
-                  Live Output
-                </div>
-              </div>
-              
-              <div className="relative z-10 bg-black/50 rounded-lg p-4 border border-white/10 backdrop-blur-md shadow-inner">
-                {/* Decorative Quote Marks */}
-                <div className="absolute top-2 left-2 text-[#00e5ff]/20 font-serif text-4xl leading-none font-black select-none pointer-events-none">"</div>
-                <div className="absolute bottom-[-10px] right-2 text-[#9d00ff]/20 font-serif text-4xl leading-none font-black select-none pointer-events-none">"</div>
-                
-                <p className="text-sm font-sans font-medium text-slate-200 leading-relaxed tracking-wide italic relative z-10 px-3">
-                  {data.attention_summary}
-                </p>
-              </div>
-            </div>
+
             
           </div>
         </div>
@@ -435,7 +407,7 @@ export const AttentionDashboard = () => {
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 shrink-0">
+        <div className="grid grid-cols-1 gap-6 mb-8 shrink-0">
           
           {/* Chart 1: Local vs Global Attention */}
           <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] p-5 relative flex flex-col group h-[400px]">
@@ -465,30 +437,7 @@ export const AttentionDashboard = () => {
             </div>
           </div>
 
-          {/* Chart 2: Feature Interaction Dependence */}
-          <div className="bg-[#0f1522]/60 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] p-5 relative flex flex-col group h-[400px]">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-[#ff0055]/5 blur-[40px] pointer-events-none group-hover:bg-[#ff0055]/10 transition-colors"></div>
-            
-            <div className="flex items-center gap-2 mb-2 pb-3 border-b border-white/10 relative z-10">
-              <ScatterIcon className="w-4 h-4 text-[#ff0055] drop-shadow-[0_0_5px_rgba(255,0,85,0.8)]" />
-              <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] drop-shadow-sm">Feature Interaction Dependence (SHAP)</h2>
-            </div>
-            <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-4">Illustrates how Tumor Size and AFP levels interact to compound the recurrence risk.</p>
-            
-            <div className="flex-1 w-full mt-2 relative z-10">
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis type="number" dataKey="size" name="Tumor Size (cm)" unit="cm" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 10 }} label={{ value: 'Tumor Size (cm)', position: 'insideBottom', fill: '#64748b', fontSize: 10, offset: -5 }} />
-                  <YAxis type="number" dataKey="shap" name="SHAP Impact" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 10 }} label={{ value: 'SHAP Impact on Risk', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 10 }} />
-                  <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'rgba(15,21,34,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '12px' }} />
-                  <Legend wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
-                  <Scatter name="High AFP (>400)" data={data.analytics_data?.scatterDataHighAFP || []} fill="#ff0055" />
-                  <Scatter name="Low AFP (<400)" data={data.analytics_data?.scatterDataLowAFP || []} fill="#00e5ff" />
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+
           
         </div>
 
@@ -509,7 +458,6 @@ export const AttentionDashboard = () => {
                   <th className="p-4 font-bold">Modality</th>
                   <th className="p-4 font-bold">Patient Value</th>
                   <th className="p-4 font-bold">Global Average</th>
-                  <th className="p-4 font-bold">SHAP Impact</th>
                   <th className="p-4 font-bold">Risk Contribution (+/-)</th>
                 </tr>
               </thead>
@@ -526,7 +474,6 @@ export const AttentionDashboard = () => {
                       </td>
                       <td className="p-4 font-bold">{row.value}</td>
                       <td className="p-4 text-slate-500">{row.globalAvg}</td>
-                      <td className="p-4">{row.shapImpact}</td>
                       <td className="p-4">
                         <span className={`flex items-center gap-1.5 font-bold ${isPositiveRisk ? 'text-rose-500' : 'text-[#00ff9d]'}`}>
                           {isPositiveRisk ? (
