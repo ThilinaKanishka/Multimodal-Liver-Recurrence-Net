@@ -69,31 +69,71 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 # ==========================================
 # 3. ADVANCED DEEP LEARNING ARCHITECTURE
 # ==========================================
+class CrossModalAttention(nn.Module):
+    """
+    Attention mechanism to highlight relevant features between modalities.
+    """
+    def __init__(self, embed_dim, num_heads=4):
+        super(CrossModalAttention, self).__init__()
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
+        self.layer_norm = nn.LayerNorm(embed_dim)
+        
+    def forward(self, query, key, value):
+        attn_output, _ = self.attention(query, key, value)
+        return self.layer_norm(query + attn_output)
+
 class AdvancedLiverMultimodalNN(nn.Module):
     def __init__(self, input_dim):
         super(AdvancedLiverMultimodalNN, self).__init__()
         
-        # Multi-Layer Perceptron (Fully Connected Deep Neural Network)
-        self.network = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.BatchNorm1d(256),  # Batch normalization for training stability
-            nn.ReLU(),
-            nn.Dropout(0.4),      # Dropout to prevent overfitting by deactivating 40% of neurons
-            
-            nn.Linear(256, 128),
+        embed_dim = 128
+        
+        # 1. Modality-Specific Feature Extractors
+        # We project the tabular inputs to simulate 'image' and 'text/clinical' semantic embeddings
+        self.image_branch = nn.Sequential(
+            nn.Linear(input_dim, embed_dim),
+            nn.BatchNorm1d(embed_dim),
+            nn.ReLU()
+        )
+        
+        self.text_branch = nn.Sequential(
+            nn.Linear(input_dim, embed_dim),
+            nn.BatchNorm1d(embed_dim),
+            nn.ReLU()
+        )
+        
+        # 2. Cross-Modal Feature Fusion with Attention
+        self.cross_attn_img_to_txt = CrossModalAttention(embed_dim=embed_dim, num_heads=4)
+        self.cross_attn_txt_to_img = CrossModalAttention(embed_dim=embed_dim, num_heads=4)
+        
+        # 3. Fusion & Prediction Network
+        self.fusion_network = nn.Sequential(
+            nn.Linear(embed_dim * 2, 128),
             nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(),
             nn.Dropout(0.3),
             
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            
-            nn.Linear(64, 1),     # Output layer for binary classification
-            nn.Sigmoid()          # Map output to a probability score between 0 and 1
+            nn.Linear(64, 1)
+            # Removed nn.Sigmoid() because BCEWithLogitsLoss expects raw logits
         )
         
     def forward(self, x):
-        return self.network(x)
+        img_emb = self.image_branch(x).unsqueeze(1)
+        txt_emb = self.text_branch(x).unsqueeze(1)
+        
+        # Cross-modal feature fusion with attention
+        attended_img = self.cross_attn_img_to_txt(query=img_emb, key=txt_emb, value=txt_emb)
+        attended_txt = self.cross_attn_txt_to_img(query=txt_emb, key=img_emb, value=img_emb)
+        
+        # Joint multimodal feature vector
+        joint_features = torch.cat((attended_img.squeeze(1), attended_txt.squeeze(1)), dim=1)
+        
+        return self.fusion_network(joint_features)
 
 # Initialize the network structure dynamically based on total input columns
 input_features_count = X_train_scaled.shape[1]
@@ -138,7 +178,7 @@ for epoch in range(epochs):
             for batch_X, batch_y in test_loader:
                 batch_X, batch_y = batch_X.to(device), batch_y.to(device)
                 outputs = model(batch_X)
-                predicted = (outputs > 0.5).float()
+                predicted = (outputs > 0.0).float()
                 total += batch_y.size(0)
                 correct += (predicted == batch_y).sum().item()
         
