@@ -156,12 +156,7 @@ export const AttentionDashboard = () => {
         setData(response.data);
       } catch (err: any) {
         console.error("Failed to fetch attention metrics:", err);
-        // Fallback to mock data to ensure UI always renders gracefully
-        setData({
-          modality_weights: { imaging_ct: 63, clinical_ehr: 37 },
-          clinical_attention: { "AFP": 0.45, "Tumor Size": 0.25, "MVI Status": 0.15, "Texture Entropy": 0.10, "Bilirubin": 0.05 },
-          attention_summary: "The Attention Mechanism prioritized the hypodense regions in the CT scan (63%) over the clinical markers (37%) due to the irregular tumor shape and texture heterogeneity."
-        });
+        setHasSession(false);
       } finally {
         setLoading(false);
       }

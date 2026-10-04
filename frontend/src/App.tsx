@@ -478,6 +478,11 @@ function App() {
 
   const [revokeCountdown, setRevokeCountdown] = useState(5);
 
+  useEffect(() => {
+    // Clear any active session when the application is hard-refreshed
+    sessionStorage.removeItem("active_patient_session");
+  }, []);
+
   const handleSetTheme = (theme: string) => {
     setActiveTheme(theme);
     localStorage.setItem("hepatoai_theme", theme);
