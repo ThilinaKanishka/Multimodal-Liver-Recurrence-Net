@@ -27,6 +27,7 @@ import {
 import axios from "axios";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ResponsiveContainer } from "recharts";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
 import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
@@ -1496,21 +1497,57 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       {/* Right Side: Timeline & Actions */}
                       <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
                         {/* Timeline box */}
-                        {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
-                          <div className="flex flex-col items-end border-r border-white/10 pr-6">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Predicted Timeline
+                        {result.estimated_recurrence_min_months !== undefined && result.estimated_recurrence_max_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                          <div className="flex flex-col items-start border-r border-white/10 pr-6 min-w-[340px]">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> PREDICTED RECURRENCE WINDOW
                             </span>
-                            <div className="flex items-baseline gap-1.5 relative">
-                               <div className="absolute inset-0 animate-pulse blur-[8px] opacity-70 text-amber-500 font-mono font-black text-2xl md:text-3xl flex items-baseline gap-1.5 pointer-events-none">
-                                 <span>{result.estimated_recurrence_min_months}</span>
-                                 <span>-</span>
-                                 <span>{result.estimated_recurrence_max_months}</span>
+                            
+                            <div className="flex w-full justify-between items-start mb-2">
+                               <div>
+                                 <div className="font-black text-[18px] text-amber-400 drop-shadow-md flex items-center gap-1.5">
+                                   Median: {((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2).toFixed(1)} <span className="text-[10px] uppercase tracking-widest text-amber-500/80">months</span>
+                                 </div>
+                                 <div className="text-[10px] font-mono text-amber-500/80 uppercase tracking-widest mt-0.5">
+                                   95% CI: {result.estimated_recurrence_min_months.toFixed(1)} - {result.estimated_recurrence_max_months.toFixed(1)} months
+                                 </div>
                                </div>
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_min_months}</span>
-                               <span className="text-amber-500/50 font-black text-lg relative">-</span>
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_max_months}</span>
-                               <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest relative">Months</span>
+                               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] font-mono border-l border-white/10 pl-3">
+                                 <div className="text-slate-400">1-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(12 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
+                                 <div className="text-slate-400">2-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(24 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
+                                 <div className="text-slate-400">3-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(36 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
+                                 <div className="text-slate-400">5-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(60 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
+                               </div>
+                            </div>
+                            
+                            <div className="h-16 w-full relative bg-black/20 rounded border border-white/5 pt-1">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart 
+                                  data={Array.from({length: 31}, (_, i) => {
+                                    const t = i * 2;
+                                    const median = (result.estimated_recurrence_min_months! + result.estimated_recurrence_max_months!) / 2;
+                                    const minVal = result.estimated_recurrence_min_months!;
+                                    const maxVal = result.estimated_recurrence_max_months!;
+                                    const risk = 1 - Math.exp(-0.693147 * Math.pow(t / median, 1.4));
+                                    const ciUpperRisk = 1 - Math.exp(-0.693147 * Math.pow(t / minVal, 1.4));
+                                    const ciLowerRisk = 1 - Math.exp(-0.693147 * Math.pow(t / maxVal, 1.4));
+                                    return {
+                                      month: t,
+                                      survival: (1 - risk) * 100,
+                                      range: [(1 - ciUpperRisk) * 100, (1 - ciLowerRisk) * 100]
+                                    };
+                                  })}
+                                  margin={{ top: 2, right: 5, left: -25, bottom: 0 }}
+                                >
+                                  <CartesianGrid strokeDasharray="2 2" stroke="#ffffff10" vertical={false} />
+                                  <XAxis dataKey="month" type="number" domain={[0, 60]} tickCount={7} stroke="#ffffff30" tick={{fontSize: 7, fill: '#64748b'}} axisLine={false} tickLine={false} />
+                                  <YAxis domain={[0, 100]} stroke="#ffffff30" tick={{fontSize: 7, fill: '#64748b'}} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                                  <Area type="monotone" dataKey="range" stroke="none" fill="#f59e0b" fillOpacity={0.15} isAnimationActive={false} />
+                                  <Line type="monotone" dataKey="survival" stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                  <ReferenceLine x={(result.estimated_recurrence_min_months! + result.estimated_recurrence_max_months!) / 2} stroke="#f59e0b" strokeDasharray="3 3" strokeOpacity={0.5} />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              <div className="absolute top-0 right-1 text-[7px] font-mono text-slate-500 opacity-70">Kaplan-Meier</div>
                             </div>
                           </div>
                         )}
