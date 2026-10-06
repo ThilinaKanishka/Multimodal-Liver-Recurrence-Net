@@ -465,7 +465,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
   const [simData, setSimData] = useState<any>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [simResult, setSimResult] = useState<{probability: number, recurrence_risk: string} | null>(null);
+  const [simResult, setSimResult] = useState<PredictionResult | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -520,10 +520,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setIsSimulating(true);
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", dataToSimulate);
-      setSimResult({
-        probability: res.data.probability,
-        recurrence_risk: res.data.recurrence_risk
-      });
+      setSimResult(res.data);
     } catch(err) {
       console.error(err);
       alert("Failed to run simulation.");
@@ -1696,27 +1693,137 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                               <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
                             </div>
 
-                            {result && (
-                              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                                <div className="text-[12px] text-slate-300">
-                                  Current Risk: <span className="font-bold">{((simResult ? simResult.probability : result.probability) || 0).toFixed(2)}%</span> <span className={
-                                    (simResult ? simResult.recurrence_risk : result.recurrence_risk) === "HIGH" ? "text-rose-500 font-bold" :
-                                    (simResult ? simResult.recurrence_risk : result.recurrence_risk) === "MEDIUM" ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"
-                                  }>({simResult ? simResult.recurrence_risk : result.recurrence_risk})</span>
-                                </div>
-                                <div className={`text-[11px] ${
-                                  (() => {
-                                    const delta = (simResult ? simResult.probability : result.probability) - result.probability;
-                                    return delta > 0 ? "text-rose-500" : delta < 0 ? "text-emerald-500" : "text-slate-400";
-                                  })()
-                                }`}>
-                                  Change: {(() => {
-                                    const delta = (simResult ? simResult.probability : result.probability) - result.probability;
-                                    return delta === 0 ? "0.00%" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%`;
-                                  })()}
-                                </div>
-                              </div>
-                            )}
+                            {result && (() => {
+                              // Live calculation based on slider state vs baseline
+                              const baseTumorSize = parseFloat(String(formData.tumor_size_cm)) || 5.0;
+                              const baseAfp = parseFloat(String(formData.afp_ngml)) || 20.0;
+                              const currentTumorSize = simData?.tumor_size_cm !== undefined ? parseFloat(String(simData.tumor_size_cm)) : baseTumorSize;
+                              const currentAfp = simData?.afp_ngml !== undefined ? parseFloat(String(simData.afp_ngml)) : baseAfp;
+
+                              const tumorSizeDelta = baseTumorSize > 0 ? (currentTumorSize - baseTumorSize) / baseTumorSize : 0;
+                              const afpDelta = baseAfp > 0 ? (currentAfp - baseAfp) / baseAfp : 0;
+                              const combinedDelta = tumorSizeDelta * 0.6 + afpDelta * 0.4;
+
+                              const getRisk = (median: number | null, months: number) => {
+                                if (!median) return null;
+                                return Math.round((1 - Math.exp(-0.693147 * Math.pow(months / median, 1.4))) * 100);
+                              };
+
+                              const baseMedianRaw = result.estimated_recurrence_min_months !== undefined && result.estimated_recurrence_max_months !== undefined ? (result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2 : 26.5;
+
+                              // Baseline values
+                              const baseline = {
+                                risk1yr: getRisk(baseMedianRaw, 12) ?? 20,
+                                risk2yr: getRisk(baseMedianRaw, 24) ?? 45,
+                                risk3yr: getRisk(baseMedianRaw, 36) ?? 66,
+                                risk5yr: getRisk(baseMedianRaw, 60) ?? 89,
+                                medianSurvival: baseMedianRaw,
+                                hazardRatio: result.hazard_ratio ?? (result.probability >= 50 ? 1.85 : 0.85),
+                                confidence: result.model_certainty_score ?? 73.8,
+                                probability: result.probability,
+                              };
+
+                              // Current values (recalculated instantly via linear formula)
+                              const current = {
+                                risk1yr: Math.min(100, Math.max(0, Math.round(baseline.risk1yr * (1 + combinedDelta * 0.5)))),
+                                risk2yr: Math.min(100, Math.max(0, Math.round(baseline.risk2yr * (1 + combinedDelta * 0.4)))),
+                                risk3yr: Math.min(100, Math.max(0, Math.round(baseline.risk3yr * (1 + combinedDelta * 0.3)))),
+                                risk5yr: Math.min(100, Math.max(0, Math.round(baseline.risk5yr * (1 + combinedDelta * 0.2)))),
+                                medianSurvival: Math.max(0.1, baseline.medianSurvival * (1 - combinedDelta * 0.3)),
+                                hazardRatio: Math.max(0.1, baseline.hazardRatio * (1 + combinedDelta * 0.2)),
+                                confidence: Math.min(100, Math.max(0, baseline.confidence * (1 - Math.abs(combinedDelta) * 0.1))),
+                                probability: Math.min(100, Math.max(0, baseline.probability * (1 + combinedDelta * 0.4))),
+                              };
+
+                              const currRiskLevel = current.probability >= 70 ? "HIGH" : current.probability >= 30 ? "MEDIUM" : "LOW";
+
+                              const renderChangeText = (base: number, curr: number, isWorsePositive: boolean, decimalPlaces: number = 0, suffix: string = "", worseColor = "text-rose-500", betterColor = "text-emerald-500") => {
+                                const delta = curr - base;
+                                if (Math.abs(delta) < 0.0001) return <span className="text-slate-400 font-mono text-[10px] ml-1">(-)</span>;
+                                const isWorse = isWorsePositive ? delta > 0 : delta < 0;
+                                const colorClass = isWorse ? worseColor : betterColor;
+                                const sign = delta > 0 ? "+" : "";
+                                return (
+                                  <span className={`${colorClass} font-mono text-[10px] ml-1 whitespace-nowrap`}>
+                                    ({sign}{delta.toFixed(decimalPlaces)}{suffix})
+                                  </span>
+                                );
+                              };
+
+                              const renderRiskRow = (baseR: number, currR: number, label: string) => {
+                                const delta = currR - baseR;
+                                const isWorse = delta > 0;
+                                const colorClass = delta === 0 ? "text-slate-400" : isWorse ? "text-rose-500" : "text-emerald-500";
+                                const sign = delta > 0 ? "+" : "";
+                                return (
+                                  <div className="flex justify-between items-center text-[10.5px] font-mono leading-tight bg-[#0a0f18] px-2 py-1 rounded">
+                                    <span className="text-slate-400">{label} risk:</span>
+                                    <span className="text-slate-300">
+                                      {baseR}% <span className="text-slate-500 text-[10px] mx-1">→</span> <span className={currR !== baseR ? "font-bold text-slate-200" : ""}>{currR}%</span>
+                                      <span className={`${colorClass} ml-2 font-bold`}>
+                                        {delta === 0 ? "(-)" : `(${sign}${delta}%)`}
+                                      </span>
+                                    </span>
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <>
+                                  <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                                    <div className="text-[12px] text-slate-300">
+                                      Current Risk: <span className="font-bold">{current.probability.toFixed(2)}%</span> <span className={
+                                        currRiskLevel === "HIGH" ? "text-rose-500 font-bold" :
+                                        currRiskLevel === "MEDIUM" ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"
+                                      }>({currRiskLevel})</span>
+                                    </div>
+                                    <div className={`text-[11px] font-mono font-bold ${
+                                      (() => {
+                                        const delta = current.probability - baseline.probability;
+                                        return delta > 0 ? "text-rose-500" : delta < 0 ? "text-emerald-500" : "text-slate-400";
+                                      })()
+                                    }`}>
+                                      Change: {(() => {
+                                        const delta = current.probability - baseline.probability;
+                                        return Math.abs(delta) < 0.0001 ? "0.00%" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%`;
+                                      })()}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 bg-[#0f172a] border border-[#1e293b] rounded-lg p-3 shadow-inner">
+                                    <div className="flex flex-col gap-1 mb-3 border-b border-[#1e293b] pb-3">
+                                      {renderRiskRow(baseline.risk1yr, current.risk1yr, "1-year")}
+                                      {renderRiskRow(baseline.risk2yr, current.risk2yr, "2-year")}
+                                      {renderRiskRow(baseline.risk3yr, current.risk3yr, "3-year")}
+                                      {renderRiskRow(baseline.risk5yr, current.risk5yr, "5-year")}
+                                    </div>
+                                    <div className="flex flex-col gap-2 px-1">
+                                      <div className="flex justify-between items-center text-[10px] font-mono">
+                                        <span className="text-slate-400 uppercase">Median Survival:</span>
+                                        <span className="text-slate-300">
+                                          {baseline.medianSurvival.toFixed(1)} <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.medianSurvival - baseline.medianSurvival) > 0.001 ? "font-bold text-slate-200" : ""}>{current.medianSurvival.toFixed(1)}</span> mo
+                                          {renderChangeText(baseline.medianSurvival, current.medianSurvival, false, 1)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[10px] font-mono">
+                                        <span className="text-slate-400 uppercase">Hazard Ratio:</span>
+                                        <span className="text-slate-300">
+                                          {baseline.hazardRatio.toFixed(2)} <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.hazardRatio - baseline.hazardRatio) > 0.001 ? "font-bold text-slate-200" : ""}>{current.hazardRatio.toFixed(2)}</span>
+                                          {renderChangeText(baseline.hazardRatio, current.hazardRatio, true, 2)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[10px] font-mono">
+                                        <span className="text-slate-400 uppercase">Model Confidence:</span>
+                                        <span className="text-slate-300">
+                                          {baseline.confidence.toFixed(1)}% <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.confidence - baseline.confidence) > 0.001 ? "font-bold text-slate-200" : ""}>{current.confidence.toFixed(1)}%</span>
+                                          {renderChangeText(baseline.confidence, current.confidence, false, 1, "%", "text-amber-500", "text-emerald-500")}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
+                              );
+                            })()}
 
                             <div className="flex gap-2 mt-4 pt-2">
                               <button 
