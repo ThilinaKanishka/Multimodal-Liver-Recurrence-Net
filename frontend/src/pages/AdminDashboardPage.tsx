@@ -5,12 +5,13 @@ import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import ForgotPassword from "../components/ForgotPassword";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network, ShieldCheck, Send, UserPlus, Ticket } from "lucide-react";
+import { ModuleManagement } from "../components/ModuleManagement";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network, ShieldCheck, Send, UserPlus, Ticket, Layers } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
 export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES' | 'FINANCIAL_AUDIT'>(() => {
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES' | 'FINANCIAL_AUDIT' | 'MODULE_MANAGEMENT'>(() => {
     return (sessionStorage.getItem("hepatoai_admin_active_tab") as any) || 'OVERVIEW';
   });
 
@@ -628,6 +629,19 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           >
             <Database className={`w-4 h-4 flex-shrink-0 ${activeTab === 'FINANCIAL_AUDIT' ? 'text-emerald-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
             {!isSidebarCollapsed && "Financial Audit"}
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('MODULE_MANAGEMENT')}
+            title="Module Management"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer mt-2 ${
+              activeTab === 'MODULE_MANAGEMENT' 
+                ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/10 border-l-4 border-purple-500 text-purple-500 shadow-sm' 
+                : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Layers className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MODULE_MANAGEMENT' ? 'text-purple-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            {!isSidebarCollapsed && "Module Management"}
           </button>
         </div>
 
@@ -2725,8 +2739,13 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           </div>
         )}
 
+        {/* TAB 8: MODULE_MANAGEMENT TAB */}
+        {activeTab === 'MODULE_MANAGEMENT' && (
+           <ModuleManagement theme={theme} />
+        )}
+
         {/* FOOTER */}
-        <footer className={`mt-auto pt-8 pb-4 border-t font-mono text-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-800/80 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
+        <footer className={`mt-auto pt-8 pb-4 border-t shrink-0 relative z-0 font-mono text-xs flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-800/80 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
           <div className="flex items-center gap-2 text-[11px]">
             <Shield className="w-3.5 h-3.5 text-cyan-500" />
             <span>HepatoAI IT Administration Console • <span className={`font-bold ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>HIPAA Compliant System</span></span>

@@ -8,9 +8,10 @@ interface SidebarProps {
   setActivePage: (page: string) => void;
   user?: any;
   onLogout?: () => void;
+  modules?: any[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, onLogout, modules = [] }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
@@ -115,62 +116,80 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, use
       </div>
 
       <div className="px-3 w-full flex flex-col gap-1">
-        <div className={getIconClass("activity")} onClick={() => setActivePage("activity")} title="Diagnostic Workspace">
-          <Activity className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workspace</span>}
-        </div>
-        <div className={getIconClass("longitudinal")} onClick={() => setActivePage("longitudinal")} title="Longitudinal Tracking (Compare Mode)">
-          <Split className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Compare</span>}
-        </div>
-        <div className={getIconClass("dashboard")} onClick={() => setActivePage("dashboard")} title="System Dashboard">
-          <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Dashboard</span>}
-        </div>
-        <div className={getIconClass("attention")} onClick={() => setActivePage("attention")} title="Attention & Fusion Analysis">
-          <Layers className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Attention</span>}
-        </div>
-        <div className={getIconClass("feature_extraction")} onClick={() => setActivePage("feature_extraction")} title="Advanced Feature Extraction">
-          <Cpu className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Features</span>}
-        </div>
-        <div className={getIconClass("search")} onClick={() => setActivePage("search")} title="Patient Ledger & History">
-          <Search className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Patient History</span>}
-        </div>
-        <div className={getIconClass("billing")} onClick={() => setActivePage("billing")} title="Workload & Billing Logs">
-          <Database className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workload Logs</span>}
-        </div>
+        {(!modules.length || modules.find(m => m.id === "workspace")?.enabled !== false) && (
+          <div className={getIconClass("activity")} onClick={() => setActivePage("activity")} title="Diagnostic Workspace">
+            <Activity className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workspace</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "compare")?.enabled !== false) && (
+          <div className={getIconClass("longitudinal")} onClick={() => setActivePage("longitudinal")} title="Longitudinal Tracking (Compare Mode)">
+            <Split className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Compare</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "dashboard")?.enabled !== false) && (
+          <div className={getIconClass("dashboard")} onClick={() => setActivePage("dashboard")} title="System Dashboard">
+            <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Dashboard</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "attention")?.enabled !== false) && (
+          <div className={getIconClass("attention")} onClick={() => setActivePage("attention")} title="Attention & Fusion Analysis">
+            <Layers className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Attention</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "features")?.enabled !== false) && (
+          <div className={getIconClass("feature_extraction")} onClick={() => setActivePage("feature_extraction")} title="Advanced Feature Extraction">
+            <Cpu className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Features</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "patient-history")?.enabled !== false) && (
+          <div className={getIconClass("search")} onClick={() => setActivePage("search")} title="Patient Ledger & History">
+            <Search className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Patient History</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "workload-logs")?.enabled !== false) && (
+          <div className={getIconClass("billing")} onClick={() => setActivePage("billing")} title="Workload & Billing Logs">
+            <Database className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Workload Logs</span>}
+          </div>
+        )}
 
       </div>
       
       <div className="mt-auto px-3 w-full flex flex-col gap-1">
-        <div className={getIconClass("settings")} onClick={() => setActivePage("settings")} title="System Configuration">
-          <Settings className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Settings</span>}
-        </div>
-        <div className={getIconClass("support")} onClick={() => setActivePage("support")} title="IT Support">
-          <div className="relative">
-            <MessageSquare className="w-5 h-5 flex-shrink-0" />
-            {unreadSupportCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white shadow-sm ring-1 ring-white/10 animate-pulse">
-                {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+        {(!modules.length || modules.find(m => m.id === "settings")?.enabled !== false) && (
+          <div className={getIconClass("settings")} onClick={() => setActivePage("settings")} title="System Configuration">
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider">Settings</span>}
+          </div>
+        )}
+        {(!modules.length || modules.find(m => m.id === "it-support")?.enabled !== false) && (
+          <div className={getIconClass("support")} onClick={() => setActivePage("support")} title="IT Support">
+            <div className="relative">
+              <MessageSquare className="w-5 h-5 flex-shrink-0" />
+              {unreadSupportCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white shadow-sm ring-1 ring-white/10 animate-pulse">
+                  {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+                </span>
+              )}
+            </div>
+            {!isCollapsed && (
+              <span className="text-xs font-bold uppercase tracking-wider flex items-center justify-between flex-1 pr-1">
+                IT Support
+                {unreadSupportCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center justify-center">
+                    {unreadSupportCount} NEW
+                  </span>
+                )}
               </span>
             )}
           </div>
-          {!isCollapsed && (
-            <span className="text-xs font-bold uppercase tracking-wider flex items-center justify-between flex-1 pr-1">
-              IT Support
-              {unreadSupportCount > 0 && (
-                <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm flex items-center justify-center">
-                  {unreadSupportCount} NEW
-                </span>
-              )}
-            </span>
-          )}
-        </div>
+        )}
         <div 
           className={`w-full h-10 ${isCollapsed ? 'justify-center' : 'px-3'} text-rose-500 hover:text-white hover:bg-rose-600/80 rounded-md flex items-center gap-3 cursor-pointer transition-all border border-rose-500/30 hover:border-rose-500 mt-1 shadow-[0_0_10px_rgba(244,63,94,0.1)]`}
           onClick={() => {
