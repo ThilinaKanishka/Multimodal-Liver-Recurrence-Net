@@ -465,6 +465,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
   const [simData, setSimData] = useState<any>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [simResult, setSimResult] = useState<{probability: number, recurrence_risk: string} | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -519,14 +520,9 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setIsSimulating(true);
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", dataToSimulate);
-      setResult(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          recurrence_risk: res.data.recurrence_risk,
-          probability: res.data.probability,
-          explainable_ai_weights: res.data.explainable_ai_weights
-        };
+      setSimResult({
+        probability: res.data.probability,
+        recurrence_risk: res.data.recurrence_risk
       });
     } catch(err) {
       console.error(err);
@@ -1683,12 +1679,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                             <h4 className="text-[12px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
                               <Activity className="w-4 h-4" /> What-If Simulation
                             </h4>
-                            <button 
-                              onClick={(e) => { e.preventDefault(); setSimData({ ...formData }); handleSimulate({ ...formData }); }}
-                              className="text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest px-3 py-1 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                            >
-                              Reset
-                            </button>
                           </div>
                           <div className="space-y-4">
                             <div className="flex flex-col gap-2">
@@ -1705,6 +1695,44 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                               </label>
                               <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
                             </div>
+
+                            {result && (
+                              <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                                <div className="text-[12px] text-slate-300">
+                                  Current Risk: <span className="font-bold">{((simResult ? simResult.probability : result.probability) || 0).toFixed(2)}%</span> <span className={
+                                    (simResult ? simResult.recurrence_risk : result.recurrence_risk) === "HIGH" ? "text-rose-500 font-bold" :
+                                    (simResult ? simResult.recurrence_risk : result.recurrence_risk) === "MEDIUM" ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"
+                                  }>({simResult ? simResult.recurrence_risk : result.recurrence_risk})</span>
+                                </div>
+                                <div className={`text-[11px] ${
+                                  (() => {
+                                    const delta = (simResult ? simResult.probability : result.probability) - result.probability;
+                                    return delta > 0 ? "text-rose-500" : delta < 0 ? "text-emerald-500" : "text-slate-400";
+                                  })()
+                                }`}>
+                                  Change: {(() => {
+                                    const delta = (simResult ? simResult.probability : result.probability) - result.probability;
+                                    return delta === 0 ? "0.00%" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%`;
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 mt-4 pt-2">
+                              <button 
+                                onClick={(e) => { e.preventDefault(); handleSimulate(simData); }}
+                                className="flex-1 text-[10px] font-bold text-slate-300 hover:text-white uppercase tracking-widest px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors text-center"
+                              >
+                                Simulate Outcome
+                              </button>
+                              <button 
+                                onClick={(e) => { e.preventDefault(); setSimData({ ...formData }); setSimResult(null); handleSimulate({ ...formData }); }}
+                                className="flex-1 text-[10px] font-bold text-slate-300 hover:text-white uppercase tracking-widest px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors text-center"
+                              >
+                                Reset
+                              </button>
+                            </div>
+
                             {isSimulating && (
                               <div className="text-[10px] text-blue-400 animate-pulse text-center w-full uppercase tracking-widest pt-2">
                                 Simulating Outcome...
