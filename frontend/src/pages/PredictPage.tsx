@@ -515,10 +515,10 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setActivePopup(null);
   };
 
-  const handleSimulate = async () => {
+  const handleSimulate = async (dataToSimulate = simData) => {
     setIsSimulating(true);
     try {
-      const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", simData);
+      const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", dataToSimulate);
       setResult(prev => {
         if (!prev) return prev;
         return {
@@ -535,6 +535,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       setIsSimulating(false);
     }
   };
+
+  useEffect(() => {
+    if (simData && result && (simData.tumor_size_cm !== formData.tumor_size_cm || simData.afp_ngml !== formData.afp_ngml)) {
+      const timer = setTimeout(() => {
+        handleSimulate(simData);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [simData?.tumor_size_cm, simData?.afp_ngml]);
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
@@ -1618,7 +1627,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       {/* Left Column */}
                       <div className="flex-1 flex flex-col min-w-[70%] border-b xl:border-b-0 xl:border-r border-[#1e293b]">
                         {/* MPR Viewer Area */}
-                        <div id="mpr-workstation-capture" className="p-2 border-b border-[#1e293b] flex flex-col bg-black" style={{ height: 'calc(max(80vh, 800px) - 200px)' }}>
+                        <div id="mpr-workstation-capture" className="relative p-2 border-b border-[#1e293b] flex flex-col bg-black overflow-hidden" style={{ height: 'calc(max(80vh, 800px) - 200px)' }}>
                           {result?.interpretability_layer?.gradcam_3d_matrix ? (
                             <MprClinicalWorkstation 
                               base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
@@ -1633,29 +1642,74 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                                 NO VOLUMETRIC DATA RENDERED
                             </div>
                           )}
+
+                          {/* OVERLAY FOR WHAT-IF SIMULATION */}
+                          {(() => {
+                            const origSize = parseFloat(String(formData.tumor_size_cm));
+                            const simSize = parseFloat(simData?.tumor_size_cm);
+                            const isSimulated = simSize !== origSize && !isNaN(simSize) && !isNaN(origSize);
+                            if (!isSimulated) return null;
+                            
+                            const delta = simSize - origSize;
+                            const deltaStr = delta > 0 ? `+${delta.toFixed(1)} cm` : `${delta.toFixed(1)} cm`;
+                            
+                            // Pixels per cm scale factor (visual representation)
+                            const scale = 20; 
+                            const origPx = origSize * scale;
+                            const simPx = simSize * scale;
+                            
+                            return (
+                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50 flex items-center justify-center">
+                                {/* Ghost outline for original tumor */}
+                                <div className="absolute rounded-full border-2 border-dashed border-yellow-500/50 flex items-center justify-center transition-all duration-300" style={{ width: origPx, height: origPx }}>
+                                </div>
+                                
+                                {/* Solid circle for simulated tumor */}
+                                <div className="absolute rounded-full border-2 border-yellow-400 bg-yellow-400/20 flex items-center justify-center shadow-[0_0_15px_rgba(250,204,21,0.5)] transition-all duration-300" style={{ width: simPx, height: simPx }}>
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 whitespace-nowrap flex flex-col items-center">
+                                    <span className="text-[10px] font-black tracking-widest text-amber-900 bg-amber-400 px-2 py-0.5 rounded shadow">SIMULATED</span>
+                                    <span className="text-xs font-bold text-yellow-400 mt-1 drop-shadow-md">HCC — {simSize.toFixed(1)} cm</span>
+                                    <span className={`text-[10px] font-mono font-bold ${delta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{deltaStr}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                         
                         {/* Interactive What-If Analysis */}
                         <div className="p-5 bg-[#0a0e17]">
-                          <h4 className="text-[12px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                            <Activity className="w-4 h-4" /> What-If Simulation
-                          </h4>
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-[12px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                              <Activity className="w-4 h-4" /> What-If Simulation
+                            </h4>
+                            <button 
+                              onClick={(e) => { e.preventDefault(); setSimData({ ...formData }); handleSimulate({ ...formData }); }}
+                              className="text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest px-3 py-1 bg-white/5 hover:bg-white/10 rounded transition-colors"
+                            >
+                              Reset
+                            </button>
+                          </div>
                           <div className="space-y-4">
                             <div className="flex flex-col gap-2">
-                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
+                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex justify-between">
+                                <span>Tumor Size (cm)</span>
+                                <span className={simData?.tumor_size_cm !== formData.tumor_size_cm ? 'text-yellow-400' : ''}>{simData?.tumor_size_cm}</span>
+                              </label>
                               <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
                             </div>
                             <div className="flex flex-col gap-2">
-                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">AFP (ng/ml): {simData?.afp_ngml}</label>
+                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex justify-between">
+                                <span>AFP (ng/ml)</span>
+                                <span className={simData?.afp_ngml !== formData.afp_ngml ? 'text-yellow-400' : ''}>{simData?.afp_ngml}</span>
+                              </label>
                               <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
                             </div>
-                            <button 
-                              onClick={(e) => { e.preventDefault(); handleSimulate(); }}
-                              disabled={isSimulating}
-                              className="w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-400 text-[11px] font-black uppercase tracking-widest rounded transition-colors mt-2"
-                            >
-                              {isSimulating ? "Simulating..." : "Simulate Outcome"}
-                            </button>
+                            {isSimulating && (
+                              <div className="text-[10px] text-blue-400 animate-pulse text-center w-full uppercase tracking-widest pt-2">
+                                Simulating Outcome...
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
