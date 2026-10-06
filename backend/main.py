@@ -71,7 +71,7 @@ except ImportError:
     rotate = MockRotate()
 import pydicom
 import PyPDF2
-from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection, messages_collection, system_settings_collection
+from database import patients_collection, audit_logs_collection, predictions_collection, users_collection, system_logs_collection, messages_collection, system_settings_collection, modules_collection, module_audit_collection
 try:
     import fitz
 except ImportError:
@@ -2919,3 +2919,75 @@ async def set_system_maintenance(payload: MaintenancePayload):
         upsert=True
     )
     return {"status": "SUCCESS", "maintenance_mode": payload.maintenance_mode, "estimated_time": payload.estimated_time}
+
+# ==========================================
+# API Endpoints: Module Management
+# ==========================================
+DEFAULT_MODULES = [
+    {"id": "workspace", "name": "Workspace", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "compare", "name": "Compare", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "dashboard", "name": "Dashboard", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "attention", "name": "Attention", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "features", "name": "Features", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "patient-history", "name": "Patient History", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "workload-logs", "name": "Workload Logs", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "settings", "name": "Settings", "enabled": True, "disabledReason": None, "disabledAt": None},
+    {"id": "it-support", "name": "IT Support", "enabled": True, "disabledReason": None, "disabledAt": None}
+]
+
+@app.on_event("startup")
+async def seed_modules():
+    count = await modules_collection.count_documents({})
+    if count == 0:
+        await modules_collection.insert_many(DEFAULT_MODULES)
+        print("✅ Default clinical modules seeded into MongoDB.")
+
+@app.get("/api/modules")
+async def get_modules():
+    modules = []
+    async for m in modules_collection.find({}, {"_id": 0}):
+        modules.append(m)
+    return modules
+
+class ModuleTogglePayload(BaseModel):
+    enabled: bool
+    reason: str
+
+@app.post("/api/modules/{mod_id}/toggle")
+async def toggle_module(mod_id: str, payload: ModuleTogglePayload):
+    mod = await modules_collection.find_one({"id": mod_id})
+    if not mod:
+        raise HTTPException(status_code=404, detail="Module not found")
+        
+    disabled_at = None if payload.enabled else datetime.utcnow().isoformat()
+    disabled_reason = None if payload.enabled else payload.reason
+    
+    await modules_collection.update_one(
+        {"id": mod_id},
+        {"$set": {
+            "enabled": payload.enabled,
+            "disabledReason": disabled_reason,
+            "disabledAt": disabled_at
+        }}
+    )
+    
+    # Audit log
+    audit_log = {
+        "id": str(uuid.uuid4()),
+        "module": mod.get("name", mod_id),
+        "action": "Enabled" if payload.enabled else "Disabled",
+        "user": "ST-ADMIN",
+        "timestamp": datetime.utcnow().isoformat(),
+        "reason": payload.reason
+    }
+    await module_audit_collection.insert_one(audit_log)
+    
+    updated_mod = await modules_collection.find_one({"id": mod_id}, {"_id": 0})
+    return updated_mod
+
+@app.get("/api/modules/audit")
+async def get_module_audit():
+    logs = []
+    async for log in module_audit_collection.find({}, {"_id": 0}).sort("timestamp", -1).limit(50):
+        logs.append(log)
+    return logs

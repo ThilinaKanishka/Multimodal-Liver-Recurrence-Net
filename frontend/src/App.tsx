@@ -475,6 +475,7 @@ function App() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
   const [isRevoked, setIsRevoked] = useState(false);
+  const [modules, setModules] = useState<any[]>([]);
 
   const [revokeCountdown, setRevokeCountdown] = useState(5);
 
@@ -561,7 +562,20 @@ function App() {
     };
     checkMaintenance();
     const interval = setInterval(checkMaintenance, 5000);
-    return () => clearInterval(interval);
+    
+    const fetchModules = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/modules");
+        setModules(res.data);
+      } catch (err) {}
+    };
+    fetchModules();
+    const modulesInterval = setInterval(fetchModules, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(modulesInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -771,19 +785,64 @@ function App() {
       `}</style>
       <div className={`flex flex-col h-screen bg-[#030712] text-slate-300 font-sans selection:bg-blue-500/30 overflow-hidden ${activeTheme}`}>
         <div className="flex flex-1 min-h-0 overflow-hidden">
-        <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} />
-        <div className={`flex-1 bg-[#030712] relative ${activePage === "activity" || activePage === "longitudinal" ? "overflow-hidden" : "overflow-auto"}`}>
-          {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
-          <div className={activePage === "activity" ? "absolute inset-0 flex flex-col" : "hidden"}>
-            <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
-          </div>
-          <div className={activePage === "longitudinal" ? "absolute inset-0 flex flex-col" : "hidden"}>
-            <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
-          </div>
-          <div className={(activePage === "activity" || activePage === "longitudinal") ? "hidden" : "block"}>
-            {renderPage()}
-          </div>
-        </div>
+        <Sidebar activePage={activePage} setActivePage={setActivePage} user={currentUser} onLogout={() => setCurrentUser(null)} modules={modules} />
+        
+        {(() => {
+          const PAGE_TO_MODULE_ID: Record<string, string> = {
+            activity: 'workspace',
+            longitudinal: 'compare',
+            dashboard: 'dashboard',
+            attention: 'attention',
+            feature_extraction: 'features',
+            search: 'patient-history',
+            billing: 'workload-logs',
+            settings: 'settings',
+            support: 'it-support'
+          };
+          const activeMod = modules.find(m => m.id === (PAGE_TO_MODULE_ID[activePage] || activePage));
+          if (activeMod && !activeMod.enabled && currentUser?.level !== 'IT Admin') {
+            return (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0f18] relative z-10 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                  <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-amber-500/5 blur-[120px] rounded-full animate-pulse-slow"></div>
+                </div>
+                <div className="z-10 bg-[#0f1522]/80 backdrop-blur-2xl border border-white/10 p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center max-w-lg text-center">
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-full mb-6">
+                    <Wrench className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-3">Temporarily Unavailable</h2>
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    The <strong>{activeMod.name}</strong> module is currently paused by IT Administration.
+                    {activeMod.disabledReason && (
+                      <span className="block mt-2 font-mono text-amber-400/80 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20">
+                        Reason: {activeMod.disabledReason}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs font-mono text-slate-500 bg-black/40 px-4 py-3 rounded-xl border border-white/5 w-full justify-center">
+                    <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> +1 (800) 555-0199</span>
+                    <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> sysadmin@hepatoai.com</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
+          return (
+            <div className={`flex-1 bg-[#030712] relative ${activePage === "activity" || activePage === "longitudinal" ? "overflow-hidden" : "overflow-auto"}`}>
+              {/* PERSISTENT WORKSPACE ARCHITECTURE: Always mounted to preserve React state, File objects, and WebGL MPR context */}
+              <div className={activePage === "activity" ? "absolute inset-0 flex flex-col" : "hidden"}>
+                <PredictPage onViewHistory={handlePatientClick} user={currentUser} />
+              </div>
+              <div className={activePage === "longitudinal" ? "absolute inset-0 flex flex-col" : "hidden"}>
+                <LongitudinalPredictPage onViewHistory={handlePatientClick} onSwitchToWorkspace={() => setActivePage("activity")} user={currentUser} />
+              </div>
+              <div className={(activePage === "activity" || activePage === "longitudinal") ? "hidden" : "block"}>
+                {renderPage()}
+              </div>
+            </div>
+          );
+        })()}
       </div>
       
       {/* Medical Footer (Bottom Status Bar) */}
