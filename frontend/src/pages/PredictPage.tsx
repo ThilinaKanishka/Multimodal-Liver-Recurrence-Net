@@ -1404,8 +1404,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           {/* FULL WIDTH RESULTS AREA */}
           {result ? (
               <>
-                <div ref={resultsRef} className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg overflow-hidden flex flex-col mt-4" style={{ height: '80vh', minHeight: '800px' }}>
-                  <div className="relative overflow-hidden bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
+                <div ref={resultsRef} className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg flex flex-col mt-4">
+                  <div className="relative bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
                     <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
                       result.recurrence_risk === "HIGH" 
                         ? "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-900/40 via-rose-600/10 to-transparent" 
@@ -1614,27 +1614,54 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                     </div>
                   )}
 
-                  <div className="flex-1 flex flex-col xl:flex-row bg-[#0a0e17] overflow-hidden min-h-0">
-                      {/* MPR Viewer Area */}
-                      <div id="mpr-workstation-capture" className="flex-1 p-2 border-b xl:border-b-0 xl:border-r border-[#1e293b] flex flex-col bg-black min-w-[70%] min-h-0">
-                        {result?.interpretability_layer?.gradcam_3d_matrix ? (
-                          <MprClinicalWorkstation 
-                            base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
-                            dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
-                            dimensions={result.interpretability_layer.heatmap_spatial_shape} 
-                            tumorTarget={result.interpretability_layer.tumor_target}
-                            patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
-                            localDicomFiles={allDicomFiles}
-                          />
-                        ) : (
-                          <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
-                              NO VOLUMETRIC DATA RENDERED
+                  <div className="flex flex-col xl:flex-row bg-[#0a0e17]">
+                      {/* Left Column */}
+                      <div className="flex-1 flex flex-col min-w-[70%] border-b xl:border-b-0 xl:border-r border-[#1e293b]">
+                        {/* MPR Viewer Area */}
+                        <div id="mpr-workstation-capture" className="p-2 border-b border-[#1e293b] flex flex-col bg-black" style={{ height: 'calc(max(80vh, 800px) - 200px)' }}>
+                          {result?.interpretability_layer?.gradcam_3d_matrix ? (
+                            <MprClinicalWorkstation 
+                              base64Matrix={result.interpretability_layer.gradcam_3d_matrix} 
+                              dicomBase64Matrix={result.interpretability_layer.dicom_3d_matrix}
+                              dimensions={result.interpretability_layer.heatmap_spatial_shape} 
+                              tumorTarget={result.interpretability_layer.tumor_target}
+                              patientInfo={{ name: patientInfo.name, id: patientInfo.mrn }}
+                              localDicomFiles={allDicomFiles}
+                            />
+                          ) : (
+                            <div className="flex-1 flex items-center justify-center text-slate-700 font-mono text-xs uppercase">
+                                NO VOLUMETRIC DATA RENDERED
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Interactive What-If Analysis */}
+                        <div className="p-5 bg-[#0a0e17]">
+                          <h4 className="text-[12px] font-bold text-blue-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <Activity className="w-4 h-4" /> What-If Simulation
+                          </h4>
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
+                              <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">AFP (ng/ml): {simData?.afp_ngml}</label>
+                              <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
+                            </div>
+                            <button 
+                              onClick={(e) => { e.preventDefault(); handleSimulate(); }}
+                              disabled={isSimulating}
+                              className="w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-400 text-[11px] font-black uppercase tracking-widest rounded transition-colors mt-2"
+                            >
+                              {isSimulating ? "Simulating..." : "Simulate Outcome"}
+                            </button>
                           </div>
-                        )}
+                        </div>
                       </div>
                       
                       {/* SHAP & Metrics Sidebar */}
-                      <div className="w-full xl:w-[350px] p-3 flex flex-col gap-2 bg-[#0a0e17] overflow-y-auto flex-shrink-0 border-l border-[#1e293b]">
+                      <div className="w-full xl:w-[350px] p-3 flex flex-col gap-2 bg-[#0a0e17] flex-shrink-0">
                         {dicomFileCount > 1 && (
                             <button
                               type="button"
@@ -1663,29 +1690,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                           <ShapPanel weights={result.explainable_ai_weights} probability={result.probability} />
                         )}
 
-                        {/* Interactive What-If Analysis */}
-                        <div className="mt-6 border-t border-[#1e293b] pt-4">
-                          <h4 className="text-[11px] font-bold text-blue-400 mb-2 uppercase tracking-wider flex items-center gap-2">
-                            <Activity className="w-3.5 h-3.5" /> What-If Simulation
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">Tumor Size (cm): {simData?.tumor_size_cm}</label>
-                              <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">AFP (ng/ml): {simData?.afp_ngml}</label>
-                              <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
-                            </div>
-                            <button 
-                              onClick={(e) => { e.preventDefault(); handleSimulate(); }}
-                              disabled={isSimulating}
-                              className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded transition-colors"
-                            >
-                              {isSimulating ? "Simulating..." : "Simulate Outcome"}
-                            </button>
-                          </div>
-                        </div>
+
                       </div>
                   </div>
                 </div>
