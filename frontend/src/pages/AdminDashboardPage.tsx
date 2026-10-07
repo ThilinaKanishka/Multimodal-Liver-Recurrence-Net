@@ -695,23 +695,23 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void, currentUser?: a
         )}
 
         {/* Top Header Section */}
-        <div className={`flex items-center justify-between mb-8 border-b pb-4 transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-4">
-            <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded shadow-inner">
-              <Lock className="w-6 h-6" />
+        <div className={`flex items-center justify-between flex-shrink-0 h-[72px] px-6 overflow-hidden flex-nowrap mb-8 border-b transition-colors duration-300 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex-shrink-0 w-[42px] h-[42px] flex items-center justify-center bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded shadow-inner">
+              <Lock className="w-5 h-5" />
             </div>
-            <div>
-              <h1 className={`text-2xl font-bold tracking-wide uppercase flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
+            <div className="min-w-0">
+              <h1 className={`text-[18px] font-bold tracking-wide uppercase flex items-center gap-2 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'} whitespace-nowrap overflow-hidden text-ellipsis max-w-[400px]`}>
                 Hospital IT Admin Console
-                <span className="text-[10px] font-mono bg-rose-500/20 text-rose-500 border border-rose-500/40 px-2 py-0.5 rounded font-bold tracking-widest">
+                <span className="flex-shrink-0 text-[10px] font-mono bg-rose-500/20 text-rose-500 border border-rose-500/40 px-2 py-0.5 rounded font-bold tracking-widest hidden sm:inline-block">
                   MISSION CONTROL
                 </span>
               </h1>
-              <p className={`text-xs font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Secure System Health, Enterprise Credentialing & Real-Time HIPAA Audit Engine</p>
+              <p className={`text-[12px] font-mono mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[400px] ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Secure System Health, Enterprise Credentialing & Real-Time HIPAA Audit Engine</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             
             {/* Clock Widget */}
             <div className={`hidden md:flex flex-col items-end justify-center mr-2 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -838,7 +838,7 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void, currentUser?: a
                    <User className="w-5 h-5 text-cyan-500" fill="currentColor" />
                 </div>
                 <div className="flex flex-col hidden sm:flex justify-center">
-                  <span className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'} leading-none truncate max-w-[120px]`}>{currentUser?.name || "Admin"}</span>
+                  <span className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'} leading-none truncate max-w-[150px]`}>{currentUser?.name || "Admin"}</span>
                   <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 leading-none ${isSuperAdmin ? 'text-amber-500' : 'text-emerald-500'}`}>
                     {isSuperAdmin ? 'SUPER ADMIN' : 'IT ADMIN'}
                   </span>
