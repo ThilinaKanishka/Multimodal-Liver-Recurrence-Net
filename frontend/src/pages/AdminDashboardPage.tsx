@@ -838,8 +838,10 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void, currentUser?: a
                    <User className="w-5 h-5 text-cyan-500" fill="currentColor" />
                 </div>
                 <div className="flex flex-col hidden sm:flex justify-center">
-                  <span className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'} leading-none`}>Admin</span>
-                  <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-1 leading-none">ADMIN</span>
+                  <span className={`text-sm font-bold ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'} leading-none truncate max-w-[120px]`}>{currentUser?.name || "Admin"}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 leading-none ${isSuperAdmin ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {isSuperAdmin ? 'SUPER ADMIN' : 'IT ADMIN'}
+                  </span>
                 </div>
                 <ChevronDown className={`w-4 h-4 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'} ml-1 hidden sm:block`} />
               </div>
@@ -854,10 +856,12 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void, currentUser?: a
                         <User className="w-7 h-7 text-cyan-500" fill="currentColor" />
                      </div>
                      <div className="flex flex-col min-w-0 justify-center">
-                       <span className={`text-base font-bold truncate leading-tight ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>Admin</span>
-                       <span className={`text-xs truncate mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-slate-500'}`}>admin@HepatoAI.com</span>
+                       <span className={`text-base font-bold truncate leading-tight ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-800'}`}>{currentUser?.name || "Admin"}</span>
+                       <span className={`text-xs truncate mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-slate-500'}`}>{currentUser?.email || "admin@HepatoAI.com"}</span>
                        <div className="mt-1.5">
-                         <span className="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm">ADMIN</span>
+                         <span className={`text-[10px] text-white px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm ${isSuperAdmin ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+                           {isSuperAdmin ? 'SUPER ADMIN' : 'IT ADMIN'}
+                         </span>
                        </div>
                      </div>
                    </div>
