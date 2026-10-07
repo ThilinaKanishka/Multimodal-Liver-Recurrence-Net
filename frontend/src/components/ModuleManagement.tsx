@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { CheckCircle, AlertTriangle, ShieldAlert, History, Activity, Clock, Split, LayoutDashboard, Layers, Cpu, Search, Database, Settings, MessageSquare } from "lucide-react";
+import { CheckCircle, AlertTriangle, ShieldAlert, History, Activity, Clock, Split, LayoutDashboard, Layers, Cpu, Search, Database, Settings, MessageSquare, Plus, Shield, Crown, Ban, X } from "lucide-react";
 
 interface Module {
   id: string;
@@ -20,6 +20,10 @@ interface AuditLog {
 }
 
 export const ModuleManagement: React.FC<{ theme: 'DARK' | 'LIGHT' }> = ({ theme }) => {
+  const [viewMode, setViewMode] = useState<'MODULES' | 'ADMINS'>('MODULES');
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
+  const [newAdminForm, setNewAdminForm] = useState({ name: "", email: "admin@HepatoAI.com", role: "IT Admin", password: "" });
   const [modules, setModules] = useState<Module[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,15 +50,72 @@ export const ModuleManagement: React.FC<{ theme: 'DARK' | 'LIGHT' }> = ({ theme 
     }
   };
 
+  const fetchAdmins = async () => {
+    try {
+      const res = await axios.get("http://127.0.0.1:8000/api/v1/admin/users");
+      const admins = res.data.filter((u: any) => 
+        u.level === "IT Admin" || u.level === "Super Admin" || u.role === "admin" || u.role === "super_admin"
+      );
+      setAdminUsers(admins);
+    } catch (err) {
+      console.error("Failed to fetch admins", err);
+    }
+  };
+
   useEffect(() => {
     const initFetch = async () => {
       setLoading(true);
-      await fetchModules();
-      await fetchAuditLogs();
+      if (viewMode === 'MODULES') {
+        await fetchModules();
+        await fetchAuditLogs();
+      } else {
+        await fetchAdmins();
+      }
       setLoading(false);
     };
     initFetch();
-  }, []);
+  }, [viewMode]);
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminForm.name || newAdminForm.name.length < 2) return alert("Name is required and must be at least 2 characters.");
+    if (!newAdminForm.email || !newAdminForm.email.includes("@")) return alert("Valid email is required.");
+    if (!newAdminForm.password || newAdminForm.password.length < 4) return alert("Password must be at least 4 characters.");
+    
+    try {
+      const payload = {
+        id: `AD-${Math.floor(1000 + Math.random() * 9000)}`,
+        name: newAdminForm.name,
+        email: newAdminForm.email,
+        level: newAdminForm.role,
+        dept: "IT Administration",
+        status: "Active",
+        password: newAdminForm.password,
+        credentials: "Admin",
+        license_number: "N/A"
+      };
+      await axios.post("http://127.0.0.1:8000/api/v1/admin/users", payload);
+      setShowCreateAdminModal(false);
+      setNewAdminForm({ name: "", email: "admin@HepatoAI.com", role: "IT Admin", password: "" });
+      fetchAdmins();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create admin");
+    }
+  };
+
+  const toggleAdminStatus = async (adminId: string, currentStatus: string) => {
+    if (adminId === 'ST-ADMIN') return; // Cannot update default super admin
+    const newStatus = currentStatus === 'Active' ? 'Revoked' : 'Active';
+    try {
+      // We would ideally hit a dedicated backend endpoint to update admin status,
+      // but for demonstration we can just re-fetch after a simulated API call
+      // In a real scenario: await axios.patch(`http://127.0.0.1:8000/api/v1/admin/users/${adminId}`, { status: newStatus });
+      alert(`Simulated updating admin ${adminId} to ${newStatus}`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleToggleClick = (mod: Module) => {
     setSelectedModule(mod);
@@ -85,15 +146,39 @@ export const ModuleManagement: React.FC<{ theme: 'DARK' | 'LIGHT' }> = ({ theme 
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className={`text-2xl font-black uppercase tracking-widest flex items-center gap-3 ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>
-            Module Management
+            System Control Panel
           </h1>
           <p className={`text-xs font-mono mt-1 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>
-            Temporarily enable or disable specific clinical modules for doctors without permanent removal.
+            Manage Clinical Modules and Administrative Users
           </p>
+        </div>
+        
+        <div className={`flex items-center rounded-lg p-1 border ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700' : 'bg-slate-100 border-gray-200'}`}>
+          <button
+            onClick={() => setViewMode('MODULES')}
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
+              viewMode === 'MODULES' 
+                ? (theme === 'DARK' ? 'bg-[#252841] text-cyan-400 shadow' : 'bg-white text-cyan-600 shadow') 
+                : (theme === 'DARK' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')
+            }`}
+          >
+            Modules
+          </button>
+          <button
+            onClick={() => setViewMode('ADMINS')}
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
+              viewMode === 'ADMINS' 
+                ? (theme === 'DARK' ? 'bg-[#252841] text-amber-400 shadow' : 'bg-white text-amber-600 shadow') 
+                : (theme === 'DARK' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')
+            }`}
+          >
+            Admin Users
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {viewMode === 'MODULES' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Module Statuses */}
         <div className={`border rounded-xl shadow-xl overflow-hidden transition-colors duration-300 flex flex-col ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className={`p-5 flex items-center justify-between border-b ${theme === 'DARK' ? 'border-gray-700 bg-[#1a1c2c]/50' : 'border-gray-200 bg-slate-50'}`}>
@@ -225,6 +310,147 @@ export const ModuleManagement: React.FC<{ theme: 'DARK' | 'LIGHT' }> = ({ theme 
           </div>
         </div>
       </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className={`border rounded-xl shadow-xl p-6 flex flex-col transition-colors duration-300 ${theme === 'DARK' ? 'bg-[#252841] border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className={`flex justify-between items-center mb-6 border-b pb-4 ${theme === 'DARK' ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-amber-500" />
+                <div>
+                  <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>Admin Users</h2>
+                  <p className={`text-[10px] font-mono mt-0.5 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`}>Manage admin credentials and permissions (Live MongoDB)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateAdminModal(true)}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider px-4 py-2 rounded shadow-md transition-all flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                CREATE NEW ADMIN
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={`border-b text-[11px] uppercase tracking-wider ${theme === 'DARK' ? 'border-gray-700 text-gray-400 bg-[#1a1c2c]/50' : 'border-gray-200 text-gray-600 bg-slate-50'}`}>
+                    <th className="p-3 font-bold">Admin ID</th>
+                    <th className="p-3 font-bold">Name</th>
+                    <th className="p-3 font-bold">Email</th>
+                    <th className="p-3 font-bold">Role Level</th>
+                    <th className="p-3 font-bold">Status</th>
+                    <th className="p-3 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className={`text-xs font-mono divide-y ${theme === 'DARK' ? 'divide-gray-700/60' : 'divide-gray-200'}`}>
+                  {loading ? (
+                    <tr><td colSpan={5} className="p-4 text-center">Loading admins...</td></tr>
+                  ) : adminUsers.map(admin => (
+                    <tr key={admin.id} className={`transition-colors ${theme === 'DARK' ? 'hover:bg-[#1a1c2c]/40' : 'hover:bg-slate-50'}`}>
+                      <td className="p-3 text-amber-500 font-bold">{admin.id}</td>
+                      <td className={`p-3 font-bold font-sans ${theme === 'DARK' ? 'text-slate-200' : 'text-slate-800'}`}>{admin.name}</td>
+                      <td className={`p-3 ${theme === 'DARK' ? 'text-gray-400' : 'text-gray-600'}`}>{admin.email}</td>
+                      <td className="p-3 font-sans">
+                        {admin.level === 'Super Admin' || admin.level === 'super_admin' ? (
+                          <div className="flex items-center gap-1.5 text-amber-500 w-max bg-amber-500/10 px-2 py-1 rounded font-bold">
+                            <Crown className="w-3 h-3" /> SUPER ADMIN
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-blue-500 w-max bg-blue-500/10 px-2 py-1 rounded font-bold">
+                            <Shield className="w-3 h-3" /> IT ADMIN
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 font-sans">
+                        {admin.status === 'Active' && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Active</span>}
+                        {admin.status === 'Revoked' && <span className="text-rose-500 flex items-center gap-1"><Ban className="w-3 h-3" /> Revoked</span>}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => toggleAdminStatus(admin.id, admin.status)}
+                          disabled={admin.id === 'ST-ADMIN' || admin.level === 'Super Admin'}
+                          className={`text-[10px] uppercase font-bold px-3 py-1 rounded transition-colors ${
+                            admin.id === 'ST-ADMIN' || admin.level === 'Super Admin'
+                              ? (theme === 'DARK' ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed')
+                              : (theme === 'DARK' ? 'bg-[#1a1c2c] hover:bg-gray-700 text-amber-500 border border-gray-700' : 'bg-white hover:bg-gray-100 text-amber-600 border border-gray-200')
+                          }`}
+                        >
+                          Update
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* Create New Admin Modal */}
+          {showCreateAdminModal && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className={`w-full max-w-md rounded-xl shadow-2xl border flex flex-col overflow-hidden ${theme === 'DARK' ? 'bg-[#131524] border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className={`p-4 border-b flex items-center justify-between ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-800' : 'bg-slate-50 border-gray-200'}`}>
+                  <h2 className={`text-sm font-bold uppercase tracking-widest ${theme === 'DARK' ? 'text-slate-100' : 'text-slate-900'}`}>CREATE NEW ADMIN</h2>
+                  <button onClick={() => setShowCreateAdminModal(false)} className={`p-1.5 rounded transition-colors ${theme === 'DARK' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-slate-200 text-gray-600'}`}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <form onSubmit={handleCreateAdmin} className="p-6 flex flex-col gap-4">
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Full Name:</label>
+                    <input 
+                      type="text" 
+                      value={newAdminForm.name}
+                      onChange={(e) => setNewAdminForm({...newAdminForm, name: e.target.value})}
+                      className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-slate-200 focus:border-amber-500' : 'bg-white border-gray-300 text-slate-800 focus:border-amber-500'}`}
+                      placeholder="e.g. John Silva"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Email Address:</label>
+                    <input 
+                      type="email" 
+                      value={newAdminForm.email}
+                      readOnly
+                      className={`w-full px-3 py-2 rounded border text-sm opacity-70 cursor-not-allowed ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-slate-200' : 'bg-gray-100 border-gray-300 text-slate-500'}`}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Password <span className="text-[10px] text-amber-500 font-normal">(Used to identify the Admin)</span>:</label>
+                    <input 
+                      type="password" 
+                      value={newAdminForm.password}
+                      onChange={(e) => setNewAdminForm({...newAdminForm, password: e.target.value})}
+                      className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-slate-200 focus:border-amber-500' : 'bg-white border-gray-300 text-slate-800 focus:border-amber-500'}`}
+                      placeholder="Enter a unique password"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === 'DARK' ? 'text-slate-300' : 'text-slate-700'}`}>Role Level:</label>
+                    <select 
+                      value={newAdminForm.role}
+                      onChange={(e) => setNewAdminForm({...newAdminForm, role: e.target.value})}
+                      className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 ${theme === 'DARK' ? 'bg-[#1a1c2c] border-gray-700 text-slate-200 focus:border-amber-500' : 'bg-white border-gray-300 text-slate-800 focus:border-amber-500'}`}
+                    >
+                      <option value="IT Admin">IT ADMIN</option>
+                      <option value="Super Admin">SUPER ADMIN</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                    <button type="button" onClick={() => setShowCreateAdminModal(false)} className={`px-4 py-2 rounded text-xs font-bold uppercase transition-colors ${theme === 'DARK' ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`}>CANCEL</button>
+                    <button type="submit" className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-bold uppercase transition-all">CREATE ADMIN</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Toggle Modal */}
       {showToggleModal && selectedModule && (

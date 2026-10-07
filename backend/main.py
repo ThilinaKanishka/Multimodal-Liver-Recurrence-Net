@@ -1942,24 +1942,35 @@ class LoginPayload(BaseModel):
 async def login_user(payload: LoginPayload):
     import re
     regex = re.compile(f"^{re.escape(payload.id)}$", re.IGNORECASE)
-    user = await users_collection.find_one({"$or": [{"id": regex}, {"email": regex}]})
-    if not user:
+    cursor = users_collection.find({"$or": [{"id": regex}, {"email": regex}]})
+    users = await cursor.to_list(length=100)
+    
+    if not users:
         raise HTTPException(status_code=401, detail="Invalid Staff ID or Email")
     
-    # Check password hash
     password_hash = hashlib.sha256(payload.password.encode()).hexdigest()
-    if user.get("password_hash") != password_hash:
+    
+    matched_user = None
+    for u in users:
+        if u.get("password_hash") == password_hash:
+            matched_user = u
+            break
+            
+    if not matched_user:
         raise HTTPException(status_code=401, detail="Invalid Staff ID or Password")
+        
+    user = matched_user
     
     if user.get("status") != "Active":
         raise HTTPException(status_code=403, detail="Account is revoked or suspended")
 
-    if user.get("level") == "IT Admin":
+    if user.get("level") in ["IT Admin", "Super Admin"]:
         return {
             "message": "Please provide an email to receive the OTP.", 
             "requires_email_for_otp": True,
             "requires_otp": False,
             "requires_reset": False,
+            "matched_id": user["id"]
         }
 
     requires_reset = payload.password.startswith("Hepato-") and not user.get("first_login_skipped")
@@ -1983,7 +1994,7 @@ async def send_otp(payload: SendOTPPayload):
     import re
     regex = re.compile(f"^{re.escape(payload.id)}$", re.IGNORECASE)
     user = await users_collection.find_one({"$or": [{"id": regex}, {"email": regex}]})
-    if not user or user.get("level") != "IT Admin":
+    if not user or user.get("level") not in ["IT Admin", "Super Admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     import random
