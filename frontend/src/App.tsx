@@ -465,7 +465,22 @@ function App() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const saved = sessionStorage.getItem("hepatoai_current_user");
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      let parsed = JSON.parse(saved);
+      if (parsed.email === "admin@HepatoAI.com" || parsed.id === "ST-ADMIN") {
+        parsed.name = "Dr. Thilina Hettiarachchi";
+        parsed.email = "admin@HepatoAI.com";
+        parsed.role = "super_admin";
+        parsed.level = "super_admin";
+        localStorage.setItem("userRole", "super_admin");
+      } else if (parsed.email === "admin2@HepatoAI.com") {
+        parsed.role = "admin";
+        parsed.level = "admin";
+        localStorage.setItem("userRole", "admin");
+      }
+      return parsed;
+    }
+    return null;
   });
   
   const [activeTheme, setActiveTheme] = useState(() => {
@@ -534,7 +549,7 @@ function App() {
 
   // Real-time status check for auto-logout
   useEffect(() => {
-    if (!currentUser || currentUser.level === 'IT Admin' || isRevoked) return;
+    if (!currentUser || currentUser.level === 'IT Admin' || currentUser.level === 'Super Admin' || isRevoked) return;
     
     const checkStatus = async () => {
       try {
@@ -623,14 +638,35 @@ function App() {
   }
 
   if (activePage === "admin_login") {
-    return <AdminLoginPage onLogin={() => setActivePage("admin")} onBack={() => setActivePage("login")} />;
+    return <AdminLoginPage 
+      onLogin={(user) => {
+        if (user) {
+          let updatedUser = { ...user };
+          if (updatedUser.level === 'Super Admin' || updatedUser.level === 'super_admin') {
+            updatedUser.role = "super_admin";
+            localStorage.setItem("userRole", "super_admin");
+          } else {
+            updatedUser.role = "admin";
+            localStorage.setItem("userRole", "admin");
+          }
+          setCurrentUser(updatedUser);
+          sessionStorage.setItem("hepatoai_current_user", JSON.stringify(updatedUser));
+        }
+        setActivePage("admin");
+      }} 
+      onBack={() => setActivePage("login")} 
+    />;
   }
 
   if (activePage === "admin") {
-    return <AdminDashboardPage onBack={() => setActivePage("login")} />;
+    return <AdminDashboardPage currentUser={currentUser} onBack={() => {
+      setCurrentUser(null);
+      sessionStorage.removeItem("hepatoai_current_user");
+      setActivePage("login");
+    }} />;
   }
 
-  if (maintenanceMode && currentUser && currentUser.level !== 'IT Admin') {
+  if (maintenanceMode && currentUser && currentUser.level !== 'IT Admin' && currentUser.level !== 'Super Admin') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#030712] text-white flex-col font-sans relative overflow-hidden py-12">
         {/* Dynamic Background Effects */}
@@ -800,7 +836,7 @@ function App() {
             support: 'it-support'
           };
           const activeMod = modules.find(m => m.id === (PAGE_TO_MODULE_ID[activePage] || activePage));
-          if (activeMod && !activeMod.enabled && currentUser?.level !== 'IT Admin') {
+          if (activeMod && !activeMod.enabled && currentUser?.level !== 'IT Admin' && currentUser?.level !== 'Super Admin') {
             return (
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0f18] relative z-10 overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">

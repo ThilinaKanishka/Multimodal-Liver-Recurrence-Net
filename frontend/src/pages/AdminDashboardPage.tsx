@@ -6,10 +6,13 @@ import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import ForgotPassword from "../components/ForgotPassword";
 import { ModuleManagement } from "../components/ModuleManagement";
-import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network, ShieldCheck, Send, UserPlus, Ticket, Layers } from "lucide-react";
+import { Server, Database, Activity, Users, ShieldAlert, Plus, Lock, Download, RefreshCw, ArrowLeft, X, CheckCircle, Shield, Mail, Phone, Stethoscope, Award, FileText, Edit2, Ban, Trash2, LayoutDashboard, Settings, LogOut, Hexagon, AlertTriangle, UserCheck, Sun, Moon, Eye, User, Calendar, Building2, ChevronLeft, ChevronRight, Bell, ChevronDown, MessageSquare, Cpu, Cloud, Network, ShieldCheck, Send, UserPlus, Ticket, Layers, Crown } from "lucide-react";
 import { AdminMessages } from "../components/AdminMessages";
 
-export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+export const AdminDashboardPage: React.FC<{ onBack?: () => void, currentUser?: any }> = ({ onBack, currentUser }) => {
+  const userRole = localStorage.getItem("userRole");
+  const isSuperAdmin = userRole === "super_admin";
+  
   // Tab Navigation State
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USER_ACCESS' | 'HIPAA_AUDITS' | 'SYSTEM_CONFIG' | 'DOCTOR_ANALYTICS' | 'MESSAGES' | 'FINANCIAL_AUDIT' | 'MODULE_MANAGEMENT'>(() => {
     return (sessionStorage.getItem("hepatoai_admin_active_tab") as any) || 'OVERVIEW';
@@ -566,15 +569,22 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           </button>
 
           <button 
-            onClick={() => setActiveTab('SYSTEM_CONFIG')}
-            title="System Config"
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            onClick={() => isSuperAdmin && setActiveTab('SYSTEM_CONFIG')}
+            title={isSuperAdmin ? "System Config" : "System Config (Locked)"}
+            disabled={!isSuperAdmin}
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all mt-2 ${
+              !isSuperAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+            } ${
               activeTab === 'SYSTEM_CONFIG' 
                 ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/10 border-l-4 border-cyan-500 text-cyan-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Settings className={`w-4 h-4 flex-shrink-0 ${activeTab === 'SYSTEM_CONFIG' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            {isSuperAdmin ? (
+              <Settings className={`w-4 h-4 flex-shrink-0 ${activeTab === 'SYSTEM_CONFIG' ? 'text-cyan-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            ) : (
+              <Lock className={`w-4 h-4 flex-shrink-0 ${theme === 'DARK' ? 'text-gray-500' : 'text-gray-400'}`} />
+            )}
             {!isSidebarCollapsed && "System Config"}
           </button>
 
@@ -632,15 +642,22 @@ export const AdminDashboardPage: React.FC<{ onBack?: () => void }> = ({ onBack }
           </button>
           
           <button 
-            onClick={() => setActiveTab('MODULE_MANAGEMENT')}
-            title="Module Management"
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all cursor-pointer mt-2 ${
+            onClick={() => isSuperAdmin && setActiveTab('MODULE_MANAGEMENT')}
+            title={isSuperAdmin ? "Module Management" : "Module Management (Locked)"}
+            disabled={!isSuperAdmin}
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3 rounded-lg' : 'gap-3 px-4 py-3 rounded-r-lg'} font-sans font-bold text-xs uppercase tracking-wider transition-all mt-2 ${
+              !isSuperAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+            } ${
               activeTab === 'MODULE_MANAGEMENT' 
                 ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/10 border-l-4 border-purple-500 text-purple-500 shadow-sm' 
                 : theme === 'DARK' ? 'text-gray-400 hover:bg-[#1a1c2c]/60 hover:text-slate-200' : 'text-gray-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Layers className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MODULE_MANAGEMENT' ? 'text-purple-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            {isSuperAdmin ? (
+              <Layers className={`w-4 h-4 flex-shrink-0 ${activeTab === 'MODULE_MANAGEMENT' ? 'text-purple-500' : theme === 'DARK' ? 'text-gray-400' : 'text-gray-500'}`} />
+            ) : (
+              <Lock className={`w-4 h-4 flex-shrink-0 ${theme === 'DARK' ? 'text-gray-500' : 'text-gray-400'}`} />
+            )}
             {!isSidebarCollapsed && "Module Management"}
           </button>
         </div>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Hexagon, Lock, ShieldAlert, KeyRound, Terminal, Mail, ArrowLeft, ShieldCheck, Database, Server, ChevronRight } from "lucide-react";
 import ForgotPassword from "../components/ForgotPassword";
 
-export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void }> = ({ onLogin, onBack }) => {
+export const AdminLoginPage: React.FC<{ onLogin: (user?: any) => void; onBack: () => void }> = ({ onLogin, onBack }) => {
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +29,13 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
           const errorMsg = Array.isArray(data.detail) ? "Invalid input format." : data.detail;
           setError(errorMsg || "Invalid administrator credentials or revoked security key.");
         } else if (data.requires_email_for_otp) {
+          if (data.matched_id) setCredentials({...credentials, username: data.matched_id});
           setRequiresEmailForOtp(true);
         } else if (data.requires_otp) {
+          if (data.matched_id) setCredentials({...credentials, username: data.matched_id});
           setOtpRequired(true);
         } else {
-          onLogin();
+          onLogin(data.user);
         }
       })
       .catch((err) => {
@@ -84,7 +86,7 @@ export const AdminLoginPage: React.FC<{ onLogin: () => void; onBack: () => void 
         if (data.detail) {
           setError(data.detail);
         } else {
-          onLogin();
+          onLogin(data.user);
         }
       })
       .catch((err) => {
