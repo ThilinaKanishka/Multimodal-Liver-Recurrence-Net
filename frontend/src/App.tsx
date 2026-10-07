@@ -467,15 +467,11 @@ function App() {
     const saved = sessionStorage.getItem("hepatoai_current_user");
     if (saved) {
       let parsed = JSON.parse(saved);
-      if (parsed.email === "admin@HepatoAI.com" || parsed.id === "ST-ADMIN") {
-        parsed.name = "Dr. Thilina Hettiarachchi";
-        parsed.email = "admin@HepatoAI.com";
+      if (parsed.level === 'Super Admin' || parsed.level === 'super_admin') {
         parsed.role = "super_admin";
-        parsed.level = "super_admin";
         localStorage.setItem("userRole", "super_admin");
-      } else if (parsed.email === "admin2@HepatoAI.com") {
+      } else if (parsed.level === 'IT Admin' || parsed.level === 'admin') {
         parsed.role = "admin";
-        parsed.level = "admin";
         localStorage.setItem("userRole", "admin");
       }
       return parsed;
