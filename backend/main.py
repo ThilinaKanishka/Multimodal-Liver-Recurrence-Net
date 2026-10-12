@@ -352,6 +352,10 @@ else:
     training_distributions = {'cnn_feat_0_mean': 0.5, 'cnn_feat_0_std': 0.1}
     platt_scaler = None
 
+# Cross-Modal Feature Fusion with Attention (CMFA) - trained model from CMFA/CMFA_v3.ipynb
+from pipeline.cmfa_engine import CMFAEngine, FEATURE_LABELS as CMFA_FEATURE_LABELS
+cmfa_engine = CMFAEngine()
+
 # ==========================================
 # FastAPI Setup & Middleware
 # ==========================================
@@ -544,210 +548,100 @@ def process_clinical_pdf(pdf_bytes: bytes):
 # API Endpoint: Attention Analysis (Full Stack)
 # ==========================================
 @app.get("/api/attention-analysis")
-async def get_attention_analysis(patient_id: Optional[str] = None):
-    import random
-    
-    query = {}
+async def get_attention_analysis(patient_id: Optional[str] = None, doctor_id: Optional[str] = None):
+    """
+    Cross-Modal Attention & Fusion Analysis for the latest prediction in the ledger.
+    Every value is computed by the trained CMFA model (pipeline/cmfa_engine.py) from the
+    patient's stored inputs, or from the CMFA training cohort; nothing is randomly generated.
+    """
+    query = {"clinical_inputs": {"$exists": True}}
     if patient_id:
-        query["patient_id"] = patient_id
-        
+        query["clinical_inputs.patient_id"] = patient_id
+    if doctor_id:
+        query["doctor_id"] = doctor_id
+
     cursor = audit_logs_collection.find(query).sort("timestamp", -1).limit(1)
     latest_pred = await cursor.to_list(length=1)
-    
-    if latest_pred and "shap_weights" in latest_pred[0] and latest_pred[0]["shap_weights"]:
-        pred = latest_pred[0]
-        shap_w = pred["shap_weights"]
-        
-        # Calculate real clinical attention from SHAP values
-        total_shap = sum(abs(v) for v in shap_w.values()) if shap_w else 1.0
-        if total_shap == 0: total_shap = 1.0
-        
-        # Filter top 5 features
-        sorted_shap = sorted(shap_w.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
-        
-        clinical_attention = {}
-        for k, v in sorted_shap:
-            if k == "3D_CNN_Global_Embedding": fn = "Texture Entropy"
-            elif k == "tumor_size_cm": fn = "Tumor Size"
-            elif k == "afp_ngml": fn = "AFP"
-            elif k == "bilirubin_mgdl": fn = "Bilirubin"
-            elif k == "mvi_status": fn = "MVI Status"
-            elif k == "alp_iul": fn = "ALP"
-            else: fn = k.replace('_', ' ').title()
-            clinical_attention[fn] = round(abs(v) / total_shap, 3)
-            
-        # Modality weights
-        imaging_features = ['tumor_size_cm', '3D_CNN_Global_Embedding']
-        imaging_shap = sum(abs(shap_w.get(f, 0)) for f in imaging_features)
-        imaging_weight_actual = int(round((imaging_shap / total_shap) * 100))
-        imaging_weight = min(95, max(5, imaging_weight_actual))
-        clinical_weight = 100 - imaging_weight
-        
-        top_f_name = sorted_shap[0][0]
-        if top_f_name == "bclc_stage_c":
-            top_f_name_disp = "BCLC STAGE C"
-        elif top_f_name == "3D_CNN_Global_Embedding":
-            top_f_name_disp = "TEXTURE ENTROPY"
-        elif top_f_name == "mvi_status":
-            top_f_name_disp = "MVI STATUS"
-        elif top_f_name == "afp_ngml":
-            top_f_name_disp = "AFP"
-        else:
-            top_f_name_disp = top_f_name.replace('_', ' ').upper()
-            
-        c_inputs = pred.get("clinical_inputs", {})
-        patient_name_display = c_inputs.get("patient_name", "the current patient")
-        patient_id_display = c_inputs.get("patient_id", "")
-        
-        summary = f"The Cross-Modal Attention Network for {patient_name_display} {f'({patient_id_display})' if patient_id_display else ''} assigned {imaging_weight}% weight to the CT modality and {clinical_weight}% to clinical history. The primary recurrence driver identified was {top_f_name_disp}."
-        
-        bar_chart_data = []
-        table_data = []
-        
-        for k, v in sorted_shap:
-            if k == "3D_CNN_Global_Embedding":
-                feat_name = "Texture Entropy"
-                val = c_inputs.get("tumor_texture_entropy", 4.2)
-                global_avg = "4.0"
-                unit = ""
-            elif k == "tumor_size_cm":
-                feat_name = "Tumor Size"
-                val = c_inputs.get("tumor_size_cm", "N/A")
-                global_avg = "3.2 cm"
-                unit = " cm"
-            elif k == "afp_ngml":
-                feat_name = "AFP"
-                val = c_inputs.get("afp_ngml", "N/A")
-                global_avg = "25 ng/mL"
-                unit = " ng/mL"
-            elif k == "bilirubin_mgdl":
-                feat_name = "Bilirubin"
-                val = c_inputs.get("bilirubin_mgdl", "N/A")
-                global_avg = "1.0 mg/dL"
-                unit = " mg/dL"
-            elif k == "mvi_status":
-                feat_name = "MVI Status"
-                val = c_inputs.get("mvi_pathology", False)
-                val = "Positive" if val else "Negative"
-                global_avg = "Positive"
-                unit = ""
-            elif k == "alp_iul":
-                feat_name = "ALP"
-                val = c_inputs.get("alp_iul", "N/A")
-                global_avg = "90 IU/L"
-                unit = " IU/L"
-            elif k == "bclc_stage_c":
-                feat_name = "BCLC Stage"
-                val = c_inputs.get("bclc_stage", "N/A")
-                global_avg = "Avg Baseline"
-                unit = ""
-            elif k == "cirrhosis_status":
-                feat_name = "Cirrhosis"
-                val = c_inputs.get("cirrhosis_present", False)
-                val = "Positive" if val else "Negative"
-                global_avg = "Negative"
-                unit = ""
-            elif k == "metastasis_status":
-                feat_name = "Metastasis"
-                val = "Positive" if c_inputs.get("metastasis_status", False) else "Negative"
-                global_avg = "Negative"
-                unit = ""
-            else:
-                feat_name = k.replace('_', ' ').title()
-                val = c_inputs.get(k, "N/A")
-                global_avg = "Avg Baseline"
-                unit = ""
-                
-            # Format value
-            if isinstance(val, float): 
-                val = f"{val:.2f}{unit}"
-            elif isinstance(val, (int, str)) and val not in ["N/A", "Positive", "Negative"]:
-                val = f"{val}{unit}"
-            
-            # Modality
-            mod = "Imaging (CT)" if k in ["tumor_size_cm", "3D_CNN_Global_Embedding"] else "Clinical (EHR)"
-            
-            baseline_shaps = {
-                "AFP": 0.25,
-                "Tumor Size": 0.20,
-                "Texture Entropy": 0.15,
-                "Bilirubin": 0.10,
-                "MVI Status": 0.30,
-                "ALP": 0.12,
-                "BCLC Stage": 0.18,
-                "Cirrhosis": 0.14
-            }
-            global_avg_shap = baseline_shaps.get(feat_name, 0.10)
-            
-            bar_chart_data.append({
-                "name": feat_name,
-                "GlobalAverage": global_avg_shap,
-                "CurrentPatient": round(abs(v) / total_shap, 2)
-            })
-            
-            risk_str = "+ High Risk" if v > 0.1 else "+ Med Risk" if v > 0 else "- Low Protection" if v > -0.1 else "- High Protection"
-            table_data.append({
-                "feature": feat_name,
-                "modality": mod,
-                "value": str(val),
-                "globalAvg": global_avg,
-                "shapImpact": f"{v:.3f}",
-                "risk": risk_str
-            })
-            
-        # Scatter data mock for background + actual patient
-        actual_size = float(c_inputs.get("tumor_size_cm", 5.0))
-        actual_shap = float(shap_w.get("tumor_size_cm", 0.3))
-        actual_afp = float(c_inputs.get("afp_ngml", 200))
-        
-        # Use a fixed seed so the background data points do not jump around on refresh
-        rng = random.Random(42)
-        scatter_high = [{"size": round(rng.uniform(4.0, 9.0), 1), "shap": round(rng.uniform(0.3, 0.8), 2), "name": f"Cohort H{i}"} for i in range(10)]
-        scatter_low = [{"size": round(rng.uniform(1.0, 6.0), 1), "shap": round(rng.uniform(0.0, 0.4), 2), "name": f"Cohort L{i}"} for i in range(10)]
-        
-        if actual_afp > 400:
-            scatter_high.append({"size": actual_size, "shap": actual_shap, "name": "CURRENT PATIENT"})
-        else:
-            scatter_low.append({"size": actual_size, "shap": actual_shap, "name": "CURRENT PATIENT"})
-            
-        # Multi-Dimensional Risk Radar
-        bil = float(c_inputs.get("bilirubin_mgdl", 1.0))
-        tsize = float(c_inputs.get("tumor_size_cm", 5.0))
-        mvi = int(c_inputs.get("mvi_pathology", 0))
-        hep_b = c_inputs.get("hepatitis_b", False)
-        hep_c = c_inputs.get("hepatitis_c", False)
-        
-        radar_data = [
-            {"label": "Liver Function", "value": min(100, max(20, int((bil / 2.0) * 100)))},
-            {"label": "Tumor Morphology", "value": min(100, max(20, int((tsize / 8.0) * 100)))},
-            {"label": "Viral Markers", "value": 85 if (hep_b or hep_c) else 25},
-            {"label": "Vascular Invasion", "value": 90 if mvi == 1 else 30},
-            {"label": "Texture Entropy", "value": min(100, int(abs(shap_w.get("3D_CNN_Global_Embedding", 0.5)) * 150) + 20)}
-        ]
-        
-        analytics_data = {
-            "barChartData": bar_chart_data,
-            "scatterDataHighAFP": scatter_high,
-            "scatterDataLowAFP": scatter_low,
-            "tableData": table_data,
-            "radarData": radar_data
-        }
-        
-        return {
-            "modality_weights": {"imaging_ct": imaging_weight, "clinical_ehr": clinical_weight},
-            "clinical_attention": clinical_attention,
-            "patient_name": pred.get("clinical_inputs", {}).get("patient_name", "") if pred else "",
-            "patient_id": pred.get("clinical_inputs", {}).get("patient_id", "") if pred else "",
-            "spatial_attention_data": {
-                "ct_slice_base64": "",
-                "heatmap_base64": "",
-                "dimensions": [1,1,1]
-            },
-            "attention_summary": summary,
-            "analytics_data": analytics_data
-        }
-    else:
+    if not latest_pred:
         raise HTTPException(status_code=404, detail="No session found")
+
+    pred = latest_pred[0]
+    c_inputs = pred.get("clinical_inputs") or {}
+    response = {
+        "patient_name": c_inputs.get("patient_name", ""),
+        "patient_id": c_inputs.get("patient_id", ""),
+        "prediction_timestamp": pred.get("timestamp"),
+    }
+
+    if not cmfa_engine.available:
+        response.update({
+            "cmfa": {"available": False, "reason": cmfa_engine.reason},
+            "feature_occlusion": [],
+            "percentile_profile": [],
+            "input_provenance": None,
+        })
+        return response
+
+    cmfa_row, cmfa_provenance, cmfa_notes = cmfa_engine.build_input_row(c_inputs)
+    cmfa_occlusion = cmfa_engine.occlusion(cmfa_row)
+
+    def modality_of(col):
+        return "Imaging" if col in cmfa_engine.image_features else "Clinical / report text"
+
+    cmfa_feature_rows = []
+    for col in cmfa_engine.all_features:
+        label, _ = CMFA_FEATURE_LABELS.get(col, (col, ""))
+        cmfa_feature_rows.append({
+            "key": col,
+            "feature": label,
+            "modality": modality_of(col),
+            "value": cmfa_engine.format_value(col, cmfa_row.at[0, col]),
+            "source": cmfa_provenance[col],
+            "note": cmfa_notes.get(col, ""),
+            "cohortReference": cmfa_engine.format_reference(col),
+            "occlusionDelta": round(cmfa_occlusion[col] * 100.0, 2),
+            "cohortMeanAbsDelta": round(cmfa_engine.cohort_mean_abs_occlusion[col] * 100.0, 2),
+        })
+    cmfa_feature_rows.sort(key=lambda r: abs(r["occlusionDelta"]), reverse=True)
+
+    cmfa_percentile_profile = []
+    for col in ["tumor_size_cm", "tumor_texture_entropy", "afp_ngml", "bilirubin_mgdl", "albumin_gdl", "platelet_k_ul"]:
+        if cmfa_provenance.get(col) != "patient":
+            continue
+        pct = cmfa_engine.percentile(col, cmfa_row.at[0, col])
+        if pct is not None:
+            cmfa_percentile_profile.append({
+                "label": CMFA_FEATURE_LABELS[col][0],
+                "value": int(round(pct)),
+                "patientValue": cmfa_engine.format_value(col, cmfa_row.at[0, col]),
+            })
+
+    counts = {k: sum(1 for v in cmfa_provenance.values() if v == k) for k in ("patient", "derived", "mapped", "imputed")}
+    cmfa_imputed = [CMFA_FEATURE_LABELS[c][0] for c, v in cmfa_provenance.items() if v == "imputed"]
+
+    response.update({
+        "cmfa": {
+            "available": True,
+            "n_train": cmfa_engine.n_train,
+            "architecture": {
+                "image_inputs": len(cmfa_engine.image_features),
+                "clinical_inputs": len(cmfa_engine.clinical_features),
+                "tokens_per_modality": cmfa_engine.model.num_tokens,
+                "d_model": cmfa_engine.model.d_model,
+                "attention_heads": cmfa_engine.model.image_to_text.num_heads,
+                "fused_dim": cmfa_engine.model.fusion[0].out_features,
+            },
+        },
+        "feature_occlusion": cmfa_feature_rows,
+        "percentile_profile": cmfa_percentile_profile,
+        "input_provenance": {
+            "counts": counts,
+            "total": len(cmfa_engine.all_features),
+            "imputed_features": cmfa_imputed,
+            "notes": {CMFA_FEATURE_LABELS[k][0]: v for k, v in cmfa_notes.items()},
+        },
+    })
+    return response
 
 # API Endpoint: Clinical Predictor
 # ==========================================

@@ -878,12 +878,12 @@ function App() {
       </div>
       
       {/* Medical Footer (Bottom Status Bar) */}
-      <div className="h-6 w-full bg-black/40 backdrop-blur-sm border-t border-[#1e293b] flex items-center justify-between px-4 text-[10px] text-slate-500 flex-shrink-0 z-50">
-        <div className="font-mono">Version 2.4.1 Build 8092</div>
-        <div className="font-mono uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-           HIPAA Compliant & FDA Cleared for Investigational Use Only
+      <div className="min-h-6 w-full bg-black/40 backdrop-blur-sm border-t border-[#1e293b] flex flex-wrap items-center justify-center sm:justify-between gap-x-4 px-4 py-0.5 text-[10px] text-slate-400 flex-shrink-0 z-50">
+        <div className="font-mono hidden sm:block">Version 2.4.1 Build 8092</div>
+        <div className="font-mono uppercase tracking-widest text-slate-300 flex items-center gap-1.5">
+           Research prototype - not a medical device
         </div>
-        <div>© 2026 SLIIT Faculty of Computing - AI Labs. All rights reserved.</div>
+        <div className="hidden sm:block">© 2026 SLIIT Faculty of Computing - AI Labs. All rights reserved.</div>
       </div>
     </div>
       
