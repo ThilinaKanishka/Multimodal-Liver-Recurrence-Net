@@ -36,6 +36,8 @@ import { ClinicalAssessmentPanel } from "../components/ClinicalAssessmentPanel";
 import { WhatIfSimulator } from "../components/WhatIfSimulator";
 import { RecurrenceOutlookPanel } from "../components/RecurrenceOutlookPanel";
 import { PrognosisSummary } from "../components/PrognosisSummary";
+import { RadiologyRow, LabRow, FindingRow, StagingRow } from "../components/ExtractedDataRows";
+import type { RowEvidence, OverrideOption, LabMeta, FindingMeta, ChildPughMeta } from "../components/ExtractedDataRows";
 import { RiskExplanationPanel } from "../components/RiskExplanationPanel";
 import type { RecurrenceOutlook } from "../components/RecurrenceOutlookPanel";
 import type { ClinicalAssessment } from "../components/ClinicalAssessmentPanel";
@@ -63,7 +65,13 @@ export interface DiagnosticInput {
   mvi_pathology: boolean | string;
   clinical_text_report: string;
   sources?: Record<string, string>;
-  confidences?: Record<string, number>;
+  evidence?: Record<string, string>;
+  lab_meta?: Record<string, LabMeta>;
+  findings?: Record<string, FindingMeta>;
+  radiology_meta?: Record<string, { value: unknown; display?: string; evidence: string }>;
+  child_pugh?: ChildPughMeta | null;
+  lirads_category?: string;
+  report_date?: string | null;
 }
 
 export interface PredictionResult {
@@ -161,123 +169,34 @@ const CheckboxField = ({ label, name, checked, onChange, autoFilled }: any) => (
   </label>
 );
 
-const ReadOnlyRadiologyRow = ({ label, field, value, unit, confidence, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources, confidences }: any) => {
-  const isOverridden = manualOverrides[field];
-  const backendSource = sources?.[field];
-  const backendConfidence = confidences?.[field];
-  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
-  const finalConfidence = backendConfidence || confidence;
-  const isMissing = isExtracted && value === "--";
-
-  return (
-    <div 
-      className="flex items-center justify-between py-1 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer min-h-[32px]"
-      onClick={(e) => onClick(e, label, value, source)}
-      onContextMenu={(e) => onContextMenu(e, label, value, source, field)}
-    >
-      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/4">{label}:</div>
-      <div className="flex items-center gap-2 w-3/4 justify-end">
-        <div className="font-mono text-white font-bold text-[10px] leading-tight break-words whitespace-normal flex-1 text-right" title={String(value)}>
-          {value === "--" ? (
-             isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
-          ) : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
-        </div>
-        {!isMissing && value !== "--" && finalConfidence ? <div className="text-[10px] text-slate-500 font-mono w-9 text-right flex-shrink-0">({finalConfidence}%)</div> : <div className="w-9 flex-shrink-0"></div>}
-        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${isMissing ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : value === "--" ? 'bg-slate-500/10 text-slate-500 border border-slate-500/30' : source === 'DICOM' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30' : source === 'NLP' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'} w-14 text-center flex-shrink-0`}>
-          {isMissing ? "---" : value === "--" ? "---" : source}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ReadOnlyLabRow = ({ label, field, value, unit, min, max, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources }: any) => {
-  const isOverridden = manualOverrides[field];
-  const backendSource = sources?.[field];
-  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
-  const numValue = parseFloat(value);
-  let status = "Normal";
-  if (!isNaN(numValue) && min !== undefined && max !== undefined) {
-    if (numValue < min) { status = "Low"; }
-    else if (numValue > max) { status = "High"; }
-  }
-  const isMissing = isExtracted && value === "--";
-  return (
-    <div 
-      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8"
-      onClick={(e) => onClick(e, label, value, source)}
-      onContextMenu={(e) => onContextMenu(e, label, value, source, field)}
-    >
-      <div className="text-[11px] text-slate-400 font-sans group-hover:text-slate-300 w-1/4">{label}:</div>
-      <div className="font-mono text-white font-bold text-xs w-1/4 truncate">
-        {value === "--" ? (
-           isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
-        ) : <>{value} {unit && <span className="text-slate-500 text-[10px] ml-1">{unit}</span>}</>}
-      </div>
-      <div className="text-[10px] text-slate-500 font-mono w-1/4 text-center">
-        {value === "--" ? "" : `(${min}-${max})`}
-      </div>
-      <div className={`text-[10px] font-bold w-1/4 text-right flex items-center justify-end gap-1 ${isMissing ? "text-slate-500" : value === "--" ? "text-slate-600" : status === 'Normal' ? 'text-emerald-400' : status === 'Low' ? 'text-amber-400' : 'text-rose-400'}`}>
-        {isMissing ? "---" : value === "--" ? "..." : status === 'Normal' ? '✓ Normal' : `⚠ ${status}`}
-        {isOverridden && <span className="ml-1 text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
-      </div>
-    </div>
-  );
-};
-
-const ReadOnlyPhenotypeRow = ({ label, field, detected, refs, defaultSource, manualOverrides, onClick, onContextMenu, isExtracted, sources }: any) => {
-  const isOverridden = manualOverrides[field];
-  const backendSource = sources?.[field];
-  const source = isOverridden ? 'MANUAL' : (backendSource || defaultSource);
-  const isMissing = isExtracted && detected === "--";
-  return (
-    <div 
-      className="flex items-center justify-between py-1.5 border-b border-white/5 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group cursor-pointer h-8 relative"
-      onClick={(e) => onClick(e, label, detected, source)}
-      onContextMenu={(e) => onContextMenu(e, label, detected, source, field)}
-    >
-      <div className="flex items-center gap-2 w-1/2">
-        <div className="text-[14px]">
-          {isMissing ? '⚠' : detected === "--" ? '⏳' : detected ? '✅' : '☐'}
-        </div>
-        <span className={`text-[11px] font-sans ${isMissing ? 'text-slate-500' : detected === "--" ? 'text-slate-600' : detected ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>{label}</span>
-      </div>
-      <div className="text-[10px] text-slate-500 font-mono w-1/2 text-right flex items-center justify-end gap-2">
-        <span>{detected === "--" ? (
-           isExtracted ? <span className="text-slate-500 italic font-sans font-normal">Not available</span> : <span className="text-slate-600 font-sans tracking-widest font-normal">Awaiting data...</span>
-        ) : detected ? `(Detected, ${refs} ref${refs !== 1 ? 's' : ''})` : '(Not mentioned)'}</span>
-        {isOverridden && <span className="text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1 rounded-full">MANUAL</span>}
-      </div>
-    </div>
-  );
+const EMPTY_FORM: DiagnosticInput = {
+  tumor_size_cm: "--",
+  tumor_number: "--",
+  tumor_density_hu: "--",
+  tumor_shape_irregularity: "--",
+  tumor_texture_entropy: "--",
+  margin_definition: "--",
+  enhancement_pattern: "--",
+  afp_ngml: "--",
+  alp_iul: "--",
+  alt_iul: "--",
+  ast_iul: "--",
+  bilirubin_mgdl: "--",
+  albumin_gdl: "--",
+  platelet_k_ul: "--",
+  child_pugh_score: "--",
+  bclc_stage: "--",
+  cirrhosis_present: "--",
+  hepatitis_b: "--",
+  hepatitis_c: "--",
+  mvi_pathology: "--",
+  clinical_text_report: "",
+  sources: {},
+  evidence: {}
 };
 
 export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?: any }> = ({ onViewHistory, user }) => {
-  const [formData, setFormData] = useState<DiagnosticInput>({
-    tumor_size_cm: "--",
-    tumor_number: "--",
-    tumor_density_hu: "--",
-    tumor_shape_irregularity: "--",
-    tumor_texture_entropy: "--",
-    margin_definition: "--",
-    enhancement_pattern: "--",
-    afp_ngml: "--",
-    alp_iul: "--",
-    alt_iul: "--",
-    ast_iul: "--",
-    bilirubin_mgdl: "--",
-    albumin_gdl: "--",
-    platelet_k_ul: "--",
-    child_pugh_score: "--",
-    bclc_stage: "--",
-    cirrhosis_present: "--",
-    hepatitis_b: "--",
-    hepatitis_c: "--",
-    mvi_pathology: "--",
-    clinical_text_report: "",
-    sources: {},
-    confidences: {}
-  });
+  const [formData, setFormData] = useState<DiagnosticInput>(EMPTY_FORM);
 
   const [patientInfo, setPatientInfo] = useState({
     name: "AWAITING DATA...",
@@ -298,6 +217,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [loading, setLoading] = useState<boolean>(false);
   const [extracting, setExtracting] = useState<boolean>(false);
   const [autoFilled, setAutoFilled] = useState<boolean>(false);
+  const [extractionDone, setExtractionDone] = useState<boolean>(false);
   const [historyInfo, setHistoryInfo] = useState<{has_history: boolean, pseudo_id: string, count: number} | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -321,22 +241,27 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     label: string,
     value: any,
     source: string,
-    field?: string
+    field?: string,
+    evidence?: string,
+    details?: string[],
+    options?: OverrideOption[]
   } | null>(null);
   const [manualOverrides, setManualOverrides] = useState<Record<string, boolean>>({});
 
-  const handleSourceClick = (e: React.MouseEvent, label: string, value: any, source: string) => {
+  const handleSourceClick = (e: React.MouseEvent, label: string, value: unknown, info: RowEvidence) => {
     setActivePopup({
       type: 'source',
       x: e.clientX,
       y: e.clientY,
       label,
       value,
-      source
+      source: info.source,
+      evidence: info.evidence,
+      details: info.details
     });
   };
 
-  const handleOverrideContext = (e: React.MouseEvent, label: string, value: any, source: string, field: string) => {
+  const handleOverrideContext = (e: React.MouseEvent, label: string, value: unknown, field: string, options?: OverrideOption[]) => {
     e.preventDefault();
     setActivePopup({
       type: 'override',
@@ -344,18 +269,14 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
       y: e.clientY,
       label,
       value,
-      source,
-      field
+      source: formData.sources?.[field] ?? '',
+      field,
+      options
     });
   };
 
   const submitOverride = (field: string, newValue: string | number | boolean) => {
-    let finalValue = newValue;
-    // Handle special enum cases if they use true/false override buttons
-    if (field === 'child_pugh_score') finalValue = newValue ? 'A' : 'Unknown';
-    if (field === 'bclc_stage') finalValue = newValue ? 'A' : 'Unknown';
-    
-    setFormData(prev => ({ ...prev, [field]: finalValue }));
+    setFormData(prev => ({ ...prev, [field]: newValue === '' ? '--' : newValue }));
     setManualOverrides(prev => ({ ...prev, [field]: true }));
     setActivePopup(null);
   };
@@ -479,6 +400,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     const autoExtractData = async () => {
       if (!imageFile && !pdfFile) return;
       setExtracting(true);
+      setExtractionDone(false);
       const payload = new FormData();
       if (imageFile) payload.append("dcm_file", imageFile);
       if (pdfFile) payload.append("pdf_file", pdfFile);
@@ -488,7 +410,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           headers: { "Content-Type": "multipart/form-data" },
         });
         const data = response.data;
-        setFormData((prev) => ({ ...prev, ...data }));
+        setFormData({ ...EMPTY_FORM, ...data });
+        setManualOverrides({});
         
         if (data.patient_name) {
           const dobStr = data.patient_dob || "";
@@ -530,6 +453,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
         }
 
         setAutoFilled(true);
+        setExtractionDone(true);
         setTimeout(() => setAutoFilled(false), 5000);
       } catch (error) {
         console.error("Extraction error:", error);
@@ -662,23 +586,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const handleResetWorkspace = () => {
     sessionStorage.removeItem("active_patient_session");
     setShowVerificationToast(false);
-    setFormData({
-      tumor_size_cm: "",
-      afp_ngml: "",
-      alp_iul: "",
-      bilirubin_mgdl: "",
-      albumin_gdl: "",
-      platelet_k_ul: "",
-      alt_iul: "",
-      ast_iul: "",
-      bclc_stage: "A",
-      child_pugh_score: "A",
-      cirrhosis_present: false,
-      mvi_pathology: false,
-      hepatitis_b: false,
-      hepatitis_c: false,
-      enhancement_pattern: "Arterial Hyperenhancement (APHE)"
-    } as any);
+    setFormData(EMPTY_FORM);
+    setExtractionDone(false);
     setPatientInfo({
       mrn: "---",
       name: "NO PATIENT LOADED",
@@ -825,13 +734,21 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                     </div>
                     <div className="text-slate-400 leading-relaxed">
                       <div className="mb-1"><strong className="text-slate-300">Field:</strong> {activePopup.label}</div>
-                      <div className="mb-1"><strong className="text-slate-300">Extracted Value:</strong> {String(activePopup.value)}</div>
-                      <div className="mb-1"><strong className="text-slate-300">Confidence:</strong> {Math.floor(Math.random() * 10 + 90)}% (Auto-calculated)</div>
-                      <div><strong className="text-slate-300">Timestamp:</strong> {new Date().toLocaleTimeString()}</div>
+                      <div className="mb-1"><strong className="text-slate-300">Value:</strong> {activePopup.value === '--' || activePopup.value === undefined ? 'Not available' : String(activePopup.value)}</div>
+                      {activePopup.details?.map(d => <div key={d} className="mb-1">{d}</div>)}
+                      {formData.report_date && activePopup.source !== 'MANUAL' && <div><strong className="text-slate-300">Report date:</strong> {formData.report_date}</div>}
                     </div>
-                    <div className="bg-black/50 p-2 rounded border border-white/5 font-mono text-[10px] text-slate-500 italic mt-1">
-                      "Matches raw extraction output from pipeline step 2. Verified."
-                    </div>
+                    {activePopup.evidence ? (
+                      <div className="bg-black/50 p-2 rounded border border-white/5 text-[10.5px] text-slate-300 leading-relaxed mt-1">
+                        <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Evidence from report</div>
+                        “{activePopup.evidence}”
+                      </div>
+                    ) : (
+                      <div className="bg-black/50 p-2 rounded border border-white/5 text-[10px] text-slate-500 italic mt-1">
+                        {activePopup.source === 'MANUAL' ? 'Entered manually by the clinician.' : 'Not found in the uploaded report. Right-click the row to enter it manually.'}
+                      </div>
+                    )}
+                    <div className="text-[9.5px] text-slate-500">Automatically extracted: verify against the source before use.</div>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -842,7 +759,15 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                     <div className="text-slate-400 mb-1 leading-relaxed">
                       Change the value for <strong className="text-white">{activePopup.label}</strong>. This will be logged in the audit trail.
                     </div>
-                    {typeof activePopup.value === 'boolean' ? (
+                    {activePopup.options ? (
+                      <div className="flex flex-wrap gap-2">
+                        {activePopup.options.map(opt => (
+                          <button key={String(opt.value)} onClick={() => submitOverride(activePopup.field!, opt.value)} className="flex-1 min-w-[56px] bg-slate-700 py-1.5 rounded hover:bg-slate-600 text-slate-200 font-bold uppercase tracking-wider text-[10px]">
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : typeof activePopup.value === 'boolean' ? (
                       <div className="flex gap-2">
                         <button onClick={() => submitOverride(activePopup.field!, true)} className="flex-1 bg-emerald-500/20 text-emerald-400 py-1.5 rounded border border-emerald-500/30 hover:bg-emerald-500/30 font-bold uppercase tracking-wider text-[10px]">Set True</button>
                         <button onClick={() => submitOverride(activePopup.field!, false)} className="flex-1 bg-slate-700 py-1.5 rounded hover:bg-slate-600 text-slate-300 font-bold uppercase tracking-wider text-[10px]">Set False</button>
@@ -856,7 +781,7 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       }} className="flex flex-col gap-2">
                         <input 
                           name="overrideVal" 
-                          defaultValue={activePopup.value} 
+                          defaultValue={activePopup.value === '--' ? '' : activePopup.value} 
                           className="bg-black/50 border border-white/20 rounded px-2 py-1.5 text-white w-full font-mono outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50" 
                           autoFocus
                         />
@@ -1123,17 +1048,34 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                     2. Radiological Features
                   </h2>
                   <div className="text-[9px] text-slate-400 flex items-center gap-1.5 font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
-                    Source: DICOM <FileText className="w-3 h-3 text-teal-400" />
+                    Source: Report{formData.lirads_category ? ` · ${formData.lirads_category}` : ''} <FileText className="w-3 h-3 text-teal-400" />
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyRadiologyRow label="Tumor Size" field="tumor_size_cm" value={formData.tumor_size_cm} unit="cm" confidence={94} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Tumor Number" field="tumor_number" value={formData.tumor_number} unit="" confidence={98} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Tumor Density" field="tumor_density_hu" value={formData.tumor_density_hu} unit="HU" confidence={92} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Irregularity" field="tumor_shape_irregularity" value={formData.tumor_shape_irregularity} unit="" confidence={87} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Entropy" field="tumor_texture_entropy" value={formData.tumor_texture_entropy} unit="" confidence={91} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Margin" field="margin_definition" value={formData.margin_definition} unit="" confidence={89} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
-                  <ReadOnlyRadiologyRow label="Enhancement" field="enhancement_pattern" value={formData.enhancement_pattern} unit="" confidence={95} defaultSource="DICOM" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} confidences={formData.confidences} />
+                  {([
+                    ["Tumor Size", "tumor_size_cm", "cm"],
+                    ["Tumor Number", "tumor_number", ""],
+                    ["Tumor Density", "tumor_density_hu", "HU"],
+                    ["Irregularity", "tumor_shape_irregularity", ""],
+                    ["Entropy", "tumor_texture_entropy", ""],
+                    ["Margin", "margin_definition", ""],
+                    ["Enhancement", "enhancement_pattern", ""],
+                  ] as const).map(([label, field, unit]) => (
+                    <RadiologyRow
+                      key={field}
+                      label={label}
+                      field={field}
+                      value={formData[field]}
+                      unit={unit}
+                      display={formData[field] === "--" && !manualOverrides[field] ? formData.radiology_meta?.[field]?.display : undefined}
+                      overridden={!!manualOverrides[field]}
+                      extractionDone={extractionDone}
+                      source={formData.sources?.[field]}
+                      evidence={formData.evidence?.[field]}
+                      onClick={handleSourceClick}
+                      onOverride={handleOverrideContext}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -1147,17 +1089,35 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                     3. Lab Markers
                   </h2>
                   <div className="text-[9px] text-slate-400 flex items-center gap-1.5 font-mono bg-black/30 px-2 py-1 rounded border border-white/5">
-                    Source: PDF <FileText className="w-3 h-3 text-purple-400" />
+                    Source: PDF{formData.report_date ? ` · ${formData.report_date}` : ''} <FileText className="w-3 h-3 text-purple-400" />
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyLabRow label="AFP" field="afp_ngml" value={formData.afp_ngml} unit="ng/mL" min={0} max={10} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="ALP" field="alp_iul" value={formData.alp_iul} unit="IU/L" min={40} max={120} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="ALT" field="alt_iul" value={formData.alt_iul} unit="IU/L" min={7} max={56} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="AST" field="ast_iul" value={formData.ast_iul} unit="IU/L" min={10} max={40} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="Bilirubin" field="bilirubin_mgdl" value={formData.bilirubin_mgdl} unit="mg/dL" min={0.1} max={1.2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="Albumin" field="albumin_gdl" value={formData.albumin_gdl} unit="g/dL" min={3.5} max={5.0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyLabRow label="Platelets" field="platelet_k_ul" value={formData.platelet_k_ul} unit="k/uL" min={150} max={400} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  {([
+                    ["AFP", "afp_ngml", "ng/mL", 0, 10],
+                    ["ALP", "alp_iul", "IU/L", 40, 120],
+                    ["ALT", "alt_iul", "IU/L", 7, 56],
+                    ["AST", "ast_iul", "IU/L", 10, 40],
+                    ["Bilirubin", "bilirubin_mgdl", "mg/dL", 0.1, 1.2],
+                    ["Albumin", "albumin_gdl", "g/dL", 3.5, 5.0],
+                    ["Platelets", "platelet_k_ul", "k/µL", 150, 400],
+                  ] as const).map(([label, field, unit, min, max]) => (
+                    <LabRow
+                      key={field}
+                      label={label}
+                      field={field}
+                      value={formData[field]}
+                      unit={unit}
+                      typicalMin={min}
+                      typicalMax={max}
+                      meta={formData.lab_meta?.[field]}
+                      overridden={!!manualOverrides[field]}
+                      extractionDone={extractionDone}
+                      evidence={formData.evidence?.[field]}
+                      onClick={handleSourceClick}
+                      onOverride={handleOverrideContext}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -1175,12 +1135,52 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1.5 relative z-10">
-                  <ReadOnlyPhenotypeRow label="Cirrhosis" field="cirrhosis_present" detected={formData.cirrhosis_present} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyPhenotypeRow label="MVI Pathology" field="mvi_pathology" detected={formData.mvi_pathology} refs={2} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyPhenotypeRow label="Hepatitis B" field="hepatitis_b" detected={formData.hepatitis_b} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyPhenotypeRow label="Hepatitis C" field="hepatitis_c" detected={formData.hepatitis_c} refs={0} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyPhenotypeRow label="Child-Pugh A" field="child_pugh_score" detected={formData.child_pugh_score === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
-                  <ReadOnlyPhenotypeRow label="BCLC Stage A" field="bclc_stage" detected={formData.bclc_stage === 'A'} refs={1} defaultSource="NLP" manualOverrides={manualOverrides} onClick={handleSourceClick} onContextMenu={handleOverrideContext} isExtracted={autoFilled} sources={formData.sources} />
+                  {([
+                    ["Cirrhosis", "cirrhosis_present"],
+                    ["Microvascular invasion", "mvi_pathology"],
+                    ["Hepatitis B", "hepatitis_b"],
+                    ["Hepatitis C", "hepatitis_c"],
+                  ] as const).map(([label, field]) => (
+                    <FindingRow
+                      key={field}
+                      label={label}
+                      field={field}
+                      value={formData[field]}
+                      meta={formData.findings?.[field]}
+                      overridden={!!manualOverrides[field]}
+                      extractionDone={extractionDone}
+                      evidence={formData.evidence?.[field]}
+                      onClick={handleSourceClick}
+                      onOverride={handleOverrideContext}
+                    />
+                  ))}
+                  <StagingRow
+                    label="Child-Pugh"
+                    field="child_pugh_score"
+                    value={formData.child_pugh_score}
+                    display={!manualOverrides.child_pugh_score && formData.child_pugh
+                      ? `Class ${formData.child_pugh.class}${formData.child_pugh.score ? ` (${formData.child_pugh.score})` : ''}`
+                      : formData.child_pugh_score !== "--" ? `Class ${String(formData.child_pugh_score).charAt(0)}` : undefined}
+                    method={formData.child_pugh ? (formData.child_pugh.method === 'calculated' ? 'calculated from labs' : 'as reported') : undefined}
+                    options={[{ label: 'A', value: 'A' }, { label: 'B', value: 'B' }, { label: 'C', value: 'C' }, { label: 'Unknown', value: '--' }]}
+                    overridden={!!manualOverrides.child_pugh_score}
+                    extractionDone={extractionDone}
+                    evidence={formData.evidence?.child_pugh_score}
+                    onClick={handleSourceClick}
+                    onOverride={handleOverrideContext}
+                  />
+                  <StagingRow
+                    label="BCLC stage"
+                    field="bclc_stage"
+                    value={formData.bclc_stage}
+                    display={formData.bclc_stage !== "--" ? `Stage ${formData.bclc_stage}` : undefined}
+                    options={["0", "A", "B", "C", "D"].map(v => ({ label: v, value: v })).concat([{ label: 'Unknown', value: '--' }])}
+                    overridden={!!manualOverrides.bclc_stage}
+                    extractionDone={extractionDone}
+                    evidence={formData.evidence?.bclc_stage}
+                    onClick={handleSourceClick}
+                    onOverride={handleOverrideContext}
+                  />
                 </div>
               </div>
             </div>
