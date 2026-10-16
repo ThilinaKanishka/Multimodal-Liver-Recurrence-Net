@@ -79,8 +79,9 @@ export interface PredictionResult {
     dicom_3d_matrix?: string;
     tumor_target?: { found: boolean; x: number; y: number; z: number };
   };
-  estimated_recurrence_min_months?: number;
-  estimated_recurrence_max_months?: number;
+  /** 95% CI of median recurrence-free survival; null when not estimable */
+  estimated_recurrence_min_months?: number | null;
+  estimated_recurrence_max_months?: number | null;
 }
 
 const InputField = ({ label, name, value, type="number", unit="", step="1", onChange, autoFilled }: any) => (
@@ -1115,20 +1116,20 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
                       {/* Right Side: Timeline & Actions */}
                       <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
                         {/* Timeline box */}
-                        {result.estimated_recurrence_min_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
+                        {result.estimated_recurrence_min_months != null && result.estimated_recurrence_max_months != null && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
                           <div className="flex flex-col items-end border-r border-white/10 pr-6">
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Predicted Timeline
+                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> Median RFS (95% CI)
                             </span>
                             <div className="flex items-baseline gap-1.5 relative">
                                <div className="absolute inset-0 animate-pulse blur-[8px] opacity-70 text-amber-500 font-mono font-black text-2xl md:text-3xl flex items-baseline gap-1.5 pointer-events-none">
-                                 <span>{result.estimated_recurrence_min_months}</span>
+                                 <span>{Math.round(result.estimated_recurrence_min_months)}</span>
                                  <span>-</span>
-                                 <span>{result.estimated_recurrence_max_months}</span>
+                                 <span>{Math.round(result.estimated_recurrence_max_months)}</span>
                                </div>
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_min_months}</span>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{Math.round(result.estimated_recurrence_min_months)}</span>
                                <span className="text-amber-500/50 font-black text-lg relative">-</span>
-                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{result.estimated_recurrence_max_months}</span>
+                               <span className="font-mono font-black text-2xl md:text-3xl text-amber-400 drop-shadow-md relative">{Math.round(result.estimated_recurrence_max_months)}</span>
                                <span className="text-[10px] text-amber-500/80 font-bold ml-1 uppercase tracking-widest relative">Months</span>
                             </div>
                           </div>
@@ -1345,9 +1346,9 @@ export const LongitudinalPredictPage: React.FC<{ onViewHistory?: (id: string) =>
               <div className="text-2xl font-black uppercase tracking-wide">
                 {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%{result.confidence_interval ? ` (95% CI: ${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%)` : ''})
               </div>
-              {result.estimated_recurrence_min_months !== undefined && (
+              {result.estimated_recurrence_min_months != null && result.estimated_recurrence_max_months != null && (
                 <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
-                  ESTIMATED TIME TO RECURRENCE: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
+                  MEDIAN RECURRENCE-FREE SURVIVAL (95% CI): {Math.round(result.estimated_recurrence_min_months)} - {Math.round(result.estimated_recurrence_max_months)} MONTHS
                 </div>
               )}
               <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
