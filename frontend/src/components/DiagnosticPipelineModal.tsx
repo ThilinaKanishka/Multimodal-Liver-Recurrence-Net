@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle } from 'lucide-react';
 
 interface DiagnosticPipelineModalProps {
@@ -16,6 +16,12 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
 }) => {
   // We want to animate the running step's progress from 0 to 90 (it hits 100 when done)
   const [runningStepProgress, setRunningStepProgress] = useState(0);
+  const activeStepRef = useRef<HTMLDivElement>(null);
+
+  // On short screens the list may still scroll - keep the running step visible
+  useEffect(() => {
+    activeStepRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeStep]);
 
   useEffect(() => {
     setRunningStepProgress(0);
@@ -46,18 +52,18 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[rgba(0,0,0,0.65)] backdrop-blur-[8px] transition-all duration-300 animate-in fade-in">
-      <div className="bg-[rgba(15,23,42,0.95)] border border-[rgba(20,184,166,0.3)] rounded-2xl p-6 w-full max-w-[600px] shadow-[0_0_40px_rgba(20,184,166,0.15)] flex flex-col gap-6 relative overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-[rgba(15,23,42,0.95)] border border-[rgba(20,184,166,0.3)] rounded-2xl p-5 w-full max-w-[600px] max-h-[calc(100vh-2rem)] shadow-[0_0_40px_rgba(20,184,166,0.15)] flex flex-col gap-4 relative overflow-hidden animate-in zoom-in-95 duration-300">
          {/* Top Gradient Line */}
          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00e5ff] via-indigo-500 to-[#00ff9d]"></div>
          
          {/* Header */}
-         <div className="flex flex-col gap-1 items-center text-center mt-2">
+         <div className="flex flex-col gap-1 items-center text-center mt-1 flex-shrink-0">
            <h2 className="text-xl font-black text-white uppercase tracking-widest drop-shadow-md">HepatoAI Diagnostic Pipeline</h2>
            <p className="text-sm text-[#00e5ff] font-mono tracking-wide">Processing multimodal data...</p>
          </div>
 
          {/* Steps */}
-         <div className="flex flex-col gap-3 max-h-[50vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+         <div className="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
             {steps.map((step, index) => {
                const status = index < activeStep ? 'done' : index === activeStep ? 'running' : 'pending';
                
@@ -66,7 +72,7 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
                else if (status === 'running') displayProgress = runningStepProgress;
 
                return (
-                 <div key={index} className={`flex items-start gap-4 p-3 rounded-lg border transition-all duration-500 ${
+                 <div key={index} ref={status === 'running' ? activeStepRef : undefined} className={`flex items-start gap-3 px-3 py-2 rounded-lg border transition-all duration-500 ${
                    status === 'done' ? 'bg-[#00ff9d]/5 border-[#00ff9d]/30' :
                    status === 'running' ? 'bg-[#00e5ff]/10 border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.2)]' :
                    'bg-white/5 border-white/10 opacity-50'
@@ -76,7 +82,7 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
                       {status === 'running' && <div className="w-5 h-5 border-2 border-[#00e5ff] border-t-transparent rounded-full animate-spin" />}
                       {status === 'pending' && <div className="w-5 h-5 rounded-full border-2 border-slate-500" />}
                     </div>
-                    <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex-1 flex flex-col gap-1">
                        <div className="flex justify-between items-center text-sm font-bold tracking-wide">
                           <span className={status === 'done' ? 'text-white' : status === 'running' ? 'text-[#00e5ff]' : 'text-slate-400'}>
                              Step {index + 1}: {step.title}
@@ -101,7 +107,7 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
          </div>
 
          {/* Footer */}
-         <div className="flex flex-col gap-3 mt-2 pt-4 border-t border-white/10">
+         <div className="flex flex-col gap-2 pt-3 border-t border-white/10 flex-shrink-0">
             <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               <span>Overall Progress</span>
               {activeStep >= 7 ? (
@@ -117,7 +123,7 @@ export const DiagnosticPipelineModal: React.FC<DiagnosticPipelineModalProps> = (
                 <span className="text-xs font-black text-white w-10 text-right">{overallProgress}%</span>
             </div>
             {onCancel && (
-              <button onClick={onCancel} className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors self-center">
+              <button onClick={onCancel} className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors self-center">
                 Cancel
               </button>
             )}
