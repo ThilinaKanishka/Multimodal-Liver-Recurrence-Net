@@ -8,8 +8,10 @@ export interface RecurrenceOutlook {
   milestones: { months: number; rfs: number; lower: number; upper: number }[];
   median_rfs: { months: number | null; lower: number | null; upper: number | null };
   relative_hazard: { value: number; lower: number; upper: number };
+  risk_2yr: { months: number; risk: number; lower: number; upper: number; cohort_average: number };
+  cohort_percentile: number;
   risk_group: { label: 'Low' | 'Intermediate' | 'High'; definition: string };
-  cohort_curves: { months: number[]; Low: number[]; Intermediate: number[]; High: number[] };
+  cohort_curves: { months: number[]; Low: number[]; Intermediate: number[]; High: number[]; All?: number[] };
   contributors: { feature: string; label: string; value: unknown; hazard_multiplier: number }[];
   imputed_inputs: string[];
   model: {
@@ -36,7 +38,6 @@ const fmtValue = (v: unknown) => (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : 
 /** Recurrence-free survival summary in the style of clinical risk calculators (RFS at fixed horizons with 95% CI). */
 export const RecurrenceOutlookPanel: React.FC<{ outlook: RecurrenceOutlook }> = ({ outlook }) => {
   const [showModelCard, setShowModelCard] = useState(false);
-  const group = GROUP_STYLE[outlook.risk_group.label];
 
   const chartData = useMemo(() => {
     const cohort = outlook.cohort_curves;
@@ -63,9 +64,6 @@ export const RecurrenceOutlookPanel: React.FC<{ outlook: RecurrenceOutlook }> = 
           <Clock className="w-3 h-3 text-slate-400" /> Recurrence-free survival
         </span>
         <div className="flex items-center gap-1.5">
-          <span className={`rounded border px-1.5 py-px text-[10px] font-semibold ${group.pill}`} title={outlook.risk_group.definition}>
-            {outlook.risk_group.label} risk group
-          </span>
           <button
             type="button"
             onClick={() => setShowModelCard(v => !v)}
@@ -168,13 +166,6 @@ export const RecurrenceOutlookPanel: React.FC<{ outlook: RecurrenceOutlook }> = 
             ))}
           </div>
         </details>
-      )}
-
-      {outlook.imputed_inputs.length > 0 && (
-        <p className="mt-1.5 text-[9.5px] leading-snug text-amber-300/80" title={outlook.imputed_inputs.join(', ')}>
-          Not available, set to cohort average: {outlook.imputed_inputs.slice(0, 3).join(', ')}
-          {outlook.imputed_inputs.length > 3 && ` +${outlook.imputed_inputs.length - 3} more`}
-        </p>
       )}
 
       {/* Model card */}

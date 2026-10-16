@@ -182,6 +182,18 @@ class RecurrenceSurvivalModel:
 
         groups = self.spec["risk_groups"]
         group = "Low" if lp < groups["cutpoints"][0] else "Intermediate" if lp < groups["cutpoints"][1] else "High"
+        cohort_percentile = float(np.interp(lp, groups["lp_percentiles"], np.arange(101)))
+
+        # Headline: cumulative recurrence risk at 2 years (1 - RFS), as clinical calculators report it
+        horizon = at(24)
+        cohort_rfs_2yr = groups["km_curves"]["All"][int(np.searchsorted(self.months, 24, side="right") - 1)]
+        risk_2yr = {
+            "months": 24,
+            "risk": round(100 - horizon["rfs"], 1),
+            "lower": round(100 - horizon["upper"], 1),
+            "upper": round(100 - horizon["lower"], 1),
+            "cohort_average": round(100 - cohort_rfs_2yr, 1),
+        }
 
         # Per-input contribution to the log-hazard, categorical dummies summed per input
         contrib = {}
@@ -207,6 +219,8 @@ class RecurrenceSurvivalModel:
                 "lower": round(float(np.exp(np.percentile(boot_lp, 2.5))), 2),
                 "upper": round(float(np.exp(np.percentile(boot_lp, 97.5))), 2),
             },
+            "risk_2yr": risk_2yr,
+            "cohort_percentile": round(cohort_percentile),
             "risk_group": {"label": group, "definition": groups["definition"]},
             "cohort_curves": groups["km_curves"],
             "contributors": contributors[:6],
@@ -216,13 +230,18 @@ class RecurrenceSurvivalModel:
 
 
 _model = None
+_model_mtime = None
 
 
 def get_model():
-    """Lazy-load the exported model; returns None if it has not been trained/exported yet."""
-    global _model
-    if _model is None and os.path.exists(MODEL_PATH):
+    """Load the exported model, reloading it when the JSON is re-exported; None if not trained yet."""
+    global _model, _model_mtime
+    if not os.path.exists(MODEL_PATH):
+        return None
+    mtime = os.path.getmtime(MODEL_PATH)
+    if _model is None or mtime != _model_mtime:
         _model = RecurrenceSurvivalModel.load()
+        _model_mtime = mtime
     return _model
 
 
