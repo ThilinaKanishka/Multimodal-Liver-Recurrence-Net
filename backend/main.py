@@ -81,7 +81,8 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from collections import OrderedDict
 from typing import Optional
 from sklearn.ensemble import VotingClassifier
 
@@ -235,7 +236,11 @@ def initialize_ai_core():
     
     global_distribution_stats = {
         'cnn_feat_0_mean': float(df['cnn_feat_0'].mean()),
-        'cnn_feat_0_std': float(df['cnn_feat_0'].std())
+        'cnn_feat_0_std': float(df['cnn_feat_0'].std()),
+        'feature_ranges': {
+            col: {'min': float(df[col].min()), 'max': float(df[col].max())}
+            for col in ['tumor_size_cm', 'afp_ngml', 'alp_iul', 'bilirubin_mgdl']
+        },
     }
 
     X = df.drop(columns=['target'])
@@ -349,7 +354,7 @@ if ML_LIBS_AVAILABLE:
 else:
     fusion_core, ensemble_models, shap_explainer, feature_columns = None, [], None, []
     model_performance_metrics = {"auc_roc": 0.85, "f1_score": 0.82, "precision": 0.80, "recall": 0.84}
-    training_distributions = {'cnn_feat_0_mean': 0.5, 'cnn_feat_0_std': 0.1}
+    training_distributions = {'cnn_feat_0_mean': 0.5, 'cnn_feat_0_std': 0.1, 'feature_ranges': {}}
     platt_scaler = None
 
 # Cross-Modal Feature Fusion with Attention (CMFA) - trained model from CMFA/CMFA_v3.ipynb
@@ -1177,6 +1182,65 @@ def build_clinical_assessment(shap_weights, cnn_signed_weight, master_dict, bclc
     }
 
 
+# ==========================================
+# Shared scoring helpers (used by /predict and /simulate_risk)
+# ==========================================
+MC_DROPOUT_SEED = 42
+SIMULATION_CACHE_MAX = 500
+# inference_id -> the exact model inputs used for that prediction (incl. the patient's CNN embedding)
+simulation_cache: "OrderedDict[str, dict]" = OrderedDict()
+
+
+def mc_ensemble_probability(master_vector, n_iter: int = 100):
+    """MC-dropout over the CV ensemble. Seeded, so identical inputs always give identical outputs."""
+    if not ML_LIBS_AVAILABLE:
+        return 0.5, 0.0
+    rng = np.random.default_rng(MC_DROPOUT_SEED)
+    mask = rng.binomial(1, 0.9, size=(n_iter, master_vector.shape[1]))
+    dropped = pd.DataFrame(np.repeat(master_vector.values, n_iter, axis=0) * mask / 0.9, columns=master_vector.columns)
+    mc_preds = np.mean([model.predict_proba(dropped)[:, 1] for model in ensemble_models], axis=0)
+    return float(np.mean(mc_preds)), float(np.std(mc_preds))
+
+
+def predict_time_to_recurrence(master_dict: dict):
+    """Survival-model estimate of months to recurrence, or None if the model is unavailable."""
+    if not SURVIVAL_ENABLED:
+        return None
+    surv_df = pd.DataFrame([{col: master_dict.get(col, 0.0) for col in survival_feature_names}], columns=survival_feature_names)
+    return float(survival_model.predict(survival_scaler.transform(surv_df))[0])
+
+
+def score_master_dict(master_dict: dict) -> dict:
+    """Run the full prediction stack (ensemble + calibration + uncertainty + SHAP + survival) on one input vector."""
+    master_vector = pd.DataFrame([master_dict], columns=feature_columns)
+    mu, sigma = mc_ensemble_probability(master_vector)
+    calibrated = float(platt_scaler.predict_proba([[mu]])[0][1]) if (ML_LIBS_AVAILABLE and platt_scaler is not None) else mu
+
+    probability = calibrated * 100.0
+    prob_std = sigma * 100.0
+    abstain = prob_std > 12.0
+
+    shap_values = shap_explainer.shap_values(master_vector)
+    shap_row = shap_values[1][0] if isinstance(shap_values, list) else shap_values[0]
+    shap_weights = {feature_columns[i]: float(shap_row[i]) for i in range(len(feature_columns))}
+
+    try:
+        ttr = predict_time_to_recurrence(master_dict)
+    except Exception as e:
+        print(f"Survival prediction error: {e}")
+        ttr = None
+
+    return {
+        "probability": round(probability, 2),
+        "confidence_interval": [round(max(0.0, probability - 1.96 * prob_std), 2), round(min(100.0, probability + 1.96 * prob_std), 2)],
+        "certainty": round(max(0.0, min(100.0, max(calibrated, 1.0 - calibrated) * 100.0)), 1),
+        "confidence_status": "LOW_CONFIDENCE_ABSTAIN" if abstain else "VERIFIED",
+        "risk_level": "ABSTAIN" if abstain else ("HIGH" if probability >= 50.0 else "LOW"),
+        "time_to_recurrence_months": round(ttr, 1) if ttr is not None else None,
+        "_shap": shap_weights,
+    }
+
+
 @app.post("/api/v1/predict")
 async def predict_recurrence(
     clinical_data: str = Form(...),
@@ -1270,18 +1334,7 @@ async def predict_recurrence(
     master_vector = pd.DataFrame([master_dict], columns=feature_columns)
     
     # MC Dropout Uncertainty Estimation
-    mc_preds = []
-    if ML_LIBS_AVAILABLE:
-        for _ in range(100):
-            mask = np.random.binomial(1, 0.9, size=master_vector.shape)
-            dropped_vector = master_vector * mask / 0.9
-            mc_probs = [float(model.predict_proba(dropped_vector)[0][1]) for model in ensemble_models]
-            mc_preds.append(np.mean(mc_probs))
-    else:
-        mc_preds = [0.5] * 100
-
-    mu = float(np.mean(mc_preds))
-    sigma = float(np.std(mc_preds))
+    mu, sigma = mc_ensemble_probability(master_vector)
     max_possible_sigma = 0.5
     normalized_sigma = sigma / max_possible_sigma
     mc_certainty = max(0.0, min(100.0, (1.0 - normalized_sigma) * 100.0))
@@ -1376,13 +1429,7 @@ async def predict_recurrence(
     
     if SURVIVAL_ENABLED:
         try:
-            surv_dict = {}
-            for col in survival_feature_names:
-                surv_dict[col] = master_dict.get(col, 0.0)
-            
-            surv_df = pd.DataFrame([surv_dict], columns=survival_feature_names)
-            surv_scaled = survival_scaler.transform(surv_df)
-            surv_pred = float(survival_model.predict(surv_scaled)[0])
+            surv_pred = predict_time_to_recurrence(master_dict)
             
             estimated_recurrence_min_months = max(0.0, round(surv_pred - 2.0, 1))
             estimated_recurrence_max_months = round(surv_pred + 2.0, 1)
@@ -1392,6 +1439,14 @@ async def predict_recurrence(
             ai_insights.append(f"Survival Analysis: Failed ({e})")
             
     inference_id = str(uuid.uuid4())
+    simulation_cache[inference_id] = {
+        "master_dict": {k: float(v) for k, v in master_dict.items()},
+        "bclc_stage": str(tabular_data.get("bclc_stage", "A")),
+        "imaging_available": bool(dicom_success),
+        "baseline": None,
+    }
+    while len(simulation_cache) > SIMULATION_CACHE_MAX:
+        simulation_cache.popitem(last=False)
     await log_inference_to_ledger(inference_id, pseudo_id, tabular_data, display_weights, prob_score, recurrence_risk_str, ui_rendering_state, doctor_id)
 
     return {
@@ -1429,61 +1484,128 @@ async def predict_recurrence(
         "clinical_assessment": clinical_assessment
     }
 # // What-If simulation
+SIMULATION_FEATURE_LABELS = {
+    "tumor_size_cm": "Tumor size",
+    "afp_ngml": "AFP",
+    "alp_iul": "ALP",
+    "bilirubin_mgdl": "Bilirubin",
+    "mvi_status": "Microvascular invasion",
+    "cirrhosis_status": "Cirrhosis",
+    "metastasis_status": "Metastasis",
+    "bclc_stage_c": "BCLC stage C",
+}
+
+
 class SimulateRiskPayload(BaseModel):
-    tumor_size_cm: float = 5.0
-    afp_ngml: float = 20.0
-    alp_iul: float = 100.0
-    bilirubin_mgdl: float = 1.0
-    bclc_stage: str = "A"
-    mvi_pathology: bool = False
-    cirrhosis_present: bool = False
+    """Scenario overrides for a previous prediction. Omitted fields keep the patient's original value."""
+    inference_id: str
+    tumor_size_cm: Optional[float] = Field(None, gt=0, le=30)
+    afp_ngml: Optional[float] = Field(None, ge=0, le=100000)
+    alp_iul: Optional[float] = Field(None, ge=0, le=5000)
+    bilirubin_mgdl: Optional[float] = Field(None, ge=0, le=50)
+    bclc_stage: Optional[str] = None
+    mvi_pathology: Optional[bool] = None
+    cirrhosis_present: Optional[bool] = None
+    metastasis_present: Optional[bool] = None
+
+
+def _public_score(score: dict) -> dict:
+    return {k: v for k, v in score.items() if not k.startswith("_")}
+
 
 @app.post("/api/v1/simulate_risk")
 async def simulate_risk(payload: SimulateRiskPayload):
-    bclc_stage_c = 1 if payload.bclc_stage == "C" else 0
-    mvi_status = 1 if payload.mvi_pathology else 0
-    cirrhosis_status = 1 if payload.cirrhosis_present else 0
-    metastasis_status = 0
-    
-    # We can mock cnn_features like in predict_recurrence for the simulation
-    cnn_features = np.random.normal(0.5, 0.2, 128)
-    
-    master_dict = {
-        'tumor_size_cm': payload.tumor_size_cm,
-        'afp_ngml': payload.afp_ngml,
-        'alp_iul': payload.alp_iul,
-        'bilirubin_mgdl': payload.bilirubin_mgdl,
-        'mvi_status': mvi_status,
-        'cirrhosis_status': cirrhosis_status,
-        'metastasis_status': metastasis_status,
-        'bclc_stage_c': bclc_stage_c
+    """Re-score a patient's own feature vector (including their CT embedding) with selected inputs changed."""
+    if not ML_LIBS_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Model is not loaded on this server.")
+
+    entry = simulation_cache.get(payload.inference_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Simulation session expired. Run the analysis again to use the What-If simulator.")
+    simulation_cache.move_to_end(payload.inference_id)
+
+    base_inputs = entry["master_dict"]
+    if entry["baseline"] is None:
+        entry["baseline"] = score_master_dict(base_inputs)
+    baseline = entry["baseline"]
+
+    scenario_inputs = dict(base_inputs)
+    overrides = {
+        "tumor_size_cm": payload.tumor_size_cm,
+        "afp_ngml": payload.afp_ngml,
+        "alp_iul": payload.alp_iul,
+        "bilirubin_mgdl": payload.bilirubin_mgdl,
+        "mvi_status": None if payload.mvi_pathology is None else float(payload.mvi_pathology),
+        "cirrhosis_status": None if payload.cirrhosis_present is None else float(payload.cirrhosis_present),
+        "metastasis_status": None if payload.metastasis_present is None else float(payload.metastasis_present),
+        "bclc_stage_c": None if payload.bclc_stage is None else float(payload.bclc_stage.upper() == "C"),
     }
-    for i in range(128):
-        master_dict[f'cnn_feat_{i}'] = cnn_features[i]
-        
-    master_vector = pd.DataFrame([master_dict], columns=feature_columns)
-    
-    ensemble_probs = [float(model.predict_proba(master_vector)[0][1] * 100.0) for model in ensemble_models]
-    prob_score = float(np.mean(ensemble_probs))
-    
-    recurrence_risk_str = "HIGH" if prob_score >= 50.0 else "LOW"
-    
-    # SHAP
-    shap_values = shap_explainer.shap_values(master_vector)
-    if isinstance(shap_values, list):
-        shap_vals_target = shap_values[1][0]
-    else:
-        shap_vals_target = shap_values[0]
-        
-    explainable_ai_weights = {feature_columns[i]: round(float(shap_vals_target[i]), 4) for i in range(len(feature_columns))}
-    cnn_agg_weight = sum([abs(explainable_ai_weights[f'cnn_feat_{i}']) for i in range(128)])
-    display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
-    display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
-    
+    for key, value in overrides.items():
+        if value is not None:
+            scenario_inputs[key] = float(value)
+
+    changed = [k for k in SIMULATION_FEATURE_LABELS if abs(scenario_inputs[k] - base_inputs[k]) > 1e-9]
+    scenario = score_master_dict(scenario_inputs) if changed else baseline
+
+    # Which inputs moved the model's explanation (SHAP on the XGBoost component, log-odds)
+    def cnn_total(shap: dict) -> float:
+        return sum(v for k, v in shap.items() if k.startswith("cnn_feat_"))
+
+    drivers = []
+    for key, label in SIMULATION_FEATURE_LABELS.items():
+        delta = scenario["_shap"][key] - baseline["_shap"][key]
+        if key in changed or abs(delta) > 0.01:
+            drivers.append({
+                "feature": key,
+                "label": label,
+                "baseline_value": base_inputs[key],
+                "scenario_value": scenario_inputs[key],
+                "changed": key in changed,
+                "shap_delta": round(delta, 4),
+            })
+    cnn_delta = cnn_total(scenario["_shap"]) - cnn_total(baseline["_shap"])
+    if abs(cnn_delta) > 0.01:
+        drivers.append({"feature": "cnn_embedding", "label": "CT imaging features (interaction)", "baseline_value": None,
+                        "scenario_value": None, "changed": False, "shap_delta": round(cnn_delta, 4)})
+    drivers.sort(key=lambda d: abs(d["shap_delta"]), reverse=True)
+
+    # Tree models cannot extrapolate: flag inputs outside what the model was trained on
+    warnings = []
+    for key, rng in training_distributions.get("feature_ranges", {}).items():
+        value = scenario_inputs[key]
+        if value < rng["min"] or value > rng["max"]:
+            warnings.append({
+                "feature": key,
+                "message": f"{SIMULATION_FEATURE_LABELS[key]} {value:g} is outside the training data range "
+                           f"({rng['min']:.1f}-{rng['max']:.1f}). The model is extrapolating; this estimate is unreliable.",
+            })
+    if not entry["imaging_available"]:
+        warnings.append({"feature": "cnn_embedding", "message": "No CT scan was analysed for this patient; imaging features are not patient-specific."})
+
+    ttr_base, ttr_scen = baseline["time_to_recurrence_months"], scenario["time_to_recurrence_months"]
     return {
-        "probability": round(prob_score, 2),
-        "recurrence_risk": recurrence_risk_str,
-        "explainable_ai_weights": display_weights
+        "inference_id": payload.inference_id,
+        "baseline_inputs": {
+            "tumor_size_cm": base_inputs["tumor_size_cm"],
+            "afp_ngml": base_inputs["afp_ngml"],
+            "alp_iul": base_inputs["alp_iul"],
+            "bilirubin_mgdl": base_inputs["bilirubin_mgdl"],
+            "bclc_stage": entry["bclc_stage"],
+            "mvi_pathology": bool(base_inputs["mvi_status"]),
+            "cirrhosis_present": bool(base_inputs["cirrhosis_status"]),
+            "metastasis_present": bool(base_inputs["metastasis_status"]),
+        },
+        "training_ranges": training_distributions.get("feature_ranges", {}),
+        "baseline": _public_score(baseline),
+        "scenario": _public_score(scenario),
+        "delta": {
+            "probability": round(scenario["probability"] - baseline["probability"], 2),
+            "time_to_recurrence_months": round(ttr_scen - ttr_base, 1) if ttr_base is not None and ttr_scen is not None else None,
+        },
+        "changed_features": changed,
+        "drivers": drivers,
+        "warnings": warnings,
+        "model_version": app.version,
     }
 
 # ==========================================
