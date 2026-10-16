@@ -117,6 +117,7 @@ def main():
               "Intermediate": (lp_full >= cutpoints[0]) & (lp_full < cutpoints[1]),
               "High": lp_full >= cutpoints[1]}
     km_curves = {name: km_on_grid(cohort.time[mask], cohort.event[mask]) for name, mask in groups.items()}
+    km_curves["All"] = km_on_grid(cohort.time, cohort.event)
 
     # --- Bootstrap replicates for per-patient confidence bands ---
     rng = np.random.default_rng(SEED)
@@ -141,6 +142,8 @@ def main():
         "bootstrap": {"n": N_BOOTSTRAP, "coefficients": boot_beta, "feature_means": boot_means, "baseline_cumulative_hazard": boot_h0},
         "risk_groups": {
             "cutpoints": cutpoints.round(6).tolist(),
+            # Linear-predictor percentiles 0..100, to place a patient within the cohort
+            "lp_percentiles": np.round(np.percentile(lp_full, np.arange(101)), 6).tolist(),
             "definition": "Tertiles of the model's linear predictor in the training cohort",
             "km_curves": {"months": GRID.tolist(), **km_curves},
         },

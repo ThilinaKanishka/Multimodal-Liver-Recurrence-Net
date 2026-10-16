@@ -3,7 +3,6 @@ import type { ChangeEvent, FormEvent } from "react";
 import {
   Upload,
   Activity,
-  AlertTriangle,
   CheckCircle,
   FileText,
   Microscope,
@@ -37,6 +36,7 @@ import type { VerificationData } from "../components/PatientVerificationPanel";
 import { ClinicalAssessmentPanel } from "../components/ClinicalAssessmentPanel";
 import { WhatIfSimulator } from "../components/WhatIfSimulator";
 import { RecurrenceOutlookPanel } from "../components/RecurrenceOutlookPanel";
+import { PrognosisSummary } from "../components/PrognosisSummary";
 import type { RecurrenceOutlook } from "../components/RecurrenceOutlookPanel";
 import type { ClinicalAssessment } from "../components/ClinicalAssessmentPanel";
 
@@ -1378,96 +1378,17 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
               <>
                 <div ref={resultsRef} className="w-full bg-[#131826] border border-[#1e293b] rounded-md shadow-lg flex flex-col mt-4">
                   <div className="relative bg-[#0f172a] border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group flex-shrink-0 z-10">
-                    <div className={`absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30 ${
-                      result.recurrence_risk === "HIGH" 
-                        ? "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-rose-900/40 via-rose-600/10 to-transparent" 
-                        : "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900/40 via-emerald-600/10 to-transparent"
-                    }`}></div>
                     
                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 p-4 md:px-8 md:py-6 bg-[#0a0f18]/60 backdrop-blur-3xl">
-                      {/* Left Side: Diagnosis */}
-                      <div className="flex items-center gap-6 w-full md:w-auto">
-                        {/* Icon with glowing ring */}
-                        <div className="relative flex-shrink-0">
-                          <div className={`absolute -inset-1 rounded-full blur-md opacity-60 animate-pulse ${
-                            result.recurrence_risk === "HIGH" ? "bg-rose-500" : "bg-emerald-500"
-                          }`}></div>
-                          <div className="relative w-14 h-14 bg-[#0a0f18] rounded-full border-2 border-white/10 flex items-center justify-center shadow-inner">
-                            {result.recurrence_risk === "HIGH" ? <ShieldAlert className="w-6 h-6 text-rose-500" /> : <CheckCircle className="w-6 h-6 text-emerald-500" />}
-                          </div>
-                        </div>
-                        
-                        {/* Text block */}
-                        <div className="flex flex-col">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-1">
-                            {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "SYSTEM ALERT" : "PRIMARY PROGNOSIS"}
-                          </span>
-                          <h2 className={`font-black tracking-wide text-2xl md:text-3xl uppercase flex items-center gap-3 ${
-                            result.recurrence_risk === "HIGH" ? "text-rose-400" : "text-emerald-400"
-                          }`}>
-                            <span className="relative inline-block">
-                                <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
-                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
-                                </span>
-                                <span className="relative drop-shadow-md">
-                                    {result.ui_rendering_state === "STATE_ABSTAIN_LOCK" ? "DIAGNOSTIC UNCERTAINTY" : `${result.recurrence_risk} RISK`}
-                                </span>
-                            </span>
-                            {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
-                              <>
-                                <span className="opacity-40 font-normal">|</span>
-                                <span className="relative inline-block">
-                                   <span className={`absolute inset-0 animate-pulse blur-[6px] opacity-80 ${result.recurrence_risk === "HIGH" ? "text-rose-500" : "text-emerald-500"}`}>
-                                       {result.probability}%
-                                   </span>
-                                   <span className="relative drop-shadow-md">
-                                       {result.probability}%
-                                   </span>
-                                </span>
-                              </>
-                            )}
-                          </h2>
-                          {result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
-                            <div className="flex items-center mt-2">
-                              <div className="h-1.5 w-48 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                 <div className={`h-full ${result.recurrence_risk === "HIGH" ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"}`} style={{ width: `${result.probability}%` }}></div>
-                              </div>
-                            </div>
-                          )}
-                          {result.model_certainty_score !== undefined && (
-                            <div className="mt-3 flex flex-col gap-2">
-                              <div 
-                                className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 ${
-                                  result.model_certainty_score > 70 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
-                                  result.model_certainty_score >= 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                                  'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                                }`}
-                                title="Based on MC Dropout (n=100) with Platt calibration"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <Activity className="w-3.5 h-3.5" />
-                                  <span className="whitespace-nowrap">Model Certainty: {Number(result.model_certainty_score).toFixed(1)}%</span>
-                                </div>
-                                <div className="w-full sm:w-32 md:w-48 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                  <div 
-                                    className={`h-full ${
-                                      result.model_certainty_score > 70 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' :
-                                      result.model_certainty_score >= 40 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
-                                      'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
-                                    }`} 
-                                    style={{ width: `${Math.max(0, Math.min(100, result.model_certainty_score))}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                              {result.model_certainty_score < 40 && (
-                                <div className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5 w-fit">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  Low Confidence - Human Review Recommended
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                      {/* Left Side: Prognosis (Cox PH recurrence-free survival model) */}
+                      <div className="flex items-start w-full md:w-auto min-w-0">
+                        <PrognosisSummary
+                          outlook={result.recurrence_outlook}
+                          classifier={{ probability: result.probability, confidenceInterval: result.confidence_interval }}
+                          classifierAbstained={result.ui_rendering_state === "STATE_ABSTAIN_LOCK"}
+                          dataDriftDetected={!!result.system_integrity?.data_drift_detected}
+                          imagingAnalysed={!!result.interpretability_layer?.dicom_3d_matrix}
+                        />
                       </div>
                       
                       {/* Right Side: Timeline & Actions */}
@@ -1626,10 +1547,18 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
           {/* Prognosis Result */}
           {result && (
-            <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${result.recurrence_risk === 'HIGH' ? 'bg-rose-50 border-rose-600 text-rose-900' : 'bg-emerald-50 border-emerald-600 text-emerald-900'}`}>
+            <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${
+              (result.recurrence_outlook ? result.recurrence_outlook.risk_group.label === 'High' : result.recurrence_risk === 'HIGH')
+                ? 'bg-rose-50 border-rose-600 text-rose-900'
+                : result.recurrence_outlook?.risk_group.label === 'Intermediate'
+                  ? 'bg-amber-50 border-amber-600 text-amber-900'
+                  : 'bg-emerald-50 border-emerald-600 text-emerald-900'
+            }`}>
               <h2 className="text-xs font-bold uppercase tracking-widest mb-2 opacity-80">Primary AI Inference Result</h2>
               <div className="text-2xl font-black uppercase tracking-wide">
-                {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%{result.confidence_interval ? ` (95% CI: ${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%)` : ''})
+                {result.recurrence_outlook
+                  ? `2-YEAR RECURRENCE RISK ${Math.round(result.recurrence_outlook.risk_2yr.risk)}% (95% CI ${Math.round(result.recurrence_outlook.risk_2yr.lower)}-${Math.round(result.recurrence_outlook.risk_2yr.upper)}%) · COHORT AVERAGE ${Math.round(result.recurrence_outlook.risk_2yr.cohort_average)}%`
+                  : `${result.recurrence_risk} RISK FOR HEPATIC RECURRENCE (${Math.round(result.probability)}%${result.confidence_interval ? `, 95% CI ${Math.round(result.confidence_interval[0])}-${Math.round(result.confidence_interval[1])}%` : ''})`}
               </div>
               {result.recurrence_outlook && (() => {
                 const o = result.recurrence_outlook;
