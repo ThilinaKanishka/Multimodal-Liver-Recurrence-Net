@@ -124,6 +124,63 @@ def _display_value(field, raw):
     return None if value is None or str(value).strip() in {"", "--"} else value
 
 
+UNITS = {
+    "tumor_size_cm": "cm", "log10_afp": "ng/mL", "alp_iul": "IU/L", "log10_bilirubin": "mg/dL",
+    "albumin_gdl": "g/dL", "platelet_k_ul": "×10³/µL", "tumor_density_hu": "HU",
+}
+BINARY_NAMES = {b[0] for b in BINARY}
+
+
+def _format_value(name, raw):
+    """Human-readable patient value for an input group, e.g. '412 ng/mL', 'Present', 'Stage B'."""
+    field = FEATURE_GROUPS.get(name, FEATURE_GROUPS.get(next((c for c in FEATURE_GROUPS if c.startswith(name + "_")), ""), (None, None, None)))[2]
+    value = _display_value(field, raw) if field else None
+    if value is None:
+        return None
+    if name in BINARY_NAMES:
+        flag = _flag(value)
+        return None if flag is None else ("Present" if flag else "Absent")
+    if name == "child_pugh":
+        level = _level(name, value)
+        return f"Class {level}" if level else None
+    if name == "bclc":
+        level = _level(name, value)
+        return f"Stage {level}" if level else None
+    if name in {"margin", "enhancement"}:
+        return str(value)
+    number = _num(value)
+    if number is None:
+        return None
+    text = f"{number:g}" if abs(number) >= 10 or number == int(number) else f"{number:.2g}" if abs(number) < 1 else f"{number:.1f}"
+    unit = UNITS.get(name)
+    return f"{text} {unit}" if unit else text
+
+
+def shapley_risk_contributions(log_hazard: dict, h0_at_horizon: float) -> tuple:
+    """
+    Exact Shapley values of the horizon risk 1 - exp(-H0 * exp(sum of log-hazard terms)),
+    with "absent" inputs held at the cohort mean (log-hazard term 0). Returns
+    (base risk %, {input: contribution in percentage points}); contributions sum to final - base.
+    """
+    names = [n for n, v in log_hazard.items() if abs(v) > 1e-12]
+    risk = lambda lp: (1.0 - np.exp(-h0_at_horizon * np.exp(lp))) * 100.0
+    base = float(risk(0.0))
+    n = len(names)
+    if n == 0:
+        return base, {}
+    c = np.array([log_hazard[k] for k in names])
+    masks = np.arange(1 << n)
+    bits = (masks[:, None] >> np.arange(n)) & 1
+    f = risk(bits @ c)
+    size = bits.sum(axis=1)
+    weight = np.array([math.factorial(k) * math.factorial(n - k - 1) / math.factorial(n) for k in range(n)])
+    phi = {}
+    for j, name in enumerate(names):
+        without = masks[bits[:, j] == 0]
+        phi[name] = float(np.sum(weight[size[without]] * (f[without | (1 << j)] - f[without])))
+    return base, phi
+
+
 class RecurrenceSurvivalModel:
     def __init__(self, spec: dict):
         self.spec = spec
@@ -149,6 +206,7 @@ class RecurrenceSurvivalModel:
         # A missing input is set to the cohort mean, so it neither raises nor lowers the estimate
         x[missing] = self.means[missing]
         imputed = sorted({FEATURE_GROUPS[c][1] for c, m in zip(self.columns, missing) if m})
+        self._missing_groups = {FEATURE_GROUPS[c][0] for c, m in zip(self.columns, missing) if m}
         return x, imputed
 
     @staticmethod
@@ -206,8 +264,35 @@ class RecurrenceSurvivalModel:
             item["hazard_multiplier"] = round(math.exp(item["log_hazard"]), 3)
             item["log_hazard"] = round(item["log_hazard"], 4)
 
+        # Explanation of the headline 2-year risk: exact Shapley values in percentage points
+        h0_24 = float(self.h0[int(np.searchsorted(self.months, 24, side="right") - 1)])
+        base_risk, phi = shapley_risk_contributions({k: v["log_hazard"] for k, v in contrib.items()}, h0_24)
+        final_risk = float((1.0 - math.exp(-h0_24 * math.exp(lp))) * 100.0)
+        explanation = {
+            "horizon_months": 24,
+            "base_risk": round(base_risk, 2),
+            "final_risk": round(final_risk, 2),
+            "base_definition": "Patient with every input at the cohort average",
+            "contributions": sorted(
+                [
+                    {
+                        "feature": name,
+                        "label": item["label"],
+                        "value": _format_value(name, raw),
+                        "points": round(phi.get(name, 0.0), 2),
+                        "available": name not in self._missing_groups,
+                    }
+                    for name, item in contrib.items()
+                ],
+                key=lambda d: abs(d["points"]),
+                reverse=True,
+            ),
+            "method": "Exact Shapley values of the Cox model's 2-year risk (inputs absent = cohort mean)",
+        }
+
         return {
             "available": True,
+            "explanation": explanation,
             "curve": [
                 {"month": float(m), "rfs": round(float(s) * 100, 2), "lower": round(float(lo) * 100, 2), "upper": round(float(up) * 100, 2)}
                 for m, s, lo, up in zip(self.months, surv, lower, upper)
