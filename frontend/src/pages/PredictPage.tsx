@@ -15,7 +15,6 @@ import {
   Search,
   Download,
   Hexagon,
-  QrCode,
   RotateCcw,
   BookOpen,
   Clock,
@@ -23,8 +22,9 @@ import {
   Box
 } from "lucide-react";
 import axios from "axios";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+import { renderKeyImages } from "../utils/dicomKeyImages";
+import { buildClinicalReportPdf } from "../utils/clinicalReportPdf";
+import type { ReportInput } from "../utils/clinicalReportPdf";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
 import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
@@ -230,7 +230,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [modalOverallProgress, setModalOverallProgress] = useState<number>(0);
   const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
 
-  const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -281,61 +280,34 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setActivePopup(null);
   };
 
+  const [pdfBusy, setPdfBusy] = useState(false);
   const handleDownloadPdf = async () => {
-    if (!reportRef.current) return;
+    if (!result) return;
+    setPdfBusy(true);
     try {
-      // 1. Capture the individual MPR views cleanly without web UI controls
-      const axialElement = document.getElementById("pdf-axial-capture");
-      const coronalElement = document.getElementById("pdf-coronal-capture");
-      const sagittalElement = document.getElementById("pdf-sagittal-capture");
-      
-      if (axialElement) {
-        const axialCanvas = await html2canvas(axialElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
-        const reportAxialImg = document.getElementById("report-axial-img") as HTMLImageElement;
-        if (reportAxialImg) { reportAxialImg.src = axialCanvas.toDataURL('image/jpeg', 0.95); reportAxialImg.style.display = 'block'; }
-      }
-
-      if (coronalElement) {
-        const coronalCanvas = await html2canvas(coronalElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
-        const reportCoronalImg = document.getElementById("report-coronal-img") as HTMLImageElement;
-        if (reportCoronalImg) { reportCoronalImg.src = coronalCanvas.toDataURL('image/jpeg', 0.95); reportCoronalImg.style.display = 'block'; }
-      }
-
-      if (sagittalElement) {
-        const sagittalCanvas = await html2canvas(sagittalElement, { useCORS: true, backgroundColor: '#000000', scale: 2 });
-        const reportSagittalImg = document.getElementById("report-sagittal-img") as HTMLImageElement;
-        if (reportSagittalImg) { reportSagittalImg.src = sagittalCanvas.toDataURL('image/jpeg', 0.95); reportSagittalImg.style.display = 'block'; }
-      }
-      
-      // Give DOM a tick to update the images
-      await new Promise(r => setTimeout(r, 150));
-
-      // 2. Capture the full hidden A4 report
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false
+      const files = allDicomFiles.length > 0 ? allDicomFiles : imageFile ? [imageFile] : [];
+      const { images, sliceCount, note } = files.length > 0 ? await renderKeyImages(files) : { images: [], sliceCount: 0, note: undefined };
+      const doc = buildClinicalReportPdf({
+        patient: patientInfo,
+        form: formData as unknown as ReportInput["form"],
+        manualOverrides,
+        outlook: result.recurrence_outlook,
+        inferenceId: result.inference_id,
+        modelVersion: result.recurrence_outlook?.model.version,
+        identity: verificationData,
+        dataDriftDetected: !!result.system_integrity?.data_drift_detected,
+        keyImages: images,
+        keyImageNote: note,
+        sliceCount,
+        reviewer: user,
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`HepatoAI_Clinical_Report_${patientInfo.mrn || 'Unknown'}.pdf`);
-      
-      // Cleanup
-      const reportAxialImg = document.getElementById("report-axial-img") as HTMLImageElement;
-      const reportCoronalImg = document.getElementById("report-coronal-img") as HTMLImageElement;
-      const reportSagittalImg = document.getElementById("report-sagittal-img") as HTMLImageElement;
-      if (reportAxialImg) { reportAxialImg.style.display = 'none'; reportAxialImg.src = ''; }
-      if (reportCoronalImg) { reportCoronalImg.style.display = 'none'; reportCoronalImg.src = ''; }
-      if (reportSagittalImg) { reportSagittalImg.style.display = 'none'; reportSagittalImg.src = ''; }
-    } catch (err) {
-      console.error("PDF generation failed", err);
-      alert("Failed to generate PDF report.");
+      const safeMrn = (patientInfo.mrn && patientInfo.mrn !== "---" ? patientInfo.mrn : "unknown").replace(/[^A-Za-z0-9_-]/g, "_");
+      doc.save(`Recurrence_Risk_Report_${safeMrn}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      setErrorMessage("Could not generate the PDF report. See the browser console for details.");
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -1245,11 +1217,12 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                           <button 
                             type="button" 
                             onClick={handleDownloadPdf}
-                            className="group relative overflow-hidden bg-[#1e293b]/80 hover:bg-[#2a364a] text-slate-200 px-5 py-2.5 rounded-lg border border-[#334155] flex items-center justify-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase transition-all w-full shadow-lg hover:shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:border-indigo-500/50"
+                            disabled={pdfBusy}
+                            className="disabled:opacity-60 disabled:cursor-wait group relative overflow-hidden bg-[#1e293b]/80 hover:bg-[#2a364a] text-slate-200 px-5 py-2.5 rounded-lg border border-[#334155] flex items-center justify-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase transition-all w-full shadow-lg hover:shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:border-indigo-500/50"
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                            <Download className="w-4 h-4 text-indigo-400" />
-                            EXPORT PDF
+                            <Download className={`w-4 h-4 text-indigo-400 ${pdfBusy ? 'animate-pulse' : ''}`} />
+                            {pdfBusy ? 'GENERATING…' : 'EXPORT PDF'}
                           </button>
                           <div className="text-[9px] font-mono text-slate-500 flex items-center justify-center gap-1 bg-black/40 py-1 rounded border border-white/5">
                             ID: <span className="text-slate-400 font-bold truncate max-w-[120px]">{result.pseudo_anonymous_id}</span>
@@ -1332,266 +1305,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
           
       </form>
       
-      {/* HIDDEN PRINTABLE A4 REPORT TEMPLATE */}
-      <div className="fixed top-0 left-0 w-0 h-0 overflow-hidden pointer-events-none z-[-9999] opacity-0">
-        <div 
-           ref={reportRef} 
-           className="bg-white text-black font-sans flex flex-col"
-           style={{ width: '794px', minHeight: '1123px', padding: '60px 50px' }}
-        >
-          {/* Header */}
-          <div className="flex justify-between items-center border-b-[3px] border-black pb-4 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center border border-cyan-800">
-                 <Hexagon className="w-8 h-8 text-cyan-800" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-black uppercase tracking-widest text-slate-900">Hepato<span className="text-cyan-700">AI</span></h1>
-                <p className="text-[10px] text-slate-600 font-bold tracking-widest">CLINICAL DIAGNOSTIC PIPELINE</p>
-              </div>
-            </div>
-            <div className="text-right text-xs font-mono text-slate-600">
-              <p className="font-bold text-black text-sm mb-1">MEDICAL PROGNOSIS REPORT</p>
-              <p>Date: {new Date().toISOString().split('T')[0]}</p>
-              <p>System Ver: 2.4.1 (Build 8092)</p>
-              <p className="text-[9px] text-slate-500 mt-1">ACR Auth: #9482-A | CLIA: 05D20934</p>
-            </div>
-          </div>
-
-          {/* Patient Info & Encounter Metadata */}
-          <div className="mb-6 grid grid-cols-4 gap-4 border-2 border-slate-200 p-4 rounded-md bg-slate-50 text-xs">
-             <div className="col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Patient Name</span><span className="text-base font-black text-slate-800">{patientInfo.name}</span></div>
-             <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">MRN / Hospital ID</span><span className="text-sm font-mono font-bold text-slate-800">{patientInfo.mrn}</span></div>
-             <div><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">DOB (Age) / Sex</span><span className="text-xs font-medium">{patientInfo.dob} ({patientInfo.age}y) | {patientInfo.sex}</span></div>
-             
-             <div className="border-t border-slate-200 pt-3 mt-1 flex justify-between items-start">
-               <div>
-                 <span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Accession Number</span>
-                 <span className="font-mono text-xs font-bold text-slate-700">ACC-2026-89412</span>
-               </div>
-               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://pacs.hepatoai.local/patient/${patientInfo.mrn}`} alt="Secure PACS" className="w-9 h-9 border border-slate-300 p-0.5 rounded-sm opacity-90 mix-blend-multiply" />
-             </div>
-             <div className="border-t border-slate-200 pt-3 mt-1 col-span-2"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Referring Physician & Dept</span><span className="text-xs font-semibold text-slate-700">{patientInfo.attending !== "---" ? `Dr. ${patientInfo.attending}` : "Unknown Physician"}</span></div>
-             <div className="border-t border-slate-200 pt-3 mt-1"><span className="font-bold text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Attending Radiologist</span><span className="text-xs font-semibold text-slate-700">{user ? `Dr. ${user.name}, ${user.level || 'MD'}` : "Unknown Radiologist"}</span></div>
-          </div>
-
-          {/* Clinical Indication & Prior Exams */}
-          <div className="mb-6 border border-slate-200 p-4 rounded-md bg-slate-50 text-xs">
-             <div className="grid grid-cols-3 gap-4">
-               <div className="col-span-2">
-                 <span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Clinical Indication / Reason for Exam</span>
-                 <p className="text-slate-800 font-medium">Follow-up assessment post-hepatectomy; evaluate for hepatic metastasis / recurrence (ICD-10: C78.7).</p>
-               </div>
-               <div>
-                 <span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Prior Baseline Exams</span>
-                 <p className="text-slate-700 font-mono text-[11px]">Comparison made with baseline abdominal CT dated 2025-11-14.</p>
-               </div>
-             </div>
-          </div>
-
-          {/* Prognosis Result */}
-          {result && (
-            <div className={`p-6 border-l-[6px] mb-6 shadow-sm rounded-r-md ${
-              (result.recurrence_outlook ? result.recurrence_outlook.risk_group.label === 'High' : result.recurrence_risk === 'HIGH')
-                ? 'bg-rose-50 border-rose-600 text-rose-900'
-                : result.recurrence_outlook?.risk_group.label === 'Intermediate'
-                  ? 'bg-amber-50 border-amber-600 text-amber-900'
-                  : 'bg-emerald-50 border-emerald-600 text-emerald-900'
-            }`}>
-              <h2 className="text-xs font-bold uppercase tracking-widest mb-2 opacity-80">Primary AI Inference Result</h2>
-              <div className="text-2xl font-black uppercase tracking-wide">
-                {result.recurrence_outlook
-                  ? `2-YEAR RECURRENCE RISK ${Math.round(result.recurrence_outlook.risk_2yr.risk)}% (95% CI ${Math.round(result.recurrence_outlook.risk_2yr.lower)}-${Math.round(result.recurrence_outlook.risk_2yr.upper)}%) · COHORT AVERAGE ${Math.round(result.recurrence_outlook.risk_2yr.cohort_average)}%`
-                  : `${result.recurrence_risk} RISK FOR HEPATIC RECURRENCE (${Math.round(result.probability)}%${result.confidence_interval ? `, 95% CI ${Math.round(result.confidence_interval[0])}-${Math.round(result.confidence_interval[1])}%` : ''})`}
-              </div>
-              {result.recurrence_outlook && (() => {
-                const o = result.recurrence_outlook;
-                const rfs2 = o.milestones.find(m => m.months === 24);
-                const med = o.median_rfs;
-                return (
-                  <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
-                    {rfs2 && `2-YEAR RECURRENCE-FREE SURVIVAL: ${Math.round(rfs2.rfs)}% (95% CI ${Math.round(rfs2.lower)}-${Math.round(rfs2.upper)}%)`}
-                    {' · '}
-                    {med.months === null
-                      ? 'MEDIAN RFS NOT REACHED'
-                      : `MEDIAN RFS ${Math.round(med.months)} MONTHS (95% CI ${med.lower === null ? 'NR' : Math.round(med.lower)}-${med.upper === null ? 'NR' : Math.round(med.upper)})`}
-                    {` · ${o.risk_group.label.toUpperCase()} RISK GROUP`}
-                  </div>
-                );
-              })()}
-              <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
-                 <span>Ref ID: {result.inference_id?.substring(0, 18)}...</span>
-                 <span>Network Status: SECURE</span>
-              </div>
-            </div>
-          )}
-
-          {/* Radiological Imaging Output */}
-          <div className="mb-8">
-             <div className="border-b-2 border-slate-300 pb-2 mb-4 flex justify-between items-end">
-               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800">Section IV: Key Diagnostic Images (CT Multiplanar Reconstruction)</h3>
-               <span className="text-[10px] font-mono text-slate-500 uppercase">AI Overlay: Grad-CAM Thermal Activation & RECIST ROI</span>
-             </div>
-             
-             {/* 3-Column Key Images Layout */}
-             <div className="grid grid-cols-3 gap-6 mb-4">
-                {/* Axial View */}
-                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
-                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
-                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 1: Axial Plane</span>
-                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">XY Slice</span>
-                   </div>
-                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
-                     <img id="report-axial-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
-                   </div>
-                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Transaxial cross-section intersecting primary tumor activation maximum (v_max).</p>
-                </div>
-
-                {/* Coronal View */}
-                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
-                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
-                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 2: Coronal Plane</span>
-                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">XZ Slice</span>
-                   </div>
-                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
-                     <img id="report-coronal-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
-                   </div>
-                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Coronal reconstruction demonstrating superior-inferior hepatic extent & vascular proximity.</p>
-                </div>
-
-                {/* Sagittal View */}
-                <div className="flex flex-col bg-slate-50 border border-slate-200 rounded p-3 shadow-sm">
-                   <div className="mb-2 border-b border-slate-200 pb-1.5 flex justify-between items-center">
-                     <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Key Image 3: Sagittal Plane</span>
-                     <span className="text-[9px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">YZ Slice</span>
-                   </div>
-                   <div className="bg-black flex-1 flex items-center justify-center rounded overflow-hidden border border-slate-800 min-h-[200px]">
-                     <img id="report-sagittal-img" className="w-full h-auto object-contain" style={{ display: 'none', maxHeight: '240px' }} />
-                   </div>
-                   <p className="text-[10px] text-slate-600 mt-2 italic leading-tight">Sagittal reconstruction defining anterior-posterior tumor margin boundaries.</p>
-                </div>
-             </div>
-
-             {/* Imaging Protocol & Metadata Table */}
-             <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs">
-                <div className="font-bold text-[11px] text-slate-700 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Technical Imaging & Acquisition Protocol</div>
-                <div className="grid grid-cols-6 gap-3 text-[11px]">
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Modality</span><span className="font-mono font-semibold text-slate-800">CT (Computed Tomography)</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Slice Thickness</span><span className="font-mono font-semibold text-slate-800">5.0 mm</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Contrast Agent</span><span className="font-mono font-semibold text-slate-800">100 mL Omnipaque 350 IV</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">Scan Phase</span><span className="font-mono font-semibold text-slate-800">Portal Venous (70s)</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">CTDIvol</span><span className="font-mono font-semibold text-emerald-700">12.4 mGy (Low Dose)</span></div>
-                   <div><span className="text-slate-500 block text-[9px] uppercase font-bold">DLP</span><span className="font-mono font-semibold text-emerald-700">582 mGy*cm</span></div>
-                </div>
-             </div>
-          </div>
-
-          {/* Clinical Parameters & SHAP */}
-          <div className="grid grid-cols-2 gap-10 mb-8">
-             <div>
-                <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Clinical Bio-Markers</h3>
-                <div className="text-xs grid grid-cols-2 gap-y-3">
-                   {Object.entries(formData).slice(0, 16).map(([k, v]) => (
-                      <React.Fragment key={k}>
-                        <div className="text-slate-600 capitalize">{k.replace(/_/g, ' ')}</div>
-                        <div className="font-mono font-bold text-right text-slate-900">{String(v)}</div>
-                      </React.Fragment>
-                   ))}
-                </div>
-             </div>
-             
-             {result?.recurrence_outlook?.explanation && (() => {
-               const ex = result.recurrence_outlook.explanation;
-               const factors = ex.contributions.filter(c => c.available);
-               return (
-                 <div>
-                    <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-2 uppercase tracking-widest text-slate-800">Risk Factor Contributions (SHAP)</h3>
-                    <p className="text-[10px] text-slate-500 mb-3">
-                      2-year recurrence risk: average-profile patient {ex.base_risk.toFixed(0)}% → this patient {ex.final_risk.toFixed(0)}%. Percentage-point contributions sum to the difference.
-                    </p>
-                    <div className="text-xs space-y-2">
-                      {factors.map(c => (
-                         <div key={c.feature} className="flex justify-between gap-3 border-b border-slate-100 pb-1.5">
-                            <span className="text-slate-700">{c.label}{c.value && <span className="text-slate-500"> ({c.value})</span>}</span>
-                            <span className={`font-mono font-bold ${c.points > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{c.points > 0 ? '+' : ''}{c.points.toFixed(1)} pts</span>
-                         </div>
-                      ))}
-                    </div>
-                 </div>
-               );
-             })()}
-          </div>
-
-          {/* Structured Anatomical Findings & Staging */}
-          <div className="mb-6 border-b-2 border-slate-200 pb-4">
-             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-800 mb-3">Section V: Structured Anatomical Findings & Staging</h3>
-             <div className="grid grid-cols-2 gap-6 text-xs">
-               <div className="bg-slate-50 p-4 rounded border border-slate-200">
-                 <h4 className="font-bold text-slate-700 uppercase text-[11px] mb-2 border-b border-slate-200 pb-1">Anatomical Evaluation</h4>
-                 <p className="mb-2"><strong>Target Organ (Liver / Biliary):</strong> Couinaud Segments I - VIII evaluated. Stable post-surgical resection margin at Segment VII. Major vascular structures (Portal Vein, IVC, Hepatic Artery) remain patent with normal flow void.</p>
-                 <p><strong>Extrahepatic Evaluation:</strong> Pancreas, spleen, bilateral kidneys, and adrenal glands are unremarkable. No pathological abdominal lymphadenopathy or free pelvic fluid observed.</p>
-               </div>
-               <div className="bg-slate-50 p-4 rounded border border-slate-200 flex flex-col justify-between">
-                 <div>
-                   <h4 className="font-bold text-slate-700 uppercase text-[11px] mb-2 border-b border-slate-200 pb-1">Formal Classification & Staging</h4>
-                   <div className="mb-4">
-                     <span className="text-slate-500 text-[10px] block uppercase font-bold mb-1">LI-RADS Classification</span>
-                     <div className="font-mono font-bold text-slate-900 bg-slate-200 px-2 py-1 rounded text-[11px] inline-block">LR-TR Viable (HepatoAI Verification)</div>
-                   </div>
-                   <div>
-                     <span className="text-slate-500 text-[10px] block uppercase font-bold mb-1">RECIST 1.1 Criteria Evaluation</span>
-                     <p className="text-slate-800 text-[11px] leading-normal">Target lesion activation maximum (v_max) demonstrates localized metabolic concentration with stable geometric bounding box dimensions.</p>
-                   </div>
-                 </div>
-                 <div className="mt-4 pt-3 border-t border-slate-200 bg-blue-50/50 p-2 rounded border border-blue-100">
-                   <span className="text-blue-900 font-bold text-[10px] uppercase block mb-1">Executive Impression & Recommendation</span>
-                   <p className="text-slate-700 text-[11px] font-medium leading-normal whitespace-pre-line">
-                     {(result?.probability ?? 0) > 70 ? (
-                         "1. Due to high recurrence probability, an ultrasound-guided biopsy is recommended per AASLD guidelines.\n2. Multidisciplinary tumor board review required.\n3. Consider adjusting follow-up interval to 3 months."
-                     ) : (result?.probability ?? 0) > 40 ? (
-                         "1. Moderate recurrence probability detected.\n2. Recommend repeat multiphasic abdominal CT in 6 months.\n3. Close surveillance of AFP levels."
-                     ) : (
-                         "1. Low recurrence probability.\n2. Routine clinical follow-up in 12 months.\n3. Maintain standard of care surveillance."
-                     )}
-                   </p>
-                 </div>
-               </div>
-             </div>
-          </div>
-
-          {/* AI Insights Log */}
-          {result && result.ai_insights && (
-            <div className="mb-8 flex-1">
-              <h3 className="text-xs font-bold border-b-2 border-slate-300 pb-2 mb-4 uppercase tracking-widest text-slate-800">Automated Clinical Insights</h3>
-              <ul className="text-xs space-y-3 list-disc pl-5 text-slate-700 leading-relaxed">
-                {result.ai_insights.map((msg, i) => <li key={i}>{msg}</li>)}
-              </ul>
-            </div>
-          )}
-
-          <div className="mt-auto pt-6 grid grid-cols-12 gap-4 items-end border-t-[3px] border-black">
-            <div className="col-span-6 text-[9px] text-slate-500 leading-relaxed text-justify pr-2">
-              <strong>CONFIDENTIAL MEDICAL DOCUMENT:</strong> This report is generated by an investigational AI diagnostic pipeline (HepatoAI). It is not a substitute for professional medical judgment. All findings must be verified by a certified oncologist. Compliant with HIPAA and Data Protection regulations.
-            </div>
-            <div className="col-span-3 bg-slate-100 border border-slate-300 p-2 rounded flex items-center gap-2 shadow-sm">
-               <QrCode className="w-7 h-7 text-slate-800 flex-shrink-0" />
-               <div className="text-[8px] font-mono text-slate-600 leading-tight">
-                 <strong className="text-slate-900 block text-[9px] mb-0.5">SECURE PACS</strong>
-                 Scan QR for 3D<br />CT MPR Viewer
-               </div>
-            </div>
-            <div className="col-span-3 text-center pl-2 flex flex-col items-center justify-end relative">
-               {user?.signature ? (
-                  <img src={user.signature} alt="Physician Signature" className="max-h-16 w-auto object-contain -mb-2" />
-               ) : (
-                  <div className="border-b border-black mb-2 border-dashed w-full h-8"></div>
-               )}
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800 block w-full border-t border-black pt-1 relative z-10">{user ? `Dr. ${user.name}` : "Physician Signature"}</span>
-                <span className="text-[7px] font-mono text-slate-500 mt-1 block">Digitally Signed & Verified on: {new Date().toISOString().replace('T', ' ').split('.')[0]}</span>
-            </div>
-          </div>
-        </div>
-      </div>
       
       {/* 3D MPR Viewer Modal */}
       {showViewerModal && (
