@@ -21,7 +21,11 @@ interface Score {
   certainty: number;
   confidence_status: string;
   risk_level: 'HIGH' | 'LOW' | 'ABSTAIN';
-  time_to_recurrence_months: number | null;
+  survival: {
+    rfs_2yr: { months: number; rfs: number; lower: number; upper: number };
+    median_rfs: { months: number | null; lower: number | null; upper: number | null };
+    risk_group: string;
+  } | null;
 }
 
 interface Driver {
@@ -36,7 +40,7 @@ interface SimulationResponse {
   training_ranges: Record<string, { min: number; max: number }>;
   baseline: Score;
   scenario: Score;
-  delta: { probability: number; time_to_recurrence_months: number | null };
+  delta: { probability: number; rfs_2yr: number | null };
   changed_features: string[];
   drivers: Driver[];
   warnings: { feature: string; message: string }[];
@@ -94,6 +98,7 @@ const riskTone = (level: string) =>
       : 'text-amber-400 bg-amber-500/10 border-amber-500/30';
 
 const fmtSigned = (v: number, digits = 1, suffix = '') => `${v > 0 ? '+' : ''}${v.toFixed(digits)}${suffix}`;
+const fmtMedian = (m: number | null) => (m === null ? 'not reached' : `${Math.round(m)} mo`);
 
 const ScoreCard: React.FC<{ title: string; score: Score; muted?: boolean }> = ({ title, score, muted }) => (
   <div className={`flex-1 min-w-0 rounded-lg border px-3 py-2.5 ${muted ? 'border-slate-800 bg-slate-900/40' : 'border-slate-700 bg-slate-800/40'}`}>
@@ -365,12 +370,25 @@ export const WhatIfSimulator: React.FC<{ inferenceId?: string }> = ({ inferenceI
               </span>
             </div>
 
-            {data.baseline.time_to_recurrence_months !== null && data.scenario.time_to_recurrence_months !== null && (
-              <div className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-900/40 px-3 py-2 text-[11px]">
-                <span className="text-slate-400">Est. time to recurrence (survival model)</span>
-                <span className="font-mono tabular-nums text-slate-300">
-                  {data.baseline.time_to_recurrence_months.toFixed(1)} → {data.scenario.time_to_recurrence_months.toFixed(1)} mo
-                </span>
+            {data.baseline.survival && data.scenario.survival && (
+              <div className="rounded-md border border-slate-800 bg-slate-900/40 px-3 py-2 text-[11px] flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-400">2-yr recurrence-free survival</span>
+                  <span className="font-mono tabular-nums text-slate-300">
+                    {data.baseline.survival.rfs_2yr.rfs.toFixed(0)}% → <span className="text-slate-100">{data.scenario.survival.rfs_2yr.rfs.toFixed(0)}%</span>
+                    <span className="text-slate-500"> ({data.scenario.survival.rfs_2yr.lower.toFixed(0)}–{data.scenario.survival.rfs_2yr.upper.toFixed(0)})</span>
+                    {data.delta.rfs_2yr !== null && Math.abs(data.delta.rfs_2yr) >= 0.5 && (
+                      <span className={data.delta.rfs_2yr < 0 ? 'text-rose-400' : 'text-emerald-400'}> {fmtSigned(data.delta.rfs_2yr, 0, ' pts')}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-400">Median RFS · risk group</span>
+                  <span className="font-mono tabular-nums text-slate-300">
+                    {fmtMedian(data.baseline.survival.median_rfs.months)} → {fmtMedian(data.scenario.survival.median_rfs.months)}
+                    <span className="text-slate-500"> · {data.scenario.survival.risk_group}</span>
+                  </span>
+                </div>
               </div>
             )}
 

@@ -106,23 +106,11 @@ except ImportError:
     print("Warning: PyTorch not installed. 3D-CNN will use simulated 128-D projections.")
 
 import joblib
-try:
-    survival_model = joblib.load('../survival_time_model.pkl')
-    survival_scaler = joblib.load('../input_scaler.pkl')
-    survival_feature_names = joblib.load('../processed_feature_names.pkl')
-    SURVIVAL_ENABLED = True
-    print("✅ Survival Time Model successfully loaded from disk.")
-except Exception as e:
-    # Try looking in the current directory if running locally
-    try:
-        survival_model = joblib.load('survival_time_model.pkl')
-        survival_scaler = joblib.load('input_scaler.pkl')
-        survival_feature_names = joblib.load('processed_feature_names.pkl')
-        SURVIVAL_ENABLED = True
-        print("✅ Survival Time Model successfully loaded from disk.")
-    except Exception as e2:
-        print(f"Warning: Could not load survival time model: {e2}")
-        SURVIVAL_ENABLED = False
+# Recurrence-free survival: Cox PH model exported by risk_modeling/04_survival_cox_model.py
+from pipeline.survival_engine import get_model as get_survival_model, predict_recurrence_outlook
+SURVIVAL_ENABLED = get_survival_model() is not None
+print("✅ Recurrence-free survival (Cox PH) model loaded." if SURVIVAL_ENABLED
+      else "Warning: backend/models/recurrence_cox_model.json not found. Run risk_modeling/04_survival_cox_model.py.")
 
 # ==========================================
 # PHASE 05: 3D-CNN Feature Extractor (PyTorch)
@@ -1202,15 +1190,20 @@ def mc_ensemble_probability(master_vector, n_iter: int = 100):
     return float(np.mean(mc_preds)), float(np.std(mc_preds))
 
 
-def predict_time_to_recurrence(master_dict: dict):
-    """Survival-model estimate of months to recurrence, or None if the model is unavailable."""
-    if not SURVIVAL_ENABLED:
+def survival_summary(survival_inputs: dict):
+    """Compact RFS summary used by the What-If simulator."""
+    try:
+        outlook = predict_recurrence_outlook(survival_inputs)
+    except Exception as e:
+        print(f"Survival prediction error: {e}")
         return None
-    surv_df = pd.DataFrame([{col: master_dict.get(col, 0.0) for col in survival_feature_names}], columns=survival_feature_names)
-    return float(survival_model.predict(survival_scaler.transform(surv_df))[0])
+    if outlook is None:
+        return None
+    rfs_2yr = next(m for m in outlook["milestones"] if m["months"] == 24)
+    return {"rfs_2yr": rfs_2yr, "median_rfs": outlook["median_rfs"], "risk_group": outlook["risk_group"]["label"]}
 
 
-def score_master_dict(master_dict: dict) -> dict:
+def score_master_dict(master_dict: dict, survival_inputs: dict) -> dict:
     """Run the full prediction stack (ensemble + calibration + uncertainty + SHAP + survival) on one input vector."""
     master_vector = pd.DataFrame([master_dict], columns=feature_columns)
     mu, sigma = mc_ensemble_probability(master_vector)
@@ -1224,19 +1217,13 @@ def score_master_dict(master_dict: dict) -> dict:
     shap_row = shap_values[1][0] if isinstance(shap_values, list) else shap_values[0]
     shap_weights = {feature_columns[i]: float(shap_row[i]) for i in range(len(feature_columns))}
 
-    try:
-        ttr = predict_time_to_recurrence(master_dict)
-    except Exception as e:
-        print(f"Survival prediction error: {e}")
-        ttr = None
-
     return {
         "probability": round(probability, 2),
         "confidence_interval": [round(max(0.0, probability - 1.96 * prob_std), 2), round(min(100.0, probability + 1.96 * prob_std), 2)],
         "certainty": round(max(0.0, min(100.0, max(calibrated, 1.0 - calibrated) * 100.0)), 1),
         "confidence_status": "LOW_CONFIDENCE_ABSTAIN" if abstain else "VERIFIED",
         "risk_level": "ABSTAIN" if abstain else ("HIGH" if probability >= 50.0 else "LOW"),
-        "time_to_recurrence_months": round(ttr, 1) if ttr is not None else None,
+        "survival": survival_summary(survival_inputs),
         "_shap": shap_weights,
     }
 
@@ -1423,24 +1410,30 @@ async def predict_recurrence(
         
     ai_insights.append("XAI Analyzer: Tumor Size and Texture contributed significantly with SHAP bounds [-1.4135, -0.5449].")
     
-    # Calculate Time-to-Recurrence
-    estimated_recurrence_min_months = 10.0
-    estimated_recurrence_max_months = 14.0
-    
-    if SURVIVAL_ENABLED:
-        try:
-            surv_pred = predict_time_to_recurrence(master_dict)
-            
-            estimated_recurrence_min_months = max(0.0, round(surv_pred - 2.0, 1))
-            estimated_recurrence_max_months = round(surv_pred + 2.0, 1)
-            ai_insights.append(f"Survival Analysis: Predicted time-to-recurrence {round(surv_pred, 1)} months.")
-        except Exception as e:
-            print(f"Survival prediction error: {e}")
-            ai_insights.append(f"Survival Analysis: Failed ({e})")
-            
+    # Recurrence-free survival (Cox PH)
+    survival_inputs = {**tabular_data, "mvi_pathology": bool(mvi_status), "cirrhosis_present": bool(cirrhosis_status)}
+    recurrence_outlook = None
+    try:
+        recurrence_outlook = predict_recurrence_outlook(survival_inputs)
+    except Exception as e:
+        print(f"Survival prediction error: {e}")
+        ai_insights.append(f"Survival Analysis: Failed ({e})")
+    estimated_recurrence_min_months = estimated_recurrence_max_months = None
+    if recurrence_outlook:
+        median = recurrence_outlook["median_rfs"]
+        rfs_2yr = next(m for m in recurrence_outlook["milestones"] if m["months"] == 24)
+        estimated_recurrence_min_months = median["lower"]
+        estimated_recurrence_max_months = median["upper"]
+        ai_insights.append(
+            f"Survival Analysis (Cox PH): 2-year recurrence-free survival {rfs_2yr['rfs']}% "
+            f"(95% CI {rfs_2yr['lower']}-{rfs_2yr['upper']}%), "
+            + (f"median RFS {median['months']:.0f} months." if median["months"] is not None else "median RFS not reached.")
+        )
+
     inference_id = str(uuid.uuid4())
     simulation_cache[inference_id] = {
         "master_dict": {k: float(v) for k, v in master_dict.items()},
+        "survival_inputs": survival_inputs,
         "bclc_stage": str(tabular_data.get("bclc_stage", "A")),
         "imaging_available": bool(dicom_success),
         "baseline": None,
@@ -1465,8 +1458,10 @@ async def predict_recurrence(
             "tumor_target": tumor_target
         },
         
+        # Legacy fields: 95% CI of the median recurrence-free survival (None when not estimable)
         "estimated_recurrence_min_months": estimated_recurrence_min_months,
         "estimated_recurrence_max_months": estimated_recurrence_max_months,
+        "recurrence_outlook": recurrence_outlook,
         
         # Legacy mappings retained for seamless frontend integration
         "recurrence_risk": recurrence_risk_str,
@@ -1492,7 +1487,7 @@ SIMULATION_FEATURE_LABELS = {
     "mvi_status": "Microvascular invasion",
     "cirrhosis_status": "Cirrhosis",
     "metastasis_status": "Metastasis",
-    "bclc_stage_c": "BCLC stage C",
+    "bclc_stage_c": "BCLC stage",
 }
 
 
@@ -1526,7 +1521,7 @@ async def simulate_risk(payload: SimulateRiskPayload):
 
     base_inputs = entry["master_dict"]
     if entry["baseline"] is None:
-        entry["baseline"] = score_master_dict(base_inputs)
+        entry["baseline"] = score_master_dict(base_inputs, entry["survival_inputs"])
     baseline = entry["baseline"]
 
     scenario_inputs = dict(base_inputs)
@@ -1544,8 +1539,21 @@ async def simulate_risk(payload: SimulateRiskPayload):
         if value is not None:
             scenario_inputs[key] = float(value)
 
+    survival_overrides = {
+        "tumor_size_cm": payload.tumor_size_cm,
+        "afp_ngml": payload.afp_ngml,
+        "alp_iul": payload.alp_iul,
+        "bilirubin_mgdl": payload.bilirubin_mgdl,
+        "bclc_stage": payload.bclc_stage,
+        "mvi_pathology": payload.mvi_pathology,
+        "cirrhosis_present": payload.cirrhosis_present,
+    }
+    scenario_survival_inputs = {**entry["survival_inputs"], **{k: v for k, v in survival_overrides.items() if v is not None}}
+
     changed = [k for k in SIMULATION_FEATURE_LABELS if abs(scenario_inputs[k] - base_inputs[k]) > 1e-9]
-    scenario = score_master_dict(scenario_inputs) if changed else baseline
+    if payload.bclc_stage is not None and payload.bclc_stage.upper() != entry["bclc_stage"].upper() and "bclc_stage_c" not in changed:
+        changed.append("bclc_stage_c")  # A<->B moves the survival model even though the classifier only sees stage C
+    scenario = score_master_dict(scenario_inputs, scenario_survival_inputs) if changed else baseline
 
     # Which inputs moved the model's explanation (SHAP on the XGBoost component, log-odds)
     def cnn_total(shap: dict) -> float:
@@ -1582,7 +1590,7 @@ async def simulate_risk(payload: SimulateRiskPayload):
     if not entry["imaging_available"]:
         warnings.append({"feature": "cnn_embedding", "message": "No CT scan was analysed for this patient; imaging features are not patient-specific."})
 
-    ttr_base, ttr_scen = baseline["time_to_recurrence_months"], scenario["time_to_recurrence_months"]
+    surv_base, surv_scen = baseline["survival"], scenario["survival"]
     return {
         "inference_id": payload.inference_id,
         "baseline_inputs": {
@@ -1600,7 +1608,7 @@ async def simulate_risk(payload: SimulateRiskPayload):
         "scenario": _public_score(scenario),
         "delta": {
             "probability": round(scenario["probability"] - baseline["probability"], 2),
-            "time_to_recurrence_months": round(ttr_scen - ttr_base, 1) if ttr_base is not None and ttr_scen is not None else None,
+            "rfs_2yr": round(surv_scen["rfs_2yr"]["rfs"] - surv_base["rfs_2yr"]["rfs"], 1) if surv_base and surv_scen else None,
         },
         "changed_features": changed,
         "drivers": drivers,

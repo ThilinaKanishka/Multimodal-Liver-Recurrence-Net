@@ -27,7 +27,6 @@ import {
 import axios from "axios";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ReferenceLine, ResponsiveContainer } from "recharts";
 import MprClinicalWorkstation from "../components/MprClinicalWorkstation";
 import PhysicianVerificationNotes from "../components/PhysicianVerificationNotes";
 import { Three3DPacsViewer } from "../components/Three3DPacsViewer";
@@ -37,6 +36,8 @@ import { PatientVerificationToast } from "../components/PatientVerificationToast
 import type { VerificationData } from "../components/PatientVerificationPanel";
 import { ClinicalAssessmentPanel } from "../components/ClinicalAssessmentPanel";
 import { WhatIfSimulator } from "../components/WhatIfSimulator";
+import { RecurrenceOutlookPanel } from "../components/RecurrenceOutlookPanel";
+import type { RecurrenceOutlook } from "../components/RecurrenceOutlookPanel";
 import type { ClinicalAssessment } from "../components/ClinicalAssessmentPanel";
 
 export interface DiagnosticInput {
@@ -86,12 +87,10 @@ export interface PredictionResult {
     dicom_3d_matrix?: string;
     tumor_target?: { found: boolean; x: number; y: number; z: number };
   };
-  estimated_recurrence_min_months?: number;
-  estimated_recurrence_max_months?: number;
-  hazard_ratio?: number;
-  hr_ci_95_lower?: number;
-  hr_ci_95_upper?: number;
-  survival_curve?: { ci_lower: number; ci_upper: number; survival: number }[];
+  /** 95% CI of median recurrence-free survival; null when not estimable */
+  estimated_recurrence_min_months?: number | null;
+  estimated_recurrence_max_months?: number | null;
+  recurrence_outlook?: RecurrenceOutlook | null;
 }
 
 const InputField = ({ label, name, value, type="number", unit="", step="1", onChange, autoFilled }: any) => (
@@ -1473,88 +1472,8 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                       
                       {/* Right Side: Timeline & Actions */}
                       <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
-                        {/* Timeline box */}
-                        {result.estimated_recurrence_min_months !== undefined && result.estimated_recurrence_max_months !== undefined && result.ui_rendering_state !== "STATE_ABSTAIN_LOCK" && (
-                          <div className="flex flex-col items-start border-r border-white/10 pr-6 min-w-[340px]">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-amber-500 animate-pulse" /> PREDICTED RECURRENCE WINDOW
-                            </span>
-                            
-                            <div className="flex w-full justify-between items-start mb-2">
-                               <div>
-                                 <div className="font-black text-[18px] text-amber-400 drop-shadow-md flex items-center gap-1.5">
-                                   Median: {((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2).toFixed(1)} <span className="text-[10px] uppercase tracking-widest text-amber-500/80">months</span>
-                                 </div>
-                                 <div className="text-[10px] font-mono text-amber-500/80 uppercase tracking-widest mt-0.5">
-                                   95% CI: {result.estimated_recurrence_min_months.toFixed(1)} - {result.estimated_recurrence_max_months.toFixed(1)} months
-                                 </div>
-                                 {(() => {
-                                   const isEstimatedHR = result.hazard_ratio === undefined;
-                                   const hr = result.hazard_ratio ?? (result.probability >= 50 ? 1.85 : 0.85);
-                                   const hr_lower = result.hr_ci_95_lower ?? (hr * 0.767);
-                                   const hr_upper = result.hr_ci_95_upper ?? (hr * 1.302);
-                                   const hrColor = hr > 1.0 ? 'text-rose-500' : (hr === 1.0 ? 'text-slate-400' : 'text-emerald-500');
-                                   return (
-                                     <div className={`text-[12px] font-mono mt-1 ${hrColor}`} title="Hazard ratio > 1 indicates increased recurrence risk">
-                                       HR: {hr.toFixed(2)} (95% CI: {hr_lower.toFixed(2)} - {hr_upper.toFixed(2)})
-                                       {isEstimatedHR && <span className="text-[9px] text-slate-500 ml-1 uppercase tracking-widest">(Estimated)</span>}
-                                     </div>
-                                   );
-                                 })()}
-                               </div>
-                               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] font-mono border-l border-white/10 pl-3">
-                                 <div className="text-slate-400">1-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(12 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
-                                 <div className="text-slate-400">2-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(24 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
-                                 <div className="text-slate-400">3-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(36 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
-                                 <div className="text-slate-400">5-yr: <span className="text-amber-400 font-black">{Math.round((1 - Math.exp(-0.693147 * Math.pow(60 / ((result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2), 1.4))) * 100)}%</span></div>
-                               </div>
-                            </div>
-                            
-                            <div className="h-16 w-full relative bg-black/20 rounded border border-white/5 pt-1">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart 
-                                  data={Array.from({length: 31}, (_, i) => {
-                                    const t = i * 2;
-                                    if (result.survival_curve && result.survival_curve[i]) {
-                                      return {
-                                        month: t,
-                                        survival: result.survival_curve[i].survival,
-                                        ciUpper: result.survival_curve[i].ci_upper,
-                                        ciLower: result.survival_curve[i].ci_lower
-                                      };
-                                    }
-                                    const median = (result.estimated_recurrence_min_months! + result.estimated_recurrence_max_months!) / 2;
-                                    const minVal = result.estimated_recurrence_min_months!;
-                                    const maxVal = result.estimated_recurrence_max_months!;
-                                    const risk = 1 - Math.exp(-0.693147 * Math.pow(t / median, 1.4));
-                                    const ciUpperRisk = 1 - Math.exp(-0.693147 * Math.pow(t / minVal, 1.4));
-                                    const ciLowerRisk = 1 - Math.exp(-0.693147 * Math.pow(t / maxVal, 1.4));
-                                    
-                                    const surv1 = (1 - ciUpperRisk) * 100;
-                                    const surv2 = (1 - ciLowerRisk) * 100;
-
-                                    return {
-                                      month: t,
-                                      survival: (1 - risk) * 100,
-                                      ciUpper: Math.max(surv1, surv2),
-                                      ciLower: Math.min(surv1, surv2)
-                                    };
-                                  })}
-                                  margin={{ top: 2, right: 5, left: -25, bottom: 0 }}
-                                >
-                                  <CartesianGrid strokeDasharray="2 2" stroke="#ffffff10" vertical={false} />
-                                  <XAxis dataKey="month" type="number" domain={[0, 60]} tickCount={7} stroke="#ffffff30" tick={{fontSize: 7, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                                  <YAxis domain={[0, 100]} stroke="#ffffff30" tick={{fontSize: 7, fill: '#64748b'}} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                                  <Area type="monotone" dataKey="ciUpper" stroke="none" fill="#FCD34D" fillOpacity={0.15} isAnimationActive={false} />
-                                  <Area type="monotone" dataKey="ciLower" stroke="none" fill="#0F172A" fillOpacity={1} isAnimationActive={false} />
-                                  <Line type="monotone" dataKey="survival" stroke="#FCD34D" strokeWidth={2} dot={false} isAnimationActive={false} />
-                                  <ReferenceLine x={(result.estimated_recurrence_min_months! + result.estimated_recurrence_max_months!) / 2} stroke="#f43f5e" strokeDasharray="3 3" strokeOpacity={0.8} />
-                                </ComposedChart>
-                              </ResponsiveContainer>
-                              <div className="absolute top-0 right-1 text-[7px] font-mono text-slate-500 opacity-70">Kaplan-Meier</div>
-                            </div>
-                          </div>
-                        )}
+                        {/* Recurrence-free survival */}
+                        {result.recurrence_outlook && <RecurrenceOutlookPanel outlook={result.recurrence_outlook} />}
                         
                         {/* Actions */}
                         <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -1712,11 +1631,21 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
               <div className="text-2xl font-black uppercase tracking-wide">
                 {result.recurrence_risk} RISK FOR HEPATIC RECURRENCE ({result.probability}%{result.confidence_interval ? ` (95% CI: ${result.confidence_interval[0]}% - ${result.confidence_interval[1]}%)` : ''})
               </div>
-              {result.estimated_recurrence_min_months !== undefined && (
-                <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
-                  ESTIMATED TIME TO RECURRENCE: {result.estimated_recurrence_min_months} - {result.estimated_recurrence_max_months} MONTHS
-                </div>
-              )}
+              {result.recurrence_outlook && (() => {
+                const o = result.recurrence_outlook;
+                const rfs2 = o.milestones.find(m => m.months === 24);
+                const med = o.median_rfs;
+                return (
+                  <div className="text-sm font-bold uppercase tracking-wide text-amber-700 mt-1">
+                    {rfs2 && `2-YEAR RECURRENCE-FREE SURVIVAL: ${Math.round(rfs2.rfs)}% (95% CI ${Math.round(rfs2.lower)}-${Math.round(rfs2.upper)}%)`}
+                    {' · '}
+                    {med.months === null
+                      ? 'MEDIAN RFS NOT REACHED'
+                      : `MEDIAN RFS ${Math.round(med.months)} MONTHS (95% CI ${med.lower === null ? 'NR' : Math.round(med.lower)}-${med.upper === null ? 'NR' : Math.round(med.upper)})`}
+                    {` · ${o.risk_group.label.toUpperCase()} RISK GROUP`}
+                  </div>
+                );
+              })()}
               <div className="text-[10px] mt-3 opacity-70 font-mono flex gap-4">
                  <span>Ref ID: {result.inference_id?.substring(0, 18)}...</span>
                  <span>Network Status: SECURE</span>
