@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Clock, Info, X } from 'lucide-react';
+import type { RiskExplanation } from './RiskExplanationPanel';
 
 export interface RecurrenceOutlook {
   available: boolean;
+  explanation: RiskExplanation;
   curve: { month: number; rfs: number; lower: number; upper: number }[];
   milestones: { months: number; rfs: number; lower: number; upper: number }[];
   median_rfs: { months: number | null; lower: number | null; upper: number | null };

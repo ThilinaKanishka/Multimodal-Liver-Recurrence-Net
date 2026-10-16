@@ -1408,7 +1408,6 @@ async def predict_recurrence(
     if mvi_status == 1:
         ai_insights.append("NLP/Clinical Core: Confirmed Microvascular Invasion (MVI).")
         
-    ai_insights.append("XAI Analyzer: Tumor Size and Texture contributed significantly with SHAP bounds [-1.4135, -0.5449].")
     
     # Recurrence-free survival (Cox PH)
     survival_inputs = {**tabular_data, "mvi_pathology": bool(mvi_status), "cirrhosis_present": bool(cirrhosis_status)}
@@ -1429,6 +1428,14 @@ async def predict_recurrence(
             f"(95% CI {rfs_2yr['lower']}-{rfs_2yr['upper']}%), "
             + (f"median RFS {median['months']:.0f} months." if median["months"] is not None else "median RFS not reached.")
         )
+        explanation = recurrence_outlook["explanation"]
+        top = [c for c in explanation["contributions"] if c["available"] and abs(c["points"]) >= 0.5][:3]
+        if top:
+            ai_insights.append(
+                "Risk drivers (Shapley, 2-year risk): "
+                + "; ".join(f"{c['label']} {c['value']} ({c['points']:+.1f} pts)" for c in top)
+                + f" vs. average-profile patient {explanation['base_risk']:.0f}%."
+            )
 
     inference_id = str(uuid.uuid4())
     simulation_cache[inference_id] = {
