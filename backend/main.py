@@ -1033,6 +1033,150 @@ async def extract_clinical_data(
         
     return extracted_data
 
+# Clinical Assessment builder
+# label: shown in the factor list, phrase: used mid-sentence in the summary
+CLINICAL_FACTOR_META = {
+    "mvi_status": {"label": "Microvascular invasion (MVI)", "phrase": "microvascular invasion"},
+    "cnn_imaging": {"label": "CT imaging pattern (3D CNN)", "phrase": "CT imaging features"},
+    "tumor_size_cm": {"label": "Tumour size", "phrase": "tumour size"},
+    "afp_ngml": {"label": "Serum AFP", "phrase": "serum AFP"},
+    "alp_iul": {"label": "Alkaline phosphatase (ALP)", "phrase": "ALP"},
+    "bilirubin_mgdl": {"label": "Total bilirubin", "phrase": "total bilirubin"},
+    "cirrhosis_status": {"label": "Cirrhosis", "phrase": "cirrhosis"},
+    "metastasis_status": {"label": "Extrahepatic metastasis", "phrase": "extrahepatic metastasis"},
+    "bclc_stage_c": {"label": "BCLC stage", "phrase": "BCLC stage"},
+}
+MIN_FACTOR_SHARE_PCT = 3.0
+
+
+def _describe_factor_value(key, master_dict, bclc_stage, imaging_available):
+    """Returns (value_display, reference, abnormal) for a model feature."""
+    if key == "mvi_status":
+        positive = master_dict["mvi_status"] == 1
+        return ("Positive" if positive else "Negative"), "Negative", positive
+    if key == "cnn_imaging":
+        return ("Derived from uploaded CT" if imaging_available else "No CT provided"), None, False
+    if key == "tumor_size_cm":
+        size = master_dict["tumor_size_cm"]
+        return f"{size:.1f} cm", "≤ 5 cm (Milan, single lesion)", size > 5.0
+    if key == "afp_ngml":
+        afp = master_dict["afp_ngml"]
+        return f"{afp:,.0f} ng/mL", "< 10 ng/mL", afp >= 10.0
+    if key == "alp_iul":
+        alp = master_dict["alp_iul"]
+        return f"{alp:,.0f} IU/L", "44–147 IU/L", alp > 147.0 or alp < 44.0
+    if key == "bilirubin_mgdl":
+        bili = master_dict["bilirubin_mgdl"]
+        return f"{bili:.1f} mg/dL", "0.1–1.2 mg/dL", bili > 1.2
+    if key == "cirrhosis_status":
+        present = master_dict["cirrhosis_status"] == 1
+        return ("Present" if present else "Absent"), "Absent", present
+    if key == "metastasis_status":
+        detected = master_dict["metastasis_status"] == 1
+        return ("Detected" if detected else "Not detected"), "Not detected", detected
+    if key == "bclc_stage_c":
+        stage = bclc_stage.upper()
+        return f"Stage {stage}", "Stage 0–A", stage in ("B", "C", "D")
+    return "—", None, False
+
+
+def _join_phrases(items):
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def build_clinical_assessment(shap_weights, cnn_signed_weight, master_dict, bclc_stage,
+                              imaging_available, risk_level, probability, ci, certainty,
+                              confidence_status, data_drift_detected):
+    grouped = {k: v for k, v in shap_weights.items() if not k.startswith("cnn_feat_")}
+    # Without a CT the embedding is a placeholder, so it must not be presented as a driver
+    if imaging_available:
+        grouped["cnn_imaging"] = cnn_signed_weight
+
+    total_abs = sum(abs(v) for v in grouped.values()) or 1.0
+    increasing, decreasing = [], []
+    for key, shap_val in sorted(grouped.items(), key=lambda x: abs(x[1]), reverse=True):
+        share = abs(shap_val) / total_abs * 100.0
+        if key not in CLINICAL_FACTOR_META or share < MIN_FACTOR_SHARE_PCT:
+            continue
+        value_display, reference, abnormal = _describe_factor_value(key, master_dict, bclc_stage, imaging_available)
+        factor = {
+            "key": key,
+            "label": CLINICAL_FACTOR_META[key]["label"],
+            "value": value_display,
+            "reference": reference,
+            "abnormal": abnormal,
+            "influence_pct": round(share, 1),
+            "shap_value": round(float(shap_val), 4),
+        }
+        (increasing if shap_val > 0 else decreasing).append(factor)
+
+    def phrase(f):
+        key, name = f["key"], CLINICAL_FACTOR_META[f["key"]]["phrase"]
+        if key in ("mvi_status", "cirrhosis_status", "metastasis_status"):
+            return f"presence of {name}" if master_dict[key] == 1 else f"absence of {name}"
+        if key == "bclc_stage_c":
+            return f"BCLC stage {bclc_stage.upper()}"
+        if key == "cnn_imaging":
+            return name
+        return f"{name} of {f['value']}"
+
+    abstained = risk_level == "ABSTAIN"
+    if abstained:
+        summary = ("The model abstained because prediction uncertainty exceeded the safety threshold. "
+                   "No risk estimate should be relied upon; manual specialist review is required.")
+    else:
+        summary = (f"{risk_level.capitalize()} risk of recurrence estimated at {probability:.0f}% "
+                   f"(95% CI {ci[0]:.0f}–{ci[1]:.0f}%).")
+        if increasing:
+            summary += f" The main factors raising risk are {_join_phrases([phrase(f) for f in increasing[:2]])}."
+            if len(increasing) > 2:
+                extra = _join_phrases([phrase(f) for f in increasing[2:4]])
+                summary += f" {extra[0].upper() + extra[1:]} also contributed."
+        if decreasing:
+            summary += f" Risk is partly lowered by {_join_phrases([phrase(f) for f in decreasing[:2]])}."
+        if not increasing and not decreasing:
+            summary += " No single factor had a dominant influence on this estimate."
+
+    recommendations = []
+    if abstained:
+        recommendations.append("Refer for oncologist / hepatobiliary MDT review; do not use this output for decision-making.")
+    elif risk_level == "HIGH":
+        recommendations.append("Consider intensified surveillance: multiphase CT or MRI with AFP every 3 months for the first 2 years.")
+        recommendations.append("Consider liver tumour MDT discussion, including eligibility for adjuvant therapy or clinical trials.")
+    else:
+        recommendations.append("Standard surveillance: multiphase CT or MRI with AFP every 3–6 months for the first 2 years.")
+    if not abstained and master_dict["mvi_status"] == 1:
+        recommendations.append("MVI positive: correlate with histopathology report and margin status.")
+    if not abstained and master_dict["afp_ngml"] >= 400:
+        recommendations.append("AFP markedly raised (≥ 400 ng/mL): track AFP trend; a persistent rise warrants early imaging.")
+
+    limitations = ["AI-generated decision support. Not a diagnosis. Interpret together with clinical judgement."]
+    if not imaging_available:
+        limitations.append("No CT scan provided: imaging features were not assessed and the estimate relies on clinical data only.")
+    if data_drift_detected:
+        limitations.append("Data drift detected: this patient's imaging profile differs from the training population.")
+    limitations.append("Influence percentages show each factor's share of the model's explanation (SHAP), not an absolute change in risk.")
+
+    return {
+        "risk": {
+            "level": risk_level,
+            "probability": round(probability, 1),
+            "confidence_interval": ci,
+            "certainty": certainty,
+            "confidence_status": confidence_status,
+        },
+        "increasing_factors": increasing,
+        "decreasing_factors": decreasing,
+        "summary": summary,
+        "recommendations": recommendations,
+        "limitations": limitations,
+        "model_version": app.version,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+
 @app.post("/api/v1/predict")
 async def predict_recurrence(
     clinical_data: str = Form(...),
@@ -1174,36 +1318,6 @@ async def predict_recurrence(
     display_weights = {k: v for k, v in explainable_ai_weights.items() if not k.startswith('cnn_feat_')}
     display_weights['3D_CNN_Global_Embedding'] = round(cnn_agg_weight, 4)
 
-    # Generate Clinical Narrative Summary
-    feature_mapping = {
-        "3d Cnn Global Embedding": "Hypervascular tumor patterns detected via 3D CNN",
-        "Mvi Pathology": "Microvascular Invasion (MVI) positive indicators",
-        "Tumor Size Cm": "significant primary tumor diameter",
-        "Afp Ngml": "elevated Alpha-fetoprotein (AFP) levels",
-        "Alp Iul": "elevated Alkaline Phosphatase (ALP)",
-        "Bilirubin Mgdl": "abnormal Bilirubin levels",
-        "Bclc Stage": "advanced BCLC staging",
-        "Cirrhosis Present": "underlying liver cirrhosis",
-        "Age": "patient age factor",
-        "Gender": "patient demographic profile",
-        "Obesity": "patient obesity profile",
-        "Diabetes": "comorbid diabetes",
-        "Alcohol History": "history of alcohol consumption"
-    }
-
-    sorted_features = sorted(display_weights.items(), key=lambda x: x[1], reverse=True)
-    positive_features_raw = [f[0].replace('_', ' ').title() for f in sorted_features if f[1] > 0]
-    positive_features = [feature_mapping.get(f, f) for f in positive_features_raw]
-    
-    if len(positive_features) >= 3:
-        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}. {positive_features[2]} also contributed slightly."
-    elif len(positive_features) == 2:
-        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]} and {positive_features[1]}."
-    elif len(positive_features) == 1:
-        clinical_narrative_summary = f"The prognosis is primarily driven by {positive_features[0]}."
-    else:
-        clinical_narrative_summary = "No significant positive driving features were identified in the current model assessment."
-
     if prob_std > 12.0 or entropy > 0.95:
         confidence_status = "LOW_CONFIDENCE_ABSTAIN"
         recurrence_risk_str = "ABSTAIN"
@@ -1215,6 +1329,23 @@ async def predict_recurrence(
             ui_rendering_state = "STATE_DRIFT_WARNING"
         else:
             ui_rendering_state = "STATE_NORMAL"
+
+    # Structured Clinical Assessment (signed CNN sum so imaging can push risk either way)
+    cnn_signed_weight = sum(explainable_ai_weights[f'cnn_feat_{i}'] for i in range(128))
+    clinical_assessment = build_clinical_assessment(
+        shap_weights=explainable_ai_weights,
+        cnn_signed_weight=cnn_signed_weight,
+        master_dict=master_dict,
+        bclc_stage=str(tabular_data.get("bclc_stage", "A")),
+        imaging_available=dicom_success,
+        risk_level=recurrence_risk_str,
+        probability=prob_score,
+        ci=[ci_lower, ci_upper],
+        certainty=model_certainty_score,
+        confidence_status=confidence_status,
+        data_drift_detected=data_drift_detected,
+    )
+    clinical_narrative_summary = clinical_assessment["summary"]
 
     ai_insights = []
     for warning in dicom_warnings:
@@ -1294,7 +1425,8 @@ async def predict_recurrence(
         "ui_rendering_state": ui_rendering_state,
         "inference_id": inference_id,
         "pseudo_anonymous_id": pseudo_id,
-        "clinical_narrative_summary": clinical_narrative_summary
+        "clinical_narrative_summary": clinical_narrative_summary,
+        "clinical_assessment": clinical_assessment
     }
 # // What-If simulation
 class SimulateRiskPayload(BaseModel):
