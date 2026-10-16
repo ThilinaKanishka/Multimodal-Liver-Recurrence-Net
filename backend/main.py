@@ -107,6 +107,7 @@ except ImportError:
 
 import joblib
 # Recurrence-free survival: Cox PH model exported by risk_modeling/04_survival_cox_model.py
+from pipeline.report_extraction import extract_report, finding_to_flag
 from pipeline.survival_engine import get_model as get_survival_model, predict_recurrence_outlook
 SURVIVAL_ENABLED = get_survival_model() is not None
 print("✅ Recurrence-free survival (Cox PH) model loaded." if SURVIVAL_ENABLED
@@ -715,77 +716,62 @@ async def extract_clinical_data(
     try:
         pdf_bytes = await pdf_file.read()
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text() + " "
-        text = text.lower()
+        original_text = "\n".join(page.get_text() for page in doc)
+        text = original_text.lower()
         extracted_data["_raw_pdf_text"] = text
-        
-        # Regex extraction
-        def extract_value(pattern, text_data, default=None):
-            match = re.search(pattern, text_data)
-            if match:
-                try:
-                    return float(match.group(1))
-                except:
-                    pass
-            return default
 
-        # Try to find values after keywords
-        extracted_data["afp_ngml"] = extract_value(r'afp.*?([\d\.]+)', text, 20.0)
-        extracted_data["alt_iul"] = extract_value(r'alt.*?([\d\.]+)', text, 40.0)
-        extracted_data["ast_iul"] = extract_value(r'ast.*?([\d\.]+)', text, 40.0)
-        extracted_data["alp_iul"] = extract_value(r'alp.*?([\d\.]+)', text, 90.0)
-        extracted_data["bilirubin_mgdl"] = extract_value(r'bilirubin.*?([\d\.]+)', text, 1.0)
-        extracted_data["albumin_gdl"] = extract_value(r'albumin.*?([\d\.]+)', text, 3.5)
-        extracted_data["platelet_k_ul"] = extract_value(r'platelet.*?([\d\.]+)', text, 200.0)
-        
-        extracted_data["cirrhosis_present"] = bool(re.search(r'\b(cirrhosis|fibrotic tissue|fibrosis)\b', text))
-        extracted_data["hepatitis_b"] = bool(re.search(r'\b(hepatitis b|hbv|hbsag)\b', text))
-        extracted_data["hepatitis_c"] = bool(re.search(r'\b(hepatitis c|hcv|anti-hcv)\b', text))
-        extracted_data["mvi_pathology"] = bool(re.search(r'\b(mvi|microvascular invasion)\b', text))
-        
-        # NLP for missing radiological features
-        irr_match = re.search(r'shape irregularity.*?([\d\.]+)', text)
-        if irr_match:
-            extracted_data["tumor_shape_irregularity"] = float(irr_match.group(1))
-            extracted_data.setdefault("sources", {})["tumor_shape_irregularity"] = "NLP"
-            extracted_data.setdefault("confidences", {})["tumor_shape_irregularity"] = 90
-        
-        ent_match = re.search(r'texture entropy.*?([\d\.]+)', text)
-        if ent_match:
-            extracted_data["tumor_texture_entropy"] = float(ent_match.group(1))
-            extracted_data.setdefault("sources", {})["tumor_texture_entropy"] = "NLP"
-            extracted_data.setdefault("confidences", {})["tumor_texture_entropy"] = 90
+        report = extract_report(original_text)
+        sources = extracted_data.setdefault("sources", {})
+        evidence = extracted_data.setdefault("evidence", {})
 
-        mar_specific_match = re.search(r'(jagged|irregular|smooth|well-defined|infiltrative|spiculated|ill-defined).*?margins?|margins?\s*(?:are|is|:)?\s*(jagged|irregular|smooth|well-defined|infiltrative|spiculated|ill-defined)', text)
-        if mar_specific_match:
-            val = (mar_specific_match.group(1) or mar_specific_match.group(2)).lower()
-            if val in ['smooth', 'well-defined']:
-                extracted_data["margin_definition"] = "Smooth"
+        # Labs: value in model units, with the report's unit, reference range and flag
+        extracted_data["lab_meta"] = {}
+        for field, lab in report["labs"].items():
+            if field == "inr":
+                continue
+            if lab:
+                extracted_data[field] = lab["value"]
+                extracted_data["lab_meta"][field] = lab
+                sources[field] = "PDF"
+                evidence[field] = lab["evidence"]
             else:
-                extracted_data["margin_definition"] = "Irregular"
-            extracted_data.setdefault("sources", {})["margin_definition"] = "NLP"
-            extracted_data.setdefault("confidences", {})["margin_definition"] = 95
-        else:
-            mar_match = re.search(r'margins?:\s*([a-z]+)', text)
-            if mar_match:
-                extracted_data["margin_definition"] = mar_match.group(1).capitalize()
-                extracted_data.setdefault("sources", {})["margin_definition"] = "NLP"
-                extracted_data.setdefault("confidences", {})["margin_definition"] = 75
+                extracted_data[field] = "--"
 
-        enh_specific_match = re.search(r'(portal venous washout|arterial enhancement|delayed enhancement|hypovascular|hypervascular|washout|rim enhancement)', text)
-        if enh_specific_match:
-            extracted_data["enhancement_pattern"] = enh_specific_match.group(1).title()
-            extracted_data.setdefault("sources", {})["enhancement_pattern"] = "NLP"
-            extracted_data.setdefault("confidences", {})["enhancement_pattern"] = 95
-        else:
-            enh_match = re.search(r'enhancement(?: pattern)?:\s*([a-z\s]+?)(?=\n|\.|,)', text)
-            if enh_match:
-                extracted_data["enhancement_pattern"] = enh_match.group(1).strip().title()
-                extracted_data.setdefault("sources", {})["enhancement_pattern"] = "NLP"
-                extracted_data.setdefault("confidences", {})["enhancement_pattern"] = 75
-        
+        # Findings: present / absent / possible / not mentioned, negation-aware
+        extracted_data["findings"] = report["findings"]
+        for field in ("cirrhosis_present", "mvi_pathology", "hepatitis_b", "hepatitis_c"):
+            finding = report["findings"][field]
+            flag = finding_to_flag(finding["status"])
+            extracted_data[field] = "--" if flag is None else flag
+            if finding["evidence"]:
+                sources[field] = "NLP"
+                evidence[field] = finding["evidence"]
+
+        # Radiology measurements stated in the report
+        extracted_data["radiology_meta"] = report["radiology"]
+        for field, item in report["radiology"].items():
+            if field == "lirads_category":
+                continue
+            extracted_data[field] = item["value"] if item.get("value") is not None else "--"
+            sources[field] = "NLP"
+            evidence[field] = item["evidence"]
+        if "lirads_category" in report["radiology"]:
+            extracted_data["lirads_category"] = report["radiology"]["lirads_category"]["value"]
+
+        # Staging
+        child_pugh = report["child_pugh"]
+        extracted_data["child_pugh"] = child_pugh
+        if child_pugh:
+            extracted_data["child_pugh_score"] = f"{child_pugh['class']}{child_pugh['score'] or ''}"
+            sources["child_pugh_score"] = "NLP"
+            evidence["child_pugh_score"] = child_pugh["evidence"]
+        bclc = report["bclc"]
+        if bclc:
+            extracted_data["bclc_stage"] = bclc["stage"]
+            sources["bclc_stage"] = "NLP"
+            evidence["bclc_stage"] = bclc["evidence"]
+        extracted_data["report_date"] = report["report_date"]
+
     except Exception as e:
         print(f"PDF Extraction Error: {e}")
         pass
@@ -808,32 +794,9 @@ async def extract_clinical_data(
         except:
             pass
 
-        # Estimate tumor size from pixel spacing (Mock calculation if not possible)
-        try:
-            pixel_spacing = ds.PixelSpacing
-            extracted_data["tumor_size_cm"] = round(float(pixel_spacing[0]) * 10.0, 2)
-        except:
-            extracted_data["tumor_size_cm"] = 5.0 # Mock default
-            
-        if extracted_data.get("tumor_size_cm", 0) > 0:
-            extracted_data["tumor_number"] = 1
-            extracted_data.setdefault("sources", {})["tumor_number"] = "DICOM"
-            extracted_data.setdefault("confidences", {})["tumor_number"] = 95
-            
-        # Tumor Density (HU)
-        try:
-            pixel_array = ds.pixel_array.astype(np.float64)
-            slope = float(getattr(ds, 'RescaleSlope', 1.0))
-            intercept = float(getattr(ds, 'RescaleIntercept', 0.0))
-            hu_array = pixel_array * slope + intercept
-            
-            # Using 90th percentile HU as a proxy for tumor density in liver (mock logic)
-            density = float(np.percentile(hu_array, 90))
-            # Keep within a reasonable range
-            extracted_data["tumor_density_hu"] = round(min(max(density, 10.0), 120.0), 2)
-        except:
-            extracted_data["tumor_density_hu"] = 60.0
-            
+        # Tumour size, count and density require lesion segmentation, which this
+        # endpoint does not perform; they are taken from the report text instead.
+
     except Exception as e:
         print(f"DICOM Extraction Error: {e}")
         pass
@@ -1240,10 +1203,23 @@ async def predict_recurrence(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format for clinical_data.")
         
-    tumor_size_cm = float(tabular_data.get("tumor_size_cm", 5.0))
-    afp_ngml = float(tabular_data.get("afp_ngml", 20.0))
-    alp_iul = float(tabular_data.get("alp_iul", 100.0))
-    bilirubin_mgdl = float(tabular_data.get("bilirubin_mgdl", 1.0))
+    def form_number(field, fallback):
+        """Classifier inputs must be numeric; a missing value uses the classifier's reference value."""
+        try:
+            return float(tabular_data.get(field))
+        except (TypeError, ValueError):
+            return fallback
+
+    def form_flag(field):
+        value = tabular_data.get(field)
+        if isinstance(value, bool):
+            return value
+        return {"true": True, "false": False}.get(str(value).strip().lower())
+
+    tumor_size_cm = form_number("tumor_size_cm", 5.0)
+    afp_ngml = form_number("afp_ngml", 20.0)
+    alp_iul = form_number("alp_iul", 100.0)
+    bilirubin_mgdl = form_number("bilirubin_mgdl", 1.0)
     bclc_stage_c = 1 if tabular_data.get("bclc_stage", "A") == "C" else 0
     
     cnn_features = np.random.normal(0.5, 0.2, 128)
@@ -1277,14 +1253,15 @@ async def predict_recurrence(
             heatmap_shape = hs
             tumor_target = t_target
         
-    mvi_status = 1 if tabular_data.get("mvi_pathology", False) else 0
-    cirrhosis_status = 1 if tabular_data.get("cirrhosis_present", False) else 0
+    mvi_status = 1 if form_flag("mvi_pathology") else 0
+    cirrhosis_status = 1 if form_flag("cirrhosis_present") else 0
     metastasis_status = 0
     raw_text = ""
     
     if text_report_pdf and text_report_pdf.filename and text_report_pdf.filename.lower().endswith('.pdf'):
         pdf_bytes = await text_report_pdf.read()
-        nlp_mvi, nlp_cirrhosis, nlp_metastasis, raw_text = process_clinical_pdf(pdf_bytes)
+        _, _, _, raw_text = process_clinical_pdf(pdf_bytes)
+        report_findings = extract_report(raw_text)["findings"]
         
         # HIPAA Verification: Check if DICOM patient name exists in PDF
         if dicom_patient_name and raw_text:
@@ -1301,9 +1278,13 @@ async def predict_recurrence(
                     detail=f"PATIENT MISMATCH ERROR: DICOM belongs to '{dicom_patient_name.upper()}', but this name was not found in the uploaded Clinical PDF Report. Inference aborted to prevent medical error."
                 )
                 
-        if nlp_mvi: mvi_status = 1
-        if nlp_cirrhosis: cirrhosis_status = 1
-        if nlp_metastasis: metastasis_status = 1
+        # The report only fills findings the form leaves unstated; clinician-confirmed values win
+        if form_flag("mvi_pathology") is None and report_findings["mvi_pathology"]["status"] == "present":
+            mvi_status = 1
+        if form_flag("cirrhosis_present") is None and report_findings["cirrhosis_present"]["status"] == "present":
+            cirrhosis_status = 1
+        if report_findings["metastasis_present"]["status"] == "present":
+            metastasis_status = 1
 
     master_dict = {
         'tumor_size_cm': tumor_size_cm,
@@ -1410,7 +1391,11 @@ async def predict_recurrence(
         
     
     # Recurrence-free survival (Cox PH)
-    survival_inputs = {**tabular_data, "mvi_pathology": bool(mvi_status), "cirrhosis_present": bool(cirrhosis_status)}
+    survival_inputs = dict(tabular_data)
+    if mvi_status or form_flag("mvi_pathology") is not None:
+        survival_inputs["mvi_pathology"] = bool(mvi_status)
+    if cirrhosis_status or form_flag("cirrhosis_present") is not None:
+        survival_inputs["cirrhosis_present"] = bool(cirrhosis_status)
     recurrence_outlook = None
     try:
         recurrence_outlook = predict_recurrence_outlook(survival_inputs)
