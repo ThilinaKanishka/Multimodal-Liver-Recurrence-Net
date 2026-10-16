@@ -36,6 +36,7 @@ import { PatientVerificationPanel } from "../components/PatientVerificationPanel
 import { PatientVerificationToast } from "../components/PatientVerificationToast";
 import type { VerificationData } from "../components/PatientVerificationPanel";
 import { ClinicalAssessmentPanel } from "../components/ClinicalAssessmentPanel";
+import { WhatIfSimulator } from "../components/WhatIfSimulator";
 import type { ClinicalAssessment } from "../components/ClinicalAssessmentPanel";
 
 export interface DiagnosticInput {
@@ -466,9 +467,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
   const [modalOverallProgress, setModalOverallProgress] = useState<number>(0);
   const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
 
-  const [simData, setSimData] = useState<any>(null);
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [simResult, setSimResult] = useState<PredictionResult | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -518,28 +516,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setManualOverrides(prev => ({ ...prev, [field]: true }));
     setActivePopup(null);
   };
-
-  const handleSimulate = async (dataToSimulate = simData) => {
-    setIsSimulating(true);
-    try {
-      const res = await axios.post("http://127.0.0.1:8000/api/v1/simulate_risk", dataToSimulate);
-      setSimResult(res.data);
-    } catch(err) {
-      console.error(err);
-      alert("Failed to run simulation.");
-    } finally {
-      setIsSimulating(false);
-    }
-  };
-
-  useEffect(() => {
-    if (simData && result && (simData.tumor_size_cm !== formData.tumor_size_cm || simData.afp_ngml !== formData.afp_ngml)) {
-      const timer = setTimeout(() => {
-        handleSimulate(simData);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [simData?.tumor_size_cm, simData?.afp_ngml]);
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
@@ -811,15 +787,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     } else {
       sessionStorage.setItem("active_patient_session", "true");
       setResult(res.data);
-      setSimData({
-        tumor_size_cm: formData.tumor_size_cm || 5.0,
-        afp_ngml: formData.afp_ngml || 20.0,
-        alp_iul: formData.alp_iul || 100.0,
-        bilirubin_mgdl: formData.bilirubin_mgdl || 1.0,
-        bclc_stage: formData.bclc_stage || "A",
-        mvi_pathology: formData.mvi_pathology || false,
-        cirrhosis_present: formData.cirrhosis_present || false
-      });
       setScreenFlash(true);
       setTimeout(() => setScreenFlash(false), 400);
       setTimeout(() => {
@@ -887,7 +854,6 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
     setAutoFilled(false);
     setHistoryInfo(null);
     setResult(null);
-    setSimData(null);
     setErrorMessage(null);
     setPipelineStep("IDLE");
     setProgress(0);
@@ -900,12 +866,14 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
 
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#030712]">
-      <DiagnosticPipelineModal 
-        isOpen={showPipelineModal} 
-        activeStep={activeModalStep} 
-        overallProgress={modalOverallProgress} 
-        onCancel={() => setShowPipelineModal(false)} 
-      />
+      {showPipelineModal && (
+        <DiagnosticPipelineModal
+          isOpen
+          activeStep={activeModalStep}
+          overallProgress={modalOverallProgress}
+          onCancel={() => setShowPipelineModal(false)}
+        />
+      )}
       <style>{`
         @keyframes slideDown {
           0% { transform: translateY(-100%); opacity: 0; }
@@ -1628,218 +1596,9 @@ export const PredictPage: React.FC<{ onViewHistory?: (id: string) => void, user?
                                 NO VOLUMETRIC DATA RENDERED
                             </div>
                           )}
-
-                          {/* OVERLAY FOR WHAT-IF SIMULATION */}
-                          {(() => {
-                            const origSize = parseFloat(String(formData.tumor_size_cm));
-                            const simSize = parseFloat(simData?.tumor_size_cm);
-                            const isSimulated = simSize !== origSize && !isNaN(simSize) && !isNaN(origSize);
-                            if (!isSimulated) return null;
-                            
-                            const delta = simSize - origSize;
-                            const deltaStr = delta > 0 ? `+${delta.toFixed(1)} cm` : `${delta.toFixed(1)} cm`;
-                            
-                            // Pixels per cm scale factor (visual representation)
-                            const scale = 20; 
-                            const origPx = origSize * scale;
-                            const simPx = simSize * scale;
-                            
-                            return (
-                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50 flex items-center justify-center">
-                                {/* Ghost outline for original tumor */}
-                                <div className="absolute rounded-full border-2 border-dashed border-yellow-500/50 flex items-center justify-center transition-all duration-300" style={{ width: origPx, height: origPx }}>
-                                </div>
-                                
-                                {/* Solid circle for simulated tumor */}
-                                <div className="absolute rounded-full border-2 border-yellow-400 bg-yellow-400/20 flex items-center justify-center shadow-[0_0_15px_rgba(250,204,21,0.5)] transition-all duration-300" style={{ width: simPx, height: simPx }}>
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 whitespace-nowrap flex flex-col items-center">
-                                    <span className="text-[10px] font-black tracking-widest text-amber-900 bg-amber-400 px-2 py-0.5 rounded shadow">SIMULATED</span>
-                                    <span className="text-xs font-bold text-yellow-400 mt-1 drop-shadow-md">HCC — {simSize.toFixed(1)} cm</span>
-                                    <span className={`text-[10px] font-mono font-bold ${delta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{deltaStr}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
                         </div>
                         
-                        {/* Interactive What-If Analysis */}
-                        <div className="p-5 bg-[#0a0e17]">
-                          <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-[12px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                              <Activity className="w-4 h-4" /> What-If Simulation
-                            </h4>
-                          </div>
-                          <div className="space-y-4">
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex justify-between">
-                                <span>Tumor Size (cm)</span>
-                                <span className={simData?.tumor_size_cm !== formData.tumor_size_cm ? 'text-yellow-400' : ''}>{simData?.tumor_size_cm}</span>
-                              </label>
-                              <input type="range" min="0.1" max="20" step="0.1" value={simData?.tumor_size_cm || 0} onChange={(e) => setSimData({...simData, tumor_size_cm: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex justify-between">
-                                <span>AFP (ng/ml)</span>
-                                <span className={simData?.afp_ngml !== formData.afp_ngml ? 'text-yellow-400' : ''}>{simData?.afp_ngml}</span>
-                              </label>
-                              <input type="range" min="1" max="1000" step="1" value={simData?.afp_ngml || 0} onChange={(e) => setSimData({...simData, afp_ngml: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
-                            </div>
-
-                            {result && (() => {
-                              // Live calculation based on slider state vs baseline
-                              const baseTumorSize = parseFloat(String(formData.tumor_size_cm)) || 5.0;
-                              const baseAfp = parseFloat(String(formData.afp_ngml)) || 20.0;
-                              const currentTumorSize = simData?.tumor_size_cm !== undefined ? parseFloat(String(simData.tumor_size_cm)) : baseTumorSize;
-                              const currentAfp = simData?.afp_ngml !== undefined ? parseFloat(String(simData.afp_ngml)) : baseAfp;
-
-                              const tumorSizeDelta = baseTumorSize > 0 ? (currentTumorSize - baseTumorSize) / baseTumorSize : 0;
-                              const afpDelta = baseAfp > 0 ? (currentAfp - baseAfp) / baseAfp : 0;
-                              const combinedDelta = tumorSizeDelta * 0.6 + afpDelta * 0.4;
-
-                              const getRisk = (median: number | null, months: number) => {
-                                if (!median) return null;
-                                return Math.round((1 - Math.exp(-0.693147 * Math.pow(months / median, 1.4))) * 100);
-                              };
-
-                              const baseMedianRaw = result.estimated_recurrence_min_months !== undefined && result.estimated_recurrence_max_months !== undefined ? (result.estimated_recurrence_min_months + result.estimated_recurrence_max_months) / 2 : 26.5;
-
-                              // Baseline values
-                              const baseline = {
-                                risk1yr: getRisk(baseMedianRaw, 12) ?? 20,
-                                risk2yr: getRisk(baseMedianRaw, 24) ?? 45,
-                                risk3yr: getRisk(baseMedianRaw, 36) ?? 66,
-                                risk5yr: getRisk(baseMedianRaw, 60) ?? 89,
-                                medianSurvival: baseMedianRaw,
-                                hazardRatio: result.hazard_ratio ?? (result.probability >= 50 ? 1.85 : 0.85),
-                                confidence: result.model_certainty_score ?? 73.8,
-                                probability: result.probability,
-                              };
-
-                              // Current values (recalculated instantly via linear formula)
-                              const current = {
-                                risk1yr: Math.min(100, Math.max(0, Math.round(baseline.risk1yr * (1 + combinedDelta * 0.5)))),
-                                risk2yr: Math.min(100, Math.max(0, Math.round(baseline.risk2yr * (1 + combinedDelta * 0.4)))),
-                                risk3yr: Math.min(100, Math.max(0, Math.round(baseline.risk3yr * (1 + combinedDelta * 0.3)))),
-                                risk5yr: Math.min(100, Math.max(0, Math.round(baseline.risk5yr * (1 + combinedDelta * 0.2)))),
-                                medianSurvival: Math.max(0.1, baseline.medianSurvival * (1 - combinedDelta * 0.3)),
-                                hazardRatio: Math.max(0.1, baseline.hazardRatio * (1 + combinedDelta * 0.2)),
-                                confidence: Math.min(100, Math.max(0, baseline.confidence * (1 - Math.abs(combinedDelta) * 0.1))),
-                                probability: Math.min(100, Math.max(0, baseline.probability * (1 + combinedDelta * 0.4))),
-                              };
-
-                              const currRiskLevel = current.probability >= 70 ? "HIGH" : current.probability >= 30 ? "MEDIUM" : "LOW";
-
-                              const renderChangeText = (base: number, curr: number, isWorsePositive: boolean, decimalPlaces: number = 0, suffix: string = "", worseColor = "text-rose-500", betterColor = "text-emerald-500") => {
-                                const delta = curr - base;
-                                if (Math.abs(delta) < 0.0001) return <span className="text-slate-400 font-mono text-[10px] ml-1">(-)</span>;
-                                const isWorse = isWorsePositive ? delta > 0 : delta < 0;
-                                const colorClass = isWorse ? worseColor : betterColor;
-                                const sign = delta > 0 ? "+" : "";
-                                return (
-                                  <span className={`${colorClass} font-mono text-[10px] ml-1 whitespace-nowrap`}>
-                                    ({sign}{delta.toFixed(decimalPlaces)}{suffix})
-                                  </span>
-                                );
-                              };
-
-                              const renderRiskRow = (baseR: number, currR: number, label: string) => {
-                                const delta = currR - baseR;
-                                const isWorse = delta > 0;
-                                const colorClass = delta === 0 ? "text-slate-400" : isWorse ? "text-rose-500" : "text-emerald-500";
-                                const sign = delta > 0 ? "+" : "";
-                                return (
-                                  <div className="flex justify-between items-center text-[10.5px] font-mono leading-tight bg-[#0a0f18] px-2 py-1 rounded">
-                                    <span className="text-slate-400">{label} risk:</span>
-                                    <span className="text-slate-300">
-                                      {baseR}% <span className="text-slate-500 text-[10px] mx-1">→</span> <span className={currR !== baseR ? "font-bold text-slate-200" : ""}>{currR}%</span>
-                                      <span className={`${colorClass} ml-2 font-bold`}>
-                                        {delta === 0 ? "(-)" : `(${sign}${delta}%)`}
-                                      </span>
-                                    </span>
-                                  </div>
-                                );
-                              };
-
-                              return (
-                                <>
-                                  <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
-                                    <div className="text-[12px] text-slate-300">
-                                      Current Risk: <span className="font-bold">{current.probability.toFixed(2)}%</span> <span className={
-                                        currRiskLevel === "HIGH" ? "text-rose-500 font-bold" :
-                                        currRiskLevel === "MEDIUM" ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"
-                                      }>({currRiskLevel})</span>
-                                    </div>
-                                    <div className={`text-[11px] font-mono font-bold ${
-                                      (() => {
-                                        const delta = current.probability - baseline.probability;
-                                        return delta > 0 ? "text-rose-500" : delta < 0 ? "text-emerald-500" : "text-slate-400";
-                                      })()
-                                    }`}>
-                                      Change: {(() => {
-                                        const delta = current.probability - baseline.probability;
-                                        return Math.abs(delta) < 0.0001 ? "0.00%" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%`;
-                                      })()}
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-3 bg-[#0f172a] border border-[#1e293b] rounded-lg p-3 shadow-inner">
-                                    <div className="flex flex-col gap-1 mb-3 border-b border-[#1e293b] pb-3">
-                                      {renderRiskRow(baseline.risk1yr, current.risk1yr, "1-year")}
-                                      {renderRiskRow(baseline.risk2yr, current.risk2yr, "2-year")}
-                                      {renderRiskRow(baseline.risk3yr, current.risk3yr, "3-year")}
-                                      {renderRiskRow(baseline.risk5yr, current.risk5yr, "5-year")}
-                                    </div>
-                                    <div className="flex flex-col gap-2 px-1">
-                                      <div className="flex justify-between items-center text-[10px] font-mono">
-                                        <span className="text-slate-400 uppercase">Median Survival:</span>
-                                        <span className="text-slate-300">
-                                          {baseline.medianSurvival.toFixed(1)} <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.medianSurvival - baseline.medianSurvival) > 0.001 ? "font-bold text-slate-200" : ""}>{current.medianSurvival.toFixed(1)}</span> mo
-                                          {renderChangeText(baseline.medianSurvival, current.medianSurvival, false, 1)}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center text-[10px] font-mono">
-                                        <span className="text-slate-400 uppercase">Hazard Ratio:</span>
-                                        <span className="text-slate-300">
-                                          {baseline.hazardRatio.toFixed(2)} <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.hazardRatio - baseline.hazardRatio) > 0.001 ? "font-bold text-slate-200" : ""}>{current.hazardRatio.toFixed(2)}</span>
-                                          {renderChangeText(baseline.hazardRatio, current.hazardRatio, true, 2)}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center text-[10px] font-mono">
-                                        <span className="text-slate-400 uppercase">Model Confidence:</span>
-                                        <span className="text-slate-300">
-                                          {baseline.confidence.toFixed(1)}% <span className="text-slate-500 mx-0.5">→</span> <span className={Math.abs(current.confidence - baseline.confidence) > 0.001 ? "font-bold text-slate-200" : ""}>{current.confidence.toFixed(1)}%</span>
-                                          {renderChangeText(baseline.confidence, current.confidence, false, 1, "%", "text-amber-500", "text-emerald-500")}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </>
-                              );
-                            })()}
-
-                            <div className="flex gap-2 mt-4 pt-2">
-                              <button 
-                                onClick={(e) => { e.preventDefault(); handleSimulate(simData); }}
-                                className="flex-1 text-[10px] font-bold text-slate-300 hover:text-white uppercase tracking-widest px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors text-center"
-                              >
-                                Simulate Outcome
-                              </button>
-                              <button 
-                                onClick={(e) => { e.preventDefault(); setSimData({ ...formData }); setSimResult(null); handleSimulate({ ...formData }); }}
-                                className="flex-1 text-[10px] font-bold text-slate-300 hover:text-white uppercase tracking-widest px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded transition-colors text-center"
-                              >
-                                Reset
-                              </button>
-                            </div>
-
-                            {isSimulating && (
-                              <div className="text-[10px] text-blue-400 animate-pulse text-center w-full uppercase tracking-widest pt-2">
-                                Simulating Outcome...
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <WhatIfSimulator key={result.inference_id} inferenceId={result.inference_id} />
                       </div>
                       
                       {/* SHAP & Metrics Sidebar */}
